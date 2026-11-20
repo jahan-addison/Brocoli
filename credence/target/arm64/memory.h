@@ -231,7 +231,7 @@ struct Accumulator_Accessor : public ARM64_Accumulator_Accessor
     assembly::Operand_Size get_operand_size_from_immediate(
         Immediate const& immediate) override
     {
-        return assembly::get_operand_size_from_rvalue_datatype(immediate);
+        return assembly::get_operand_size_from_typed_rvalue(immediate);
     }
 
     Register get_accumulator_register_from_size(
@@ -389,7 +389,7 @@ class Device_Accessor
     void set_vector_offset_to_storage_space(LValue const& lvalue);
     bool is_address_taken(LValue const& lvalue);
     Size get_size_from_rvalue_reference(RValue const& rvalue);
-    Size get_size_from_rvalue_data_type(LValue const& lvalue,
+    Size get_size_from_typed_rvalue(LValue const& lvalue,
         Immediate const& rvalue);
 
   private:
@@ -425,7 +425,7 @@ struct Vector_Accessor : public ARM64_Vector_Accessor
     }
     Entry_Size get_size_from_vector_offset(Immediate const& immediate) override
     {
-        return type::get_size_from_rvalue_data_type(immediate);
+        return type::get_size_from_typed_rvalue(immediate);
     }
 };
 

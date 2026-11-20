@@ -15,7 +15,7 @@
 
 #include "assembly.h"                           // for Assignment_Operands
 #include "credence/ir/ita.h"                    // for Instructions
-#include "credence/types.h"                     // for get_rvalue_datatype_...
+#include "credence/types.h"                     // for get_typed_rvalue_...
 #include "memory.h"                             // for Memory_Accessor, Sto...
 #include "visitor.h"                            // for IR_Instruction_Visitor
 #include <credence/object.h>                    // for RValue, LValue, Func...
@@ -146,8 +146,8 @@ using ARM64_Operand_Inserter =
  */
 inline auto get_rvalue_pair_as_immediate(RValue const& lhs, RValue const& rhs)
 {
-    return std::make_pair(type::get_rvalue_datatype_from_string(lhs),
-        type::get_rvalue_datatype_from_string(rhs));
+    return std::make_pair(type::get_typed_rvalue_from_string(lhs),
+        type::get_typed_rvalue_from_string(rhs));
 }
 
 /**
@@ -369,9 +369,6 @@ class Operand_Inserter : public ARM64_Operand_Inserter
         RValue const& rhs) override;
 
   public:
-    void insert_form_vector_lvalue_data_type(LValue const& lhs,
-        RValue const& rhs);
-
   public:
     Storage get_operand_storage_from_parameter(RValue const& rvalue) override;
 

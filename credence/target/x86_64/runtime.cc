@@ -112,7 +112,7 @@ bool Library_Call_Inserter::is_address_device_pointer_to_buffer(
                                 assembly::Operand_Size::Qword;
                     return;
                 }
-                auto type = type::get_type_from_rvalue_data_type(
+                auto type = type::get_type_from_typed_rvalue(
                     object::get_rvalue_at_lvalue_object_storage(
                         lvalue, stack_frame, table->vectors, __source__));
                 is_buffer = type == "null" or type == "string";
@@ -133,7 +133,7 @@ bool Library_Call_Inserter::is_address_device_pointer_to_buffer(
                                        assembly::Register>(immediate),
                         "rip +"))
                     is_buffer = true;
-                if (type::is_rvalue_data_type_string(immediate))
+                if (type::is_typed_rvalue_string(immediate))
                     is_buffer = true;
             } },
         address);
@@ -292,7 +292,7 @@ void Library_Call_Inserter::make_library_call(Instructions& instructions,
         // the type of a literal is only its storage while it is a label
         std::string arg_type =
             locals.size() > i and is_variant(Immediate, arg)
-                ? type::get_type_from_rvalue_data_type(locals.at(i))
+                ? type::get_type_from_typed_rvalue(locals.at(i))
                 : "";
 
         auto float_size = xmm_registers_.size();

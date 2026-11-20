@@ -110,8 +110,8 @@ bool is_doubleword_return_value(object::Function& frame)
     auto const& [value, rvalue] = *frame.ret;
     return frame.locals.is_pointer(value) or frame.locals.is_pointer(rvalue) or
            frame.is_pointer_parameter(rvalue) or
-           type::is_rvalue_data_type_string(value) or
-           type::is_rvalue_data_type_string(rvalue);
+           type::is_typed_rvalue_string(value) or
+           type::is_typed_rvalue_string(rvalue);
 }
 
 } // namespace
@@ -194,7 +194,7 @@ void Invocation_Inserter::insert_type_check_stdlib_printf_arguments(
         runtime::Library_Call_Inserter{ accessor_, stack_frame_ };
 
     if (argument_stack.front() == "RET" or
-        type::is_rvalue_data_type_string(argument_stack.front()))
+        type::is_typed_rvalue_string(argument_stack.front()))
         return;
     if (!address_storage.is_lvalue_storage_type(
             argument_stack.front(), "string") and
@@ -344,12 +344,11 @@ void Binary_Operator_Inserter::from_binary_operator_expression(
                       lhs_i, op, rhs_i)
                 : common::assembly::get_result_from_trivial_integral_expression(
                       lhs_i, op, rhs_i);
-        auto accumulator =
-            !type::is_relation_binary_operator(op) and
-                    assembly::get_operand_size_from_rvalue_datatype(lhs_i) ==
-                        Operand_Size::Doubleword
-                ? Register::x8
-                : Register::w8;
+        auto accumulator = !type::is_relation_binary_operator(op) and
+                                   assembly::get_operand_size_from_typed_rvalue(
+                                       lhs_i) == Operand_Size::Doubleword
+                               ? Register::x8
+                               : Register::w8;
         arm64_add__asm(instructions, mov, accumulator, immediate);
         result = accumulator;
         return;
@@ -576,9 +575,8 @@ Operand_Size Unary_Operator_Inserter::get_operand_size_from_lvalue_reference(
             },
         m::pattern | m::_ =
             [&] {
-                auto immediate = type::get_rvalue_datatype_from_string(lvalue);
-                return assembly::get_operand_size_from_rvalue_datatype(
-                    immediate);
+                auto immediate = type::get_typed_rvalue_from_string(lvalue);
+                return assembly::get_operand_size_from_typed_rvalue(immediate);
             });
 }
 
@@ -653,7 +651,7 @@ Storage Unary_Operator_Inserter::insert_from_unary_operator_rvalue(
 
         m::pattern | m::_ =
             [&] {
-                auto immediate = type::get_rvalue_datatype_from_string(rvalue);
+                auto immediate = type::get_typed_rvalue_from_string(rvalue);
                 storage =
                     get_temporary_storage_from_temporary_expansion(rvalue);
                 insert_from_unary_operator_operands(op, storage, immediate);
@@ -796,8 +794,8 @@ void Expression_Inserter::insert_from_return_rvalue(
             ret->second);
     // a string literal is the address of its label
     if (assembly::is_immediate_relative_address(immediate)) {
-        auto label = type::get_value_from_rvalue_data_type(
-            std::get<Immediate>(immediate));
+        auto label =
+            type::get_value_from_typed_rvalue(std::get<Immediate>(immediate));
         arm64_add__asm(instructions,
             adrp,
             x0,
@@ -970,7 +968,7 @@ void Expression_Inserter::insert_from_temporary_rvalue(RValue const& rvalue)
                 }
                 result_ = insert_from_unary_value(rvalue);
             },
-        m::pattern | m::app(type::is_rvalue_data_type, true) =
+        m::pattern | m::app(type::is_typed_rvalue, true) =
             [&] {
                 Storage immediate =
                     operand_inserter.get_operand_storage_from_rvalue(rvalue);
@@ -978,7 +976,7 @@ void Expression_Inserter::insert_from_temporary_rvalue(RValue const& rvalue)
                                .get_accumulator_register_from_storage(
                                    immediate, accessor_->stack);
                 arm64_add__asm(instructions, mov, acc, immediate);
-                auto type = type::get_type_from_rvalue_data_type(rvalue);
+                auto type = type::get_type_from_typed_rvalue(rvalue);
                 if (type == "string")
                     accessor_->flag_accessor.set_instruction_flag(
                         common::flag::Address, instruction_accessor->size());
@@ -1112,7 +1110,7 @@ void Expression_Inserter::insert_from_global_vector_assignment(
             frame,
             accessor_->table_accessor.get_table()->vectors,
             __source__);
-        auto size = assembly::get_operand_size_from_rvalue_datatype(element);
+        auto size = assembly::get_operand_size_from_typed_rvalue(element);
         accessor_->device_accessor.insert_lvalue_to_device(
             lhs, size == Operand_Size::Empty ? Operand_Size::Doubleword : size);
     }
@@ -1152,12 +1150,12 @@ void Expression_Inserter::insert_to_global_vector(LValue const& lhs,
     Register value{ Register::x8 };
     // a string, float, or double global is the address of its literal in
     // the data section
-    auto type = type::is_rvalue_data_type(rhs)
-                    ? type::get_type_from_rvalue_data_type(rhs)
+    auto type = type::is_typed_rvalue(rhs)
+                    ? type::get_type_from_typed_rvalue(rhs)
                     : type::semantic::Type{};
     if (type == "string" or type == "float" or type == "double") {
         auto& buffer = accessor_->address_accessor.buffer_accessor;
-        auto key = type::get_value_from_rvalue_data_type(rhs);
+        auto key = type::get_value_from_typed_rvalue(rhs);
         auto literal = type == "string" ? buffer.get_string_address_offset(key)
                        : type == "float"
                            ? buffer.get_float_address_offset(key)
@@ -1181,7 +1179,7 @@ void Expression_Inserter::insert_to_global_vector(LValue const& lhs,
         accessor_->get_frame_in_memory().get_stack_frame(),
         accessor_->table_accessor.get_table()->vectors,
         __source__);
-    auto size = assembly::get_operand_size_from_rvalue_datatype(element);
+    auto size = assembly::get_operand_size_from_typed_rvalue(element);
     if (size == Operand_Size::Doubleword and
         not assembly::is_doubleword_register(value)) {
         auto wide = assembly::get_doubleword_register_from_word(value);
@@ -1280,7 +1278,7 @@ void Operand_Inserter::insert_from_immediate_rvalues(Immediate const& lhs,
                 auto imm = common::assembly::
                     get_result_from_trivial_integral_expression(lhs, op, rhs);
                 auto acc = accumulator.get_accumulator_register_from_size(
-                    assembly::get_operand_size_from_rvalue_datatype(lhs));
+                    assembly::get_operand_size_from_typed_rvalue(lhs));
                 arm64_add__asm(instructions, mov, acc, imm);
             },
         m::pattern | m::app(type::is_relation_binary_operator, true) =
@@ -1450,7 +1448,7 @@ void Operand_Inserter::insert_from_mnemonic_operand(LValue const& lhs,
     m::match(rhs)(
         m::pattern | m::app(is_immediate, true) =
             [&] {
-                auto imm = type::get_rvalue_datatype_from_string(rhs);
+                auto imm = type::get_typed_rvalue_from_string(rhs);
                 auto [lhs_storage, storage_inst] =
                     accessor_->address_accessor
                         .get_arm64_lvalue_and_insertion_instructions(
@@ -1464,11 +1462,11 @@ void Operand_Inserter::insert_from_mnemonic_operand(LValue const& lhs,
                 }
                 assembly::inserter(instructions, storage_inst);
                 auto expression_inserter = Expression_Inserter{ accessor_ };
-                if (type::get_type_from_rvalue_data_type(imm) == "string")
+                if (type::get_type_from_typed_rvalue(imm) == "string")
                     insert_from_string_address_operand(lhs, lhs_storage, rhs);
-                else if (type::get_type_from_rvalue_data_type(imm) == "float")
+                else if (type::get_type_from_typed_rvalue(imm) == "float")
                     insert_from_float_address_operand(lhs, lhs_storage, rhs);
-                else if (type::get_type_from_rvalue_data_type(imm) == "double")
+                else if (type::get_type_from_typed_rvalue(imm) == "double")
                     insert_from_double_address_operand(lhs, lhs_storage, rhs);
                 else
                     arm64_add__asm(instructions, mov, lhs_storage, imm);
@@ -1625,7 +1623,7 @@ inline Storage Operand_Inserter::get_operand_storage_from_return()
                           ->functions.at(stack_frame_.tail)
                           .get();
     if (tail_call.locals.is_pointer(tail_call.ret->first) or
-        type::is_rvalue_data_type_string(tail_call.ret->first))
+        type::is_typed_rvalue_string(tail_call.ret->first))
         return Register::x0;
     else
         return Register::w0;
@@ -1641,28 +1639,28 @@ Storage Operand_Inserter::get_operand_storage_from_immediate(
     RValue const& rvalue)
 {
     Storage storage{};
-    auto immediate = type::get_rvalue_datatype_from_string(rvalue);
-    auto type = type::get_type_from_rvalue_data_type(immediate);
+    auto immediate = type::get_typed_rvalue_from_string(rvalue);
+    auto type = type::get_type_from_typed_rvalue(immediate);
     if (type == "string") {
         storage = assembly::make_asciz_immediate(accessor_->address_accessor
                 .buffer_accessor.get_string_address_offset(
-                    type::get_value_from_rvalue_data_type(immediate)));
+                    type::get_value_from_typed_rvalue(immediate)));
         return storage;
     }
     if (type == "float") {
         storage = assembly::make_asciz_immediate(accessor_->address_accessor
                 .buffer_accessor.get_float_address_offset(
-                    type::get_value_from_rvalue_data_type(immediate)));
+                    type::get_value_from_typed_rvalue(immediate)));
         return storage;
     }
     if (type == "double") {
         storage = assembly::make_asciz_immediate(accessor_->address_accessor
                 .buffer_accessor.get_double_address_offset(
-                    type::get_value_from_rvalue_data_type(immediate)));
+                    type::get_value_from_typed_rvalue(immediate)));
         return storage;
     }
 
-    storage = type::get_rvalue_datatype_from_string(rvalue);
+    storage = type::get_typed_rvalue_from_string(rvalue);
     return storage;
 }
 
@@ -1752,7 +1750,7 @@ Storage Operand_Inserter::get_operand_storage_from_rvalue(RValue const& rvalue)
         return unary_inserter.insert_from_unary_operator_rvalue(rvalue);
     }
 
-    if (type::is_rvalue_data_type(rvalue))
+    if (type::is_typed_rvalue(rvalue))
         return get_operand_storage_from_immediate(rvalue);
 
     auto& instructions = accessor_->instruction_accessor->get_instructions();
@@ -1799,7 +1797,7 @@ Storage Operand_Inserter::get_operand_storage_from_rvalue_no_instructions(
         return unary_inserter.insert_from_unary_operator_rvalue(rvalue);
     }
 
-    if (type::is_rvalue_data_type(rvalue))
+    if (type::is_typed_rvalue(rvalue))
         return get_operand_storage_from_immediate(rvalue);
 
     auto& instructions = accessor_->instruction_accessor->get_instructions();
@@ -1827,7 +1825,7 @@ Storage Operand_Inserter::get_operand_storage_from_expression_operand(
     auto& instructions = accessor_->instruction_accessor->get_instructions();
     auto& frame = stack_frame_.get_stack_frame();
     auto const& held = accessor_->accumulator_temporary;
-    if (type::is_rvalue_data_type(rvalue))
+    if (type::is_typed_rvalue(rvalue))
         return get_operand_storage_from_immediate(rvalue);
     if (held.has_value() and held->first == rvalue)
         return held->second;
@@ -1932,10 +1930,9 @@ Storage Operand_Inserter::get_operand_storage_from_local_vector_offset(
     auto& vector = table->vectors.at(label).get();
     auto vector_s = accessor_->stack->get_stack_offset_from_table_vector_index(
         label, offset, vector);
-    auto type =
-        vector.data.contains(offset)
-            ? type::get_type_from_rvalue_data_type(vector.data.at(offset))
-            : std::string{ "word" };
+    auto type = vector.data.contains(offset)
+                    ? type::get_type_from_typed_rvalue(vector.data.at(offset))
+                    : std::string{ "word" };
     accessor_->stack->set(vector_s,
         type == "string" ? Operand_Size::Doubleword : Operand_Size::Word);
     return vector_s;
@@ -1950,7 +1947,7 @@ Register Operand_Inserter::insert_operand_into_accumulator(RValue const& rvalue)
     auto storage = get_operand_storage_from_expression_operand(rvalue);
     auto doubleword =
         is_variant(Immediate, storage)
-            ? assembly::get_operand_size_from_rvalue_datatype(
+            ? assembly::get_operand_size_from_typed_rvalue(
                   std::get<Immediate>(storage)) == Operand_Size::Doubleword
             : assembly::is_doubleword_register(std::get<Register>(storage));
     auto accumulator = doubleword ? Register::x8 : Register::w8;
@@ -1973,7 +1970,7 @@ Size Operand_Inserter::get_pointee_size(LValue const& pointer)
         return 4UL;
     auto data = object::get_rvalue_at_lvalue_object_storage(
         pointer, frame, table->vectors);
-    return std::get<2>(data) == 8UL ? 8UL : 4UL;
+    return data.size == 8UL ? 8UL : 4UL;
 }
 
 /**
@@ -2120,7 +2117,7 @@ common::Stack_Offset Invocation_Inserter::insert_global_argument_to_stack(
     auto offset =
         accessor_->vector_accessor.get_offset_address(rvalue, key).first;
     // a string element is the address of the string
-    auto type = type::get_type_from_rvalue_data_type(
+    auto type = type::get_type_from_typed_rvalue(
         object::get_rvalue_at_lvalue_object_storage(
             rvalue, stack_frame_.get_stack_frame(), table->vectors));
     auto size = type == "string" or type == "long" or type == "double"
@@ -2240,7 +2237,7 @@ void Invocation_Inserter::insert_from_user_defined_function(
         auto argument = stack_frame_.argument_stack.at(i);
         // the type of a literal is only its storage while it is a label
         auto arg_type = is_variant(Immediate, operand)
-                            ? type::get_type_from_rvalue_data_type(argument)
+                            ? type::get_type_from_typed_rvalue(argument)
                             : std::string{};
         auto arg_register = assembly::get_register_from_integer_argument(i);
         // an element of `argv` is a doubleword from x19
@@ -2258,7 +2255,7 @@ void Invocation_Inserter::insert_from_user_defined_function(
             m::match(arg_type)(
                 m::pattern | sv("string") =
                     [&] {
-                        auto immediate = type::get_value_from_rvalue_data_type(
+                        auto immediate = type::get_value_from_typed_rvalue(
                             std::get<Immediate>(operand));
                         auto imm_1 =
                             assembly::page_offset_upper_immediate(immediate);
@@ -2273,7 +2270,7 @@ void Invocation_Inserter::insert_from_user_defined_function(
                     },
                 m::pattern | m::or_(sv("float"), sv("double")) =
                     [&] {
-                        auto immediate = type::get_value_from_rvalue_data_type(
+                        auto immediate = type::get_value_from_typed_rvalue(
                             std::get<Immediate>(operand));
                         auto imm =
                             direct_immediate(fmt::format("={}", immediate));
@@ -2504,9 +2501,9 @@ void Operand_Inserter::insert_from_string_address_operand(
     auto instruction_accessor = accessor_->instruction_accessor;
     auto& instructions = instruction_accessor->get_instructions();
     auto expression_inserter = Expression_Inserter{ accessor_ };
-    auto imm = type::get_rvalue_datatype_from_string(rhs);
+    auto imm = type::get_typed_rvalue_from_string(rhs);
     expression_inserter.insert_from_string(
-        type::get_value_from_rvalue_data_type(imm));
+        type::get_value_from_typed_rvalue(imm));
     if (is_variant(assembly::Stack::Offset, storage)) {
         auto offset = std::get<assembly::Stack::Offset>(storage);
         accessor_->stack->set(offset, Operand_Size::Doubleword);

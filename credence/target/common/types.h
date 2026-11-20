@@ -49,7 +49,7 @@ namespace credence::target::common {
 /**
  * @brief The semantic types of the IR, shared by both architectures
  *
- * An immediate is a literal in data type form, `(5:int:4)`, and a stack
+ * An immediate is a literal as a typed rvalue, `(5:int:4)`, and a stack
  * offset is the offset of a local in its stack frame
  */
 using Label = type::semantic::Label;
@@ -57,7 +57,7 @@ using Type = type::semantic::Type;
 using Size = type::semantic::Size;
 using LValue = type::semantic::LValue;
 using RValue = type::semantic::RValue;
-using Immediate = type::Data_Type;
+using Immediate = type::Typed_RValue;
 using Stack_Offset = std::size_t;
 
 using Operand_Lambda = std::function<bool(RValue)>;

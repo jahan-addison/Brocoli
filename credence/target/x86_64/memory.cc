@@ -123,8 +123,8 @@ assembly::Storage Register_Accessor::get_register_for_binary_operator(
         return common::assembly::make_direct_immediate(
             fmt::format("[r15 + 8 * {}]", offset_integer));
     }
-    if (type::is_rvalue_data_type(rvalue))
-        return type::get_rvalue_datatype_from_string(rvalue);
+    if (type::is_typed_rvalue(rvalue))
+        return type::get_typed_rvalue_from_string(rvalue);
 
     if (stack->contains(rvalue))
         return stack->get(rvalue).first;
@@ -226,7 +226,7 @@ bool Address_Accessor::is_qword_storage_size(
             },
             [&](Register const& s) { result = assembly::is_qword_register(s); },
             [&](Immediate const& s) {
-                result = type::is_rvalue_data_type_string(s) or
+                result = type::is_typed_rvalue_string(s) or
                          assembly::is_immediate_r15_address_offset(s) or
                          assembly::is_immediate_rip_address_offset(s);
             },

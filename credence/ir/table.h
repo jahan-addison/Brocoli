@@ -17,7 +17,7 @@
 #include <credence/language/hir/table.h> // for Object_Table_PTR, Table
 #include <credence/object.h>             // for Object_Table, LValue, Label
 #include <credence/symbol.h>             // for Symbol_Table
-#include <credence/types.h> // for Data_Type, Address, Parameters, RVal...
+#include <credence/types.h> // for Typed_RValue, Address, Parameters, RVal...
 #include <credence/util.h>  // for CREDENCE_PRIVATE_UNLESS_TESTED, AST_...
 #include <easyjson.h>       // for JSON
 #include <iosfwd>           // for ostream
@@ -105,10 +105,10 @@ class Table
     void from_mov_ita_instruction(Quadruple const& instruction);
 
   CREDENCE_PRIVATE_UNLESS_TESTED:
-    type::Data_Type from_integral_unary_expression(RValue const& lvalue);
+    type::Typed_RValue from_integral_unary_expression(RValue const& lvalue);
     void from_temporary_reassignment(LValue const& lhs, LValue const& rhs);
     void from_temporary_assignment(LValue const& lhs, LValue const& rhs);
-    type::Data_Type from_rvalue_unary_expression(LValue const& lvalue,
+    type::Typed_RValue from_rvalue_unary_expression(LValue const& lvalue,
         RValue const& rvalue,
         type::RValue_Reference unary_operator);
     void from_scaler_symbol_assignment(LValue const& lhs, LValue const& rhs);

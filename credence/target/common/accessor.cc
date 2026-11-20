@@ -165,19 +165,19 @@ Size Buffer_Accessor::get_size_of_return_string(Stack_Frame const& stack_frame)
         auto& last_stack_frame =
             table_->functions.at(stack_frame.call_stack.back()).get();
         if (last_stack_frame.locals.is_pointer(tail_frame.ret->first)) {
-            return type::get_size_from_rvalue_data_type(
-                type::get_rvalue_datatype_from_string(
+            return type::get_size_from_typed_rvalue(
+                type::get_typed_rvalue_from_string(
                     last_stack_frame.locals.get_pointer_by_name(
                         tail_frame.ret->first)));
         }
-        if (type::is_rvalue_data_type(tail_frame.ret->first))
-            return type::get_size_from_rvalue_data_type(
-                type::get_rvalue_datatype_from_string(tail_frame.ret->first));
-        return type::get_size_from_rvalue_data_type(
+        if (type::is_typed_rvalue(tail_frame.ret->first))
+            return type::get_size_from_typed_rvalue(
+                type::get_typed_rvalue_from_string(tail_frame.ret->first));
+        return type::get_size_from_typed_rvalue(
             last_stack_frame.locals.get_symbol_by_name(tail_frame.ret->first));
     }
-    return type::get_size_from_rvalue_data_type(
-        type::get_rvalue_datatype_from_string(tail_frame.ret->first));
+    return type::get_size_from_typed_rvalue(
+        type::get_typed_rvalue_from_string(tail_frame.ret->first));
 }
 
 /**
@@ -192,26 +192,26 @@ Size Buffer_Accessor::get_size_in_local_address(LValue const& lvalue,
     auto& frame = stack_frame.get_stack_frame();
     auto& locals = frame.locals;
     if (locals.is_pointer(lvalue) and
-        type::is_rvalue_data_type_string(locals.get_pointer_by_name(lvalue))) {
-        return type::get_size_from_rvalue_data_type(
-            type::get_rvalue_datatype_from_string(
+        type::is_typed_rvalue_string(locals.get_pointer_by_name(lvalue))) {
+        return type::get_size_from_typed_rvalue(
+            type::get_typed_rvalue_from_string(
                 locals.get_pointer_by_name(lvalue)));
     }
     if (locals.is_pointer(lvalue)) {
         auto rvalue_address = object::get_rvalue_at_lvalue_object_storage(
             lvalue, frame, pimpl->table->vectors, __source__);
-        return type::get_size_from_rvalue_data_type(rvalue_address);
+        return type::get_size_from_typed_rvalue(rvalue_address);
     }
     auto local_symbol = locals.get_symbol_by_name(lvalue);
-    auto local_rvalue = type::get_value_from_rvalue_data_type(local_symbol);
+    auto local_rvalue = type::get_value_from_typed_rvalue(local_symbol);
 
     if (local_rvalue == "RET") {
         credence_assert(pimpl->table->functions.contains(stack_frame.tail));
         auto& tail_frame = pimpl->table->functions.at(stack_frame.tail).get();
-        return type::get_size_from_rvalue_data_type(
-            type::get_rvalue_datatype_from_string(tail_frame.ret->first));
+        return type::get_size_from_typed_rvalue(
+            type::get_typed_rvalue_from_string(tail_frame.ret->first));
     }
-    return type::get_size_from_rvalue_data_type(local_symbol);
+    return type::get_size_from_typed_rvalue(local_symbol);
 }
 
 /**
@@ -254,7 +254,7 @@ Size Buffer_Accessor::get_size_of_string_lvalue_buffer_address(
         return get_size_in_local_address(lvalue, stack_frame);
 
     if (type::is_dereference_expression(lvalue)) {
-        return type::get_size_from_rvalue_data_type(
+        return type::get_size_from_typed_rvalue(
             object::get_rvalue_at_lvalue_object_storage(
                 type::get_unary_rvalue_reference(lvalue), frame, vectors));
     }
@@ -267,9 +267,9 @@ Size Buffer_Accessor::get_size_of_string_lvalue_buffer_address(
         } else {
             auto index = object::get_rvalue_at_lvalue_object_storage(
                 offset, frame, vectors, __source__);
-            key = std::string{ type::get_value_from_rvalue_data_type(index) };
+            key = std::string{ type::get_value_from_typed_rvalue(index) };
         }
-        return type::get_size_from_rvalue_data_type(vector.data.at(key));
+        return type::get_size_from_typed_rvalue(vector.data.at(key));
     }
 
     if (is_vector_offset(lvalue)) {
@@ -280,16 +280,16 @@ Size Buffer_Accessor::get_size_of_string_lvalue_buffer_address(
         } else {
             auto index = object::get_rvalue_at_lvalue_object_storage(
                 offset, frame, vectors, __source__);
-            key = std::string{ type::get_value_from_rvalue_data_type(index) };
+            key = std::string{ type::get_value_from_typed_rvalue(index) };
         }
-        return type::get_size_from_rvalue_data_type(vector.data.at(key));
+        return type::get_size_from_typed_rvalue(vector.data.at(key));
     }
 
     if (is_immediate(lvalue))
-        return type::get_size_from_rvalue_data_type(
-            type::get_rvalue_datatype_from_string(lvalue));
+        return type::get_size_from_typed_rvalue(
+            type::get_typed_rvalue_from_string(lvalue));
     else
-        return type::get_size_from_rvalue_data_type(
+        return type::get_size_from_typed_rvalue(
             object::get_rvalue_at_lvalue_object_storage(
                 lvalue, frame, vectors, __source__));
 }
@@ -320,9 +320,9 @@ void Buffer_Accessor::set_buffer_size_from_syscall(std::string_view routine,
         auto argument = argument_stack.back();
         if (credence::util::is_numeric(argument))
             pimpl->read_bytes_cache_ = std::stoul(argument);
-        else if (type::is_rvalue_data_type_a_type(argument, "int"))
+        else if (type::is_typed_rvalue_a_type(argument, "int"))
             pimpl->read_bytes_cache_ =
-                std::stoul(type::get_value_from_rvalue_data_type(argument));
+                std::stoul(type::get_value_from_typed_rvalue(argument));
     });
 }
 
@@ -552,7 +552,7 @@ auto Vector_Accessor<Entry>::get_offset_from_hoisted_symbols(
     auto& vectors = table_->vectors;
     auto index = object::get_rvalue_at_lvalue_object_storage(
         offset, frame, vectors, __source__);
-    auto key = std::string{ type::get_value_from_rvalue_data_type(index) };
+    auto key = std::string{ type::get_value_from_typed_rvalue(index) };
     if (!vectors.at(vector).get().data.contains(key))
         throw_compiletime_error(
             fmt::format(

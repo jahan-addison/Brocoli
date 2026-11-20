@@ -14,7 +14,7 @@
 #include "assembly.h"
 #include "types.h"          // for Immediate
 #include <credence/error.h> // for credence_error
-#include <credence/types.h> // for get_value_from_rvalue_data_type, get_typ...
+#include <credence/types.h> // for get_value_from_typed_rvalue, get_typ...
 #include <matchit.h>        // for match, MatchHelper
 #include <string>           // for basic_string, operator==, char_traits
 #include <string_view>      // for basic_string_view
@@ -66,11 +66,11 @@ Immediate get_result_from_trivial_relational_expression(Immediate const& lhs,
     Immediate const& rhs)
 {
     int result{ 0 };
-    auto type = type::get_type_from_rvalue_data_type(lhs);
-    auto lhs_imm = type::get_value_from_rvalue_data_type(lhs);
-    auto rhs_imm = type::get_value_from_rvalue_data_type(rhs);
-    auto lhs_type = type::get_type_from_rvalue_data_type(lhs);
-    auto rhs_type = type::get_type_from_rvalue_data_type(lhs);
+    auto type = type::get_type_from_typed_rvalue(lhs);
+    auto lhs_imm = type::get_value_from_typed_rvalue(lhs);
+    auto rhs_imm = type::get_value_from_typed_rvalue(rhs);
+    auto lhs_type = type::get_type_from_typed_rvalue(lhs);
+    auto rhs_type = type::get_type_from_typed_rvalue(lhs);
 
     m::match(op)(make_trivial_immediate_binary_result(==),
         make_trivial_immediate_binary_result(!=),
@@ -99,9 +99,9 @@ Immediate get_result_from_trivial_integral_expression(Immediate const& lhs,
     std::string const& op,
     Immediate const& rhs)
 {
-    auto type = type::get_type_from_rvalue_data_type(lhs);
-    auto lhs_imm = type::get_value_from_rvalue_data_type(lhs);
-    auto rhs_imm = type::get_value_from_rvalue_data_type(rhs);
+    auto type = type::get_type_from_typed_rvalue(lhs);
+    auto lhs_imm = type::get_value_from_typed_rvalue(lhs);
+    auto rhs_imm = type::get_value_from_typed_rvalue(rhs);
     if (type == "int") {
         auto result = trivial_arithmetic_from_numeric_table_type<int>(
             lhs_imm, op, rhs_imm);
@@ -135,9 +135,9 @@ Immediate get_result_from_trivial_bitwise_expression(Immediate const& lhs,
     std::string const& op,
     Immediate const& rhs)
 {
-    auto type = type::get_type_from_rvalue_data_type(lhs);
-    auto lhs_imm = type::get_value_from_rvalue_data_type(lhs);
-    auto rhs_imm = type::get_value_from_rvalue_data_type(rhs);
+    auto type = type::get_type_from_typed_rvalue(lhs);
+    auto lhs_imm = type::get_value_from_typed_rvalue(lhs);
+    auto rhs_imm = type::get_value_from_typed_rvalue(rhs);
     if (type == "int") {
         auto result =
             trivial_bitwise_from_numeric_table_type<int>(lhs_imm, op, rhs_imm);

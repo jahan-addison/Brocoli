@@ -386,8 +386,8 @@ class Address_Accessor
     {
         try {
             auto& frame = stack_frame_.get_stack_frame();
-            return type::get_type_from_rvalue_data_type(
-                       type::get_rvalue_data_type_as_string(
+            return type::get_type_from_typed_rvalue(
+                       type::get_typed_rvalue_as_string(
                            object::get_rvalue_at_lvalue_object_storage(
                                lvalue, frame, table_->vectors, __source__))) ==
                    type_check;

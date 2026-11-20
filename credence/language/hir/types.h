@@ -13,7 +13,7 @@
 
 #pragma once
 
-#include <credence/types.h> // for get_type_from_rvalue_data_type, Data...
+#include <credence/types.h> // for get_type_from_typed_rvalue, Data...
 
 namespace credence::language::hir {
 

@@ -13,6 +13,7 @@
 
 #pragma once
 
+#include <compare>           // for operator<=>
 #include <concepts>          // for integral
 #include <credence/symbol.h> // for Symbol_Table
 #include <credence/util.h>   // for AST_Node, CREDENCE_PRIVATE_UNLESS_TESTED
@@ -34,7 +35,7 @@
 
 /****************************************************************************
  * Type category, string, and numeric utilities
- *   See values.h for details on literals and data types
+ *   See language/literal.h for details on literals and typed rvalues
  *****************************************************************************/
 
 namespace credence::type {
@@ -56,7 +57,21 @@ using Address = std::size_t;
 /**
  * Algebraic type definitions
  */
-using Data_Type = std::tuple<semantic::RValue, semantic::Type, semantic::Size>;
+/**
+ * @brief An rvalue with its type and size in bytes
+ *
+ * The IR writes it as "(value:type:size)", such as "(10:int:4)", and
+ * get_typed_rvalue_from_string and get_typed_rvalue_as_string convert
+ * between the two.
+ */
+struct Typed_RValue
+{
+    semantic::RValue value{};
+    semantic::Type type{};
+    semantic::Size size{};
+
+    friend auto operator<=>(Typed_RValue const&, Typed_RValue const&) = default;
+};
 using RValue_Reference = std::string_view;
 
 /**
@@ -112,8 +127,8 @@ using Doubles = std::set<double>;
 using Globals = language::literal::Array;
 using Binary_Expression =
     std::tuple<semantic::RValue, std::string, semantic::RValue>;
-using RValue_Reference_Type = std::variant<semantic::RValue, Data_Type>;
-using Locals = Symbol_Table<Data_Type, semantic::LValue>;
+using RValue_Reference_Type = std::variant<semantic::RValue, Typed_RValue>;
+using Locals = Symbol_Table<Typed_RValue, semantic::LValue>;
 using Temporary = std::pair<semantic::LValue, semantic::RValue>;
 using Parameters = std::vector<semantic::RValue>;
 using Pointers = std::list<semantic::RValue>;
@@ -133,13 +148,13 @@ constexpr auto relation_binary_operators = { "==",
 
 constexpr auto integral_unary_types = { "int", "double", "float", "long" };
 
-const Data_Type NULL_RVALUE_LITERAL =
-    Data_Type{ "NULL", "null", sizeof(void*) };
+const Typed_RValue NULL_RVALUE_LITERAL =
+    Typed_RValue{ "NULL", "null", sizeof(void*) };
 
-constexpr semantic::RValue get_value_from_rvalue_data_type(
-    Data_Type const& rvalue);
+constexpr semantic::RValue get_value_from_typed_rvalue(
+    Typed_RValue const& rvalue);
 
-constexpr semantic::Type get_value_from_rvalue_data_type(
+constexpr semantic::Type get_value_from_typed_rvalue(
     type::semantic::RValue const& rvalue);
 
 inline int integral_from_type_int(std::string const& t)
@@ -246,22 +261,19 @@ constexpr bool is_relation_binary_operator(RValue_Reference rvalue)
     return test != relation_binary_operators.end();
 }
 
-constexpr bool is_rvalue_data_type(semantic::RValue const& rvalue)
+constexpr bool is_typed_rvalue(semantic::RValue const& rvalue)
 {
     return util::substring_count_of(rvalue, ":") >= 2 and
            rvalue.starts_with("(") and rvalue.ends_with(")");
 }
 
 /**
- * @brief Data type tuple to string
+ * @brief A typed rvalue as its IR string, such as "(10:int:4)"
  */
-constexpr std::string get_rvalue_data_type_as_string(Data_Type const& value)
+constexpr std::string get_typed_rvalue_as_string(Typed_RValue const& value)
 {
     using namespace fmt::literals;
-    return fmt::format("({}:{}:{})"_cf,
-        std::get<0>(value),
-        std::get<1>(value),
-        std::get<2>(value));
+    return fmt::format("({}:{}:{})"_cf, value.value, value.type, value.size);
 }
 
 /**
@@ -320,9 +332,10 @@ constexpr bool is_unary_expression(RValue_Reference rvalue)
     });
 }
 
-constexpr bool is_unary_data_type_expression(Data_Type const& datatype)
+constexpr bool is_unary_typed_rvalue_expression(
+    Typed_RValue const& typed_rvalue)
 {
-    auto rvalue = type::get_value_from_rvalue_data_type(datatype);
+    auto rvalue = type::get_value_from_typed_rvalue(typed_rvalue);
     if (util::substring_count_of(rvalue, " ") >= 2)
         return false;
     return std::ranges::any_of(unary_operators, [&](std::string_view x) {
@@ -337,7 +350,7 @@ constexpr bool is_dereference_expression(RValue_Reference rvalue)
 {
     // a literal is not a dereference, such as the string "bad syntax*n"
     if (util::substring_count_of(rvalue, " ") >= 2 or
-        is_rvalue_data_type(semantic::RValue{ rvalue }))
+        is_typed_rvalue(semantic::RValue{ rvalue }))
         return false;
     return get_unary_operator(rvalue) == "*";
 }
@@ -381,12 +394,12 @@ constexpr bool is_temporary(RValue_Reference rvalue)
  *
  * e.g. "(10:int:4)" -> (10, "int", 4UL)
  */
-inline Data_Type get_rvalue_datatype_from_string(semantic::RValue const& rvalue,
+inline Typed_RValue get_typed_rvalue_from_string(semantic::RValue const& rvalue,
     std::source_location const& location = std::source_location::current())
 {
     credence::detail::assert_impl(location,
-        is_rvalue_data_type(rvalue) == true,
-        fmt::format("rvalue \"{}\" is not in data type form", rvalue));
+        is_typed_rvalue(rvalue) == true,
+        fmt::format("rvalue \"{}\" is not a typed rvalue", rvalue));
     auto search = rvalue.find_last_of(":");
     auto bytes = std::string{ rvalue.begin() + search + 1, rvalue.end() - 1 };
     auto type_search = rvalue.substr(0, search - 1).find_last_of(":") + 1;
@@ -420,10 +433,10 @@ constexpr Binary_Expression from_rvalue_binary_expression(
 }
 
 constexpr Binary_Expression from_rvalue_binary_expression(
-    Data_Type const& datatype)
+    Typed_RValue const& typed_rvalue)
 {
     auto rvalue =
-        std::string{ type::get_value_from_rvalue_data_type(datatype) };
+        std::string{ type::get_value_from_typed_rvalue(typed_rvalue) };
     auto offsets = get_unquoted_space_offsets(rvalue);
     if (offsets.size() < 2)
         return { rvalue, std::string{}, std::string{} };
@@ -466,20 +479,20 @@ constexpr semantic::RValue get_binary_operator(RValue_Reference rvalue)
 }
 
 /**
- * @brief Get the value from an rvalue data type object
+ * @brief Get the value of a typed rvalue
  */
-constexpr semantic::RValue get_value_from_rvalue_data_type(
-    Data_Type const& rvalue)
+constexpr semantic::RValue get_value_from_typed_rvalue(
+    Typed_RValue const& rvalue)
 {
-    return std::get<0>(rvalue);
+    return rvalue.value;
 }
 
-constexpr semantic::Type get_value_from_rvalue_data_type(
+constexpr semantic::Type get_value_from_typed_rvalue(
     type::semantic::RValue const& rvalue)
 {
-    if (is_rvalue_data_type(rvalue)) {
-        return get_value_from_rvalue_data_type(
-            get_rvalue_datatype_from_string(rvalue));
+    if (is_typed_rvalue(rvalue)) {
+        return get_value_from_typed_rvalue(
+            get_typed_rvalue_from_string(rvalue));
     } else
         return "null";
 }
@@ -487,81 +500,79 @@ constexpr semantic::Type get_value_from_rvalue_data_type(
 /**
  * @brief Get the type from a local in the stack frame
  */
-constexpr semantic::Type get_type_from_rvalue_data_type(Data_Type const& rvalue)
+constexpr semantic::Type get_type_from_typed_rvalue(Typed_RValue const& rvalue)
 {
-    return std::get<1>(rvalue);
+    return rvalue.type;
 }
 
-constexpr semantic::Type get_type_from_rvalue_data_type(
+constexpr semantic::Type get_type_from_typed_rvalue(
     type::semantic::RValue const& rvalue)
 {
-    if (is_rvalue_data_type(rvalue)) {
-        return get_type_from_rvalue_data_type(
-            get_rvalue_datatype_from_string(rvalue));
+    if (is_typed_rvalue(rvalue)) {
+        return get_type_from_typed_rvalue(get_typed_rvalue_from_string(rvalue));
     } else
         return "null";
 }
 
 /**
- * @brief Check if an rvalue data type is a provided type
+ * @brief Check if a typed rvalue is a provided type
  */
-constexpr bool is_rvalue_data_type_a_type(Data_Type const& rvalue,
+constexpr bool is_typed_rvalue_a_type(Typed_RValue const& rvalue,
     std::string_view type_)
 {
-    return std::get<1>(rvalue) == type_;
+    return rvalue.type == type_;
 }
 
-constexpr bool is_rvalue_data_type_a_type(type::semantic::RValue const& rvalue,
+constexpr bool is_typed_rvalue_a_type(type::semantic::RValue const& rvalue,
     std::string_view type_)
 {
-    if (is_rvalue_data_type(rvalue)) {
-        return get_type_from_rvalue_data_type(
-                   get_rvalue_datatype_from_string(rvalue)) == type_;
+    if (is_typed_rvalue(rvalue)) {
+        return get_type_from_typed_rvalue(
+                   get_typed_rvalue_from_string(rvalue)) == type_;
     } else
         return false;
 }
 
 /**
- * @brief Check if an rvalue data type is a string
+ * @brief Check if a typed rvalue is a string
  */
-constexpr bool is_rvalue_data_type_string(Data_Type const& rvalue)
+constexpr bool is_typed_rvalue_string(Typed_RValue const& rvalue)
 {
-    return is_rvalue_data_type_a_type(rvalue, "string");
+    return is_typed_rvalue_a_type(rvalue, "string");
 }
 
-constexpr bool is_rvalue_data_type_string(type::semantic::RValue const& rvalue)
+constexpr bool is_typed_rvalue_string(type::semantic::RValue const& rvalue)
 {
-    return is_rvalue_data_type_a_type(rvalue, "string");
+    return is_typed_rvalue_a_type(rvalue, "string");
 }
 
 /**
- * @brief Check if an rvalue data type is a word (pointer)
+ * @brief Check if a typed rvalue is a word (pointer)
  */
 
-constexpr bool is_rvalue_data_type_word(Data_Type const& rvalue)
+constexpr bool is_typed_rvalue_word(Typed_RValue const& rvalue)
 {
-    return is_rvalue_data_type_a_type(rvalue, "word");
+    return is_typed_rvalue_a_type(rvalue, "word");
 }
 
-constexpr bool is_rvalue_data_type_word(type::semantic::RValue const& rvalue)
+constexpr bool is_typed_rvalue_word(type::semantic::RValue const& rvalue)
 {
-    return is_rvalue_data_type_a_type(rvalue, "word");
+    return is_typed_rvalue_a_type(rvalue, "word");
 }
 
 /**
  * @brief Get the type from a local in the stack frame
  */
-constexpr semantic::Size get_size_from_rvalue_data_type(Data_Type const& rvalue)
+constexpr semantic::Size get_size_from_typed_rvalue(Typed_RValue const& rvalue)
 {
-    return std::get<2>(rvalue);
+    return rvalue.size;
 }
 
-constexpr semantic::Size get_size_from_rvalue_data_type(
+constexpr semantic::Size get_size_from_typed_rvalue(
     type::semantic::RValue const& rvalue)
 {
-    if (is_rvalue_data_type(rvalue)) {
-        return get_size_from_rvalue_data_type(
-            get_rvalue_datatype_from_string(rvalue));
+    if (is_typed_rvalue(rvalue)) {
+        return get_size_from_typed_rvalue(get_typed_rvalue_from_string(rvalue));
     } else
         return 0UL;
 }
@@ -595,30 +606,31 @@ constexpr semantic::RValue from_decay_offset(RValue_Reference rvalue)
 }
 
 /**
- * @brief Check if symbol is an expression with two symbol::Data_Types
+ * @brief Check if symbol is an expression with two symbol::Typed_RValues
  */
-constexpr bool is_binary_datatype_expression(semantic::RValue const& rvalue)
+constexpr bool is_binary_typed_rvalue_expression(semantic::RValue const& rvalue)
 {
     if (get_unquoted_space_offsets(rvalue).size() != 2)
         return false;
     auto test = from_rvalue_binary_expression(rvalue);
-    if (!is_rvalue_data_type(std::get<0>(test)))
+    if (!is_typed_rvalue(std::get<0>(test)))
         return false;
-    if (!is_rvalue_data_type(std::get<1>(test)))
+    if (!is_typed_rvalue(std::get<1>(test)))
         return false;
     return true;
 }
 
-constexpr bool is_binary_datatype_expression(Data_Type const& datatype)
+constexpr bool is_binary_typed_rvalue_expression(
+    Typed_RValue const& typed_rvalue)
 {
-    auto rvalue = get_value_from_rvalue_data_type(datatype);
+    auto rvalue = get_value_from_typed_rvalue(typed_rvalue);
 
     if (get_unquoted_space_offsets(rvalue).size() != 2)
         return false;
     auto test = from_rvalue_binary_expression(rvalue);
-    if (!is_rvalue_data_type(std::get<0>(test)))
+    if (!is_typed_rvalue(std::get<0>(test)))
         return false;
-    if (!is_rvalue_data_type(std::get<1>(test)))
+    if (!is_typed_rvalue(std::get<1>(test)))
         return false;
     return true;
 }
@@ -627,7 +639,7 @@ constexpr bool is_binary_datatype_expression(Data_Type const& datatype)
  *
  * @brief Check if symbol is an expression with two temporaries
  */
-constexpr bool is_temporary_datatype_binary_expression(
+constexpr bool is_temporary_typed_rvalue_binary_expression(
     semantic::RValue const& rvalue)
 {
     if (get_unquoted_space_offsets(rvalue).size() != 2)
@@ -639,11 +651,11 @@ constexpr bool is_temporary_datatype_binary_expression(
     return true;
 }
 
-constexpr bool is_temporary_datatype_binary_expression(
-    Data_Type const& datatype)
+constexpr bool is_temporary_typed_rvalue_binary_expression(
+    Typed_RValue const& typed_rvalue)
 {
-    return is_temporary_datatype_binary_expression(
-        get_value_from_rvalue_data_type(datatype));
+    return is_temporary_typed_rvalue_binary_expression(
+        get_value_from_typed_rvalue(typed_rvalue));
 }
 
 /**
@@ -672,15 +684,15 @@ constexpr bool is_binary_expression(semantic::RValue const& rvalue)
         return false;
     return is_binary_arithmetic_expression(rvalue) or
            is_relation_binary_expression(rvalue) or
-           is_temporary_datatype_binary_expression(rvalue) or
+           is_temporary_typed_rvalue_binary_expression(rvalue) or
            is_bitwise_binary_expression(rvalue);
 }
 
 constexpr std::string is_temporary_operand_binary_expression(
-    Data_Type const& datatype)
+    Typed_RValue const& typed_rvalue)
 {
     return is_temporary_operand_binary_expression(
-        get_value_from_rvalue_data_type(datatype));
+        get_value_from_typed_rvalue(typed_rvalue));
 }
 
 } // namespace type

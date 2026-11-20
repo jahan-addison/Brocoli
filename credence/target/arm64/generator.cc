@@ -208,7 +208,7 @@ assembly::Directives Data_Emitter::get_instructions_from_directive_type(
 /**
  * @brief Get the `.p2align` of a value of a type, the log2 of its alignment
  */
-std::size_t get_alignment_size_from_rvalue_data_type(
+std::size_t get_alignment_size_from_typed_rvalue(
     type::semantic::Type const& type)
 {
     using T = type::semantic::Type;
@@ -295,8 +295,8 @@ void Data_Emitter::set_data_globals()
         auto& vector = table->vectors.at(global).get();
         // trivial vectors: e.g. `num 1;`
         if (vector.size == 1) {
-            auto align = get_alignment_size_from_rvalue_data_type(
-                type::get_type_from_rvalue_data_type(vector.data.at("0")));
+            auto align = get_alignment_size_from_typed_rvalue(
+                type::get_type_from_typed_rvalue(vector.data.at("0")));
             insert_arm64_alignment_directive(instructions_, align);
         } else {
             insert_arm64_alignment_directive(instructions_, 3);
@@ -306,11 +306,11 @@ void Data_Emitter::set_data_globals()
         for (auto const& item : vector.data) {
             auto directive =
                 assembly::get_data_directive_from_rvalue_type(item.second);
-            auto data = type::get_value_from_rvalue_data_type(item.second);
+            auto data = type::get_value_from_typed_rvalue(item.second);
             vector.set_address_offset(item.first, address);
-            auto type = type::get_type_from_rvalue_data_type(item.second);
+            auto type = type::get_type_from_typed_rvalue(item.second);
             address += assembly::get_size_from_operand_size(
-                assembly::get_operand_size_from_rvalue_datatype(item.second));
+                assembly::get_operand_size_from_typed_rvalue(item.second));
 
             auto instructions =
                 get_instructions_from_directive_type(directive, data);
@@ -758,8 +758,8 @@ void Text_Emitter::emit_assembly_instruction(std::ostream& os,
         }
     }
 
-    if (is_variant(Immediate, src4) and type::get_value_from_rvalue_data_type(
-                                            std::get<Immediate>(src4)) == "0x0")
+    if (is_variant(Immediate, src4) and
+        type::get_value_from_typed_rvalue(std::get<Immediate>(src4)) == "0x0")
         set_alignment_flag_inline(Align_S3_Folded, index);
 
     os << assembly::tabwidth(4) << mnemonic;

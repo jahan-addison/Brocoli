@@ -130,7 +130,7 @@ unit 10;
     REQUIRE(parameters[1] == "*b");
     REQUIRE(objects->vectors.at("arr").get().size == 3);
     REQUIRE(objects->vectors.at("unit").get().data["0"] ==
-            credence::type::Data_Type{ "10", "int", 4UL });
+            credence::type::Typed_RValue{ "10", "int", 4UL });
     REQUIRE(objects->globals.is_defined("unit"));
 }
 

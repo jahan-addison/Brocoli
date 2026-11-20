@@ -79,8 +79,8 @@ RValue get_symbol_from_expression(Data_Kind::Kind const& expression)
     if (std::holds_alternative<Data_Kind::LValue>(kind))
         return std::get<Data_Kind::LValue>(kind).first;
     if (std::holds_alternative<literal::Literal>(kind))
-        return credence::type::get_value_from_rvalue_data_type(
-            credence::type::get_rvalue_datatype_from_string(
+        return credence::type::get_value_from_typed_rvalue(
+            credence::type::get_typed_rvalue_from_string(
                 data_kind_to_string(kind, false)));
     if (std::holds_alternative<Data_Kind::Unary>(kind)) {
         auto const& [op, operand] = std::get<Data_Kind::Unary>(kind);
@@ -109,8 +109,8 @@ Value get_value_from_literal(literal::Literal const& literal)
     auto const& type = literal.second.first;
     if (type == "string")
         return Value{ Storage::POINTER, type };
-    auto constant = credence::type::get_value_from_rvalue_data_type(
-        credence::type::get_rvalue_datatype_from_string(
+    auto constant = credence::type::get_value_from_typed_rvalue(
+        credence::type::get_typed_rvalue_from_string(
             literal::literal_to_string(literal)));
     return Value{ Storage::SCALAR, type, {}, constant };
 }

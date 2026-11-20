@@ -498,12 +498,12 @@ constexpr Operand_Size get_operand_size_from_register(Register acc)
     }
 }
 
-constexpr Operand_Size get_operand_size_from_rvalue_datatype(
-    type::Data_Type const& rvalue)
+constexpr Operand_Size get_operand_size_from_typed_rvalue(
+    type::Typed_RValue const& rvalue)
 {
     namespace m = matchit;
     using T = type::semantic::Type;
-    T type = type::get_type_from_rvalue_data_type(rvalue);
+    T type = type::get_type_from_typed_rvalue(rvalue);
     return m::match(type)(
         m::pattern | m::or_(T{ "double" },
                          T{ "long" }) = [&] { return Operand_Size::Qword; },
@@ -834,7 +834,7 @@ constexpr Directive get_data_directive_from_rvalue_type(
 {
     namespace m = matchit;
     using T = type::semantic::Type;
-    T type = type::get_type_from_rvalue_data_type(immediate);
+    T type = type::get_type_from_typed_rvalue(immediate);
     return m::match(type)(
         m::pattern | T{ "double" } = [&] { return Directive::double_; },
         m::pattern |
@@ -879,7 +879,7 @@ constexpr bool is_immediate_rip_address_offset(Storage const& immediate)
 {
     if (is_variant(Immediate, immediate))
         return util::contains(
-            std::get<0>(std::get<Immediate>(immediate)), "rip + ._L");
+            std::get<Immediate>(immediate).value, "rip + ._L");
     else
         return false;
 }
@@ -890,8 +890,7 @@ constexpr bool is_immediate_rip_address_offset(Storage const& immediate)
 constexpr bool is_immediate_r15_address_offset(Storage const& immediate)
 {
     if (is_variant(Immediate, immediate))
-        return util::contains(
-            std::get<0>(std::get<Immediate>(immediate)), "[r15");
+        return util::contains(std::get<Immediate>(immediate).value, "[r15");
     else
         return false;
 }

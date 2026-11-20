@@ -141,23 +141,23 @@ enum class Register;
         return { s, std::move(instructions) };                         \
     } while (false)
 
-#define arm64__make_and_ret_with_immediate(op)                 \
-    do {                                                       \
-        if (is_variant(Immediate, ss1)) {                      \
-            auto inst = make_empty();                          \
-            auto size = get_operand_size_from_rvalue_datatype( \
-                std::get<Immediate>(ss1));                     \
-            if (size == Operand_Size::Doubleword) {            \
-                arm64_add__asm(inst, mov, x7, ss1);            \
-                arm64_add__asm(inst, op, ss0, ss0, x7);        \
-                return { ss0, inst };                          \
-            } else {                                           \
-                arm64_add__asm(inst, mov, w7, ss1);            \
-                arm64_add__asm(inst, op, ss0, ss0, w7);        \
-                return { ss0, inst };                          \
-            }                                                  \
-        } else                                                 \
-            arm64__make_and_ret(op, ss0, ss0, ss1);            \
+#define arm64__make_and_ret_with_immediate(op)                                \
+    do {                                                                      \
+        if (is_variant(Immediate, ss1)) {                                     \
+            auto inst = make_empty();                                         \
+            auto size =                                                       \
+                get_operand_size_from_typed_rvalue(std::get<Immediate>(ss1)); \
+            if (size == Operand_Size::Doubleword) {                           \
+                arm64_add__asm(inst, mov, x7, ss1);                           \
+                arm64_add__asm(inst, op, ss0, ss0, x7);                       \
+                return { ss0, inst };                                         \
+            } else {                                                          \
+                arm64_add__asm(inst, mov, w7, ss1);                           \
+                arm64_add__asm(inst, op, ss0, ss0, w7);                       \
+                return { ss0, inst };                                         \
+            }                                                                 \
+        } else                                                                \
+            arm64__make_and_ret(op, ss0, ss0, ss1);                           \
     } while (false)
 
 #define arm64_add__asm(inst, op, ...)                               \
@@ -984,12 +984,12 @@ constexpr Operand_Size get_operand_size_from_register(Register acc)
  *    (5:int:4)          // Word
  *    ("hi":string:2)    // Doubleword
  */
-constexpr Operand_Size get_operand_size_from_rvalue_datatype(
-    type::Data_Type const& rvalue)
+constexpr Operand_Size get_operand_size_from_typed_rvalue(
+    type::Typed_RValue const& rvalue)
 {
     namespace m = matchit;
     using T = type::semantic::Type;
-    T type = type::get_type_from_rvalue_data_type(rvalue);
+    T type = type::get_type_from_typed_rvalue(rvalue);
     return m::match(type)(
         m::pattern | m::or_(T{ "double" }, T{ "long" }) =
             [&] { return Operand_Size::Doubleword; },
@@ -1721,7 +1721,7 @@ constexpr Directive get_data_directive_from_rvalue_type(
 {
     namespace m = matchit;
     using T = type::semantic::Type;
-    T type = type::get_type_from_rvalue_data_type(immediate);
+    T type = type::get_type_from_typed_rvalue(immediate);
     return m::match(type)(
         m::pattern | T{ "double" } = [&] { return Directive::double_; },
         m::pattern |
@@ -1761,8 +1761,7 @@ inline arm64::assembly::Immediate make_asciz_immediate(std::string_view address)
 constexpr bool is_immediate_relative_address(Storage const& immediate)
 {
     if (is_variant(Immediate, immediate))
-        return util::contains(
-            std::get<0>(std::get<Immediate>(immediate)), "._L_str");
+        return util::contains(std::get<Immediate>(immediate).value, "._L_str");
     else
         return false;
 }
@@ -1773,10 +1772,8 @@ constexpr bool is_immediate_relative_address(Storage const& immediate)
 constexpr bool is_immediate_pc_address_offset(Storage const& immediate)
 {
     if (is_variant(Immediate, immediate))
-        return util::contains(
-                   std::get<0>(std::get<Immediate>(immediate)), "[sp") or
-               util::contains(
-                   std::get<0>(std::get<Immediate>(immediate)), "[x6");
+        return util::contains(std::get<Immediate>(immediate).value, "[sp") or
+               util::contains(std::get<Immediate>(immediate).value, "[x6");
     else
         return false;
 }
@@ -1787,8 +1784,7 @@ constexpr bool is_immediate_pc_address_offset(Storage const& immediate)
 constexpr bool is_immediate_x1_address_offset(Storage const& immediate)
 {
     if (is_variant(Immediate, immediate))
-        return util::contains(
-            std::get<0>(std::get<Immediate>(immediate)), "[x1");
+        return util::contains(std::get<Immediate>(immediate).value, "[x1");
     else
         return false;
 }
@@ -1902,25 +1898,6 @@ constexpr common::Size get_size_from_type(Type const& type_)
         m::pattern | Type{ "double" } = [] { return Size{ 8 }; },
         m::pattern | Type{ "string" } = [] { return Size{ 8 }; },
         m::pattern | m::_ = [] { return Size{ 0 }; });
-}
-
-/**
- * @brief Get the size in bytes of a value
- *
- * A string is its length with its terminating null byte
- */
-constexpr type::semantic::Size get_size_from_rvalue_datatype(
-    Immediate const& rvalue)
-{
-    using Size = common::Size;
-    using Type = common::Type;
-    Type type_ = type::get_type_from_rvalue_data_type(rvalue);
-    if (type_ != "string")
-        return get_size_from_type(type_);
-    else {
-        auto sv = type::get_value_from_rvalue_data_type(rvalue);
-        return Size{ sv.length() + 1 };
-    }
 }
 
 } // namespace arm64::detail

@@ -17,7 +17,7 @@
 #include <credence/error.h>  // for credence_assert, assert_nequal_impl
 #include <credence/map.h>    // for Ordered_Map
 #include <credence/symbol.h> // for Symbol_Table
-#include <credence/types.h>  // for get_size_from_rvalue_data_type, get_val...
+#include <credence/types.h>  // for get_size_from_typed_rvalue, get_val...
 #include <credence/util.h>   // for contains, range_contains, AST_Node, __s...
 #include <easyjson.h>        // for JSON
 #include <fmt/base.h>        // for copy
@@ -118,7 +118,7 @@ RValue Vector_Offset::get_rvalue_offset_of_vector(RValue const& offset)
 {
     // clang-format off
     return stack_frame_.locals.is_defined(offset)
-    ? type::get_value_from_rvalue_data_type(
+    ? type::get_value_from_typed_rvalue(
         get_rvalue_at_lvalue_object_storage(offset, stack_frame_, vectors_))
     : offset;
     // clang-format on
@@ -177,24 +177,24 @@ bool Object_Table::vector_contains(LValue const& lvalue)
  */
 void Data_Section::insert(RValue const& rvalue)
 {
-    auto type = type::get_type_from_rvalue_data_type(rvalue);
+    auto type = type::get_type_from_typed_rvalue(rvalue);
     if (type == "float")
-        floats.insert(type::get_value_from_rvalue_data_type(rvalue));
+        floats.insert(type::get_value_from_typed_rvalue(rvalue));
     if (type == "double")
-        doubles.insert(type::get_value_from_rvalue_data_type(rvalue));
+        doubles.insert(type::get_value_from_typed_rvalue(rvalue));
     if (type == "string")
-        strings.insert(type::get_value_from_rvalue_data_type(rvalue));
+        strings.insert(type::get_value_from_typed_rvalue(rvalue));
 }
 
-void Data_Section::insert(type::Data_Type const& rvalue)
+void Data_Section::insert(type::Typed_RValue const& rvalue)
 {
-    auto type = type::get_type_from_rvalue_data_type(rvalue);
+    auto type = type::get_type_from_typed_rvalue(rvalue);
     if (type == "float")
-        floats.insert(type::get_value_from_rvalue_data_type(rvalue));
+        floats.insert(type::get_value_from_typed_rvalue(rvalue));
     if (type == "double")
-        doubles.insert(type::get_value_from_rvalue_data_type(rvalue));
+        doubles.insert(type::get_value_from_typed_rvalue(rvalue));
     if (type == "string")
-        strings.insert(type::get_value_from_rvalue_data_type(rvalue));
+        strings.insert(type::get_value_from_typed_rvalue(rvalue));
 }
 
 /**
@@ -232,7 +232,7 @@ bool is_vector(RValue const& rvalue, Vectors& vectors)
 bool is_pointer(RValue const& rvalue, Function& stack_frame)
 {
     return stack_frame.locals.is_pointer(rvalue) or rvalue.starts_with("&") or
-           type::is_rvalue_data_type_string(rvalue);
+           type::is_typed_rvalue_string(rvalue);
 }
 
 /**
@@ -270,15 +270,15 @@ Type get_type_from_object_data_type(LValue const& lvalue,
         auto address = type::from_lvalue_offset(lvalue);
         auto offset = type::from_decay_offset(lvalue);
         credence_assert(vectors.contains(address));
-        return std::get<1>(vectors.at(address).get().data[offset]);
+        return vectors.at(address).get().data[offset].type;
     }
-    return std::get<1>(locals.get_symbol_by_name(lvalue));
+    return locals.get_symbol_by_name(lvalue).type;
 }
 
 /**
  * @brief Resolve the rvalue of a pointer in the table object and stack frame
  */
-type::Data_Type get_rvalue_at_lvalue_object_storage(LValue const& lvalue,
+type::Typed_RValue get_rvalue_at_lvalue_object_storage(LValue const& lvalue,
     Function& stack_frame,
     Vectors& vectors,
     std::source_location const& location)
@@ -305,7 +305,7 @@ type::Data_Type get_rvalue_at_lvalue_object_storage(LValue const& lvalue,
                           : std::string{ "0" };
         auto offset_rvalue = vector_offset.get_rvalue_offset_of_vector(offset);
         if (stack_frame.is_parameter(offset)) {
-            return type::Data_Type{ lvalue, "word", 8UL };
+            return type::Typed_RValue{ lvalue, "word", 8UL };
         }
         if (!vector_offset.is_valid_vector_address_offset(lvalue))
             throw_compiletime_error(
@@ -318,8 +318,8 @@ type::Data_Type get_rvalue_at_lvalue_object_storage(LValue const& lvalue,
                 location);
         return vectors.at(address).get().data[offset_rvalue];
     }
-    if (type::is_rvalue_data_type(lvalue))
-        return type::get_rvalue_datatype_from_string(lvalue);
+    if (type::is_typed_rvalue(lvalue))
+        return type::get_typed_rvalue_from_string(lvalue);
 
     return locals.get_symbol_by_name(lvalue_reference, location);
 }
@@ -352,52 +352,52 @@ Size lvalue_size_at_temporary_object_address(LValue const& lvalue,
     auto rvalue = lvalue_at_temporary_object_address(lvalue, stack_frame);
     auto& locals = stack_frame.locals;
 
-    if (type::is_rvalue_data_type(rvalue) and
-        not type::is_rvalue_data_type_word(rvalue))
-        return type::get_size_from_rvalue_data_type(rvalue);
+    if (type::is_typed_rvalue(rvalue) and
+        not type::is_typed_rvalue_word(rvalue))
+        return type::get_size_from_typed_rvalue(rvalue);
     if (type::is_unary_expression(rvalue))
         return lvalue_size_at_temporary_object_address(
             type::get_unary_rvalue_reference(rvalue), stack_frame);
     if (type::is_binary_expression(rvalue)) {
         auto [left, right, op] = type::from_rvalue_binary_expression(rvalue);
-        if (type::is_rvalue_data_type(left) and
-            not type::is_rvalue_data_type_word(left))
-            return type::get_size_from_rvalue_data_type(left);
-        if (type::is_rvalue_data_type(right) and
-            not type::is_rvalue_data_type_word(right))
-            return type::get_size_from_rvalue_data_type(right);
+        if (type::is_typed_rvalue(left) and
+            not type::is_typed_rvalue_word(left))
+            return type::get_size_from_typed_rvalue(left);
+        if (type::is_typed_rvalue(right) and
+            not type::is_typed_rvalue_word(right))
+            return type::get_size_from_typed_rvalue(right);
         if (locals.is_defined(left) and not locals.is_pointer(left)) {
-            auto datatype = locals.get_symbol_by_name(left);
-            if (type::is_rvalue_data_type_word(datatype))
+            auto typed_rvalue = locals.get_symbol_by_name(left);
+            if (type::is_typed_rvalue_word(typed_rvalue))
                 return lvalue_size_at_temporary_object_address(
-                    type::get_value_from_rvalue_data_type(datatype),
+                    type::get_value_from_typed_rvalue(typed_rvalue),
                     stack_frame);
             else
-                return type::get_size_from_rvalue_data_type(
+                return type::get_size_from_typed_rvalue(
                     locals.get_symbol_by_name(left));
         }
         if (locals.is_defined(right) and not locals.is_pointer(right)) {
-            auto datatype = locals.get_symbol_by_name(right);
-            if (type::is_rvalue_data_type_word(datatype))
+            auto typed_rvalue = locals.get_symbol_by_name(right);
+            if (type::is_typed_rvalue_word(typed_rvalue))
                 return lvalue_size_at_temporary_object_address(
-                    type::get_value_from_rvalue_data_type(datatype),
+                    type::get_value_from_typed_rvalue(typed_rvalue),
                     stack_frame);
             else
-                return type::get_size_from_rvalue_data_type(
+                return type::get_size_from_typed_rvalue(
                     locals.get_symbol_by_name(right));
         }
     }
-    if (type::is_temporary_datatype_binary_expression(rvalue)) {
+    if (type::is_temporary_typed_rvalue_binary_expression(rvalue)) {
         auto [left, right, op] = type::from_rvalue_binary_expression(rvalue);
         return lvalue_size_at_temporary_object_address(left, stack_frame);
     }
     if (locals.is_defined(rvalue)) {
-        auto datatype = locals.get_symbol_by_name(rvalue);
-        if (type::is_rvalue_data_type_word(datatype))
+        auto typed_rvalue = locals.get_symbol_by_name(rvalue);
+        if (type::is_typed_rvalue_word(typed_rvalue))
             return lvalue_size_at_temporary_object_address(
-                type::get_value_from_rvalue_data_type(datatype), stack_frame);
+                type::get_value_from_typed_rvalue(typed_rvalue), stack_frame);
         else
-            return type::get_size_from_rvalue_data_type(
+            return type::get_size_from_typed_rvalue(
                 locals.get_symbol_by_name(rvalue));
     }
     if (rvalue == "RET")
@@ -415,15 +415,15 @@ Size get_size_of_temporary_binary_rvalue(RValue const& rvalue,
     if (type::is_temporary(left) and type::is_temporary(right))
         return lvalue_size_at_temporary_object_address(left, stack_frame);
     if (temp_side == "left")
-        if (!type::is_rvalue_data_type(right))
+        if (!type::is_typed_rvalue(right))
             size = lvalue_size_at_temporary_object_address(right, stack_frame);
         else
-            size = type::get_size_from_rvalue_data_type(right);
+            size = type::get_size_from_typed_rvalue(right);
     else {
-        if (!type::is_rvalue_data_type(left))
+        if (!type::is_typed_rvalue(left))
             size = lvalue_size_at_temporary_object_address(left, stack_frame);
         else
-            size = type::get_size_from_rvalue_data_type(left);
+            size = type::get_size_from_typed_rvalue(left);
     }
     credence_assert_nequal(size, 0UL);
     return size;
@@ -466,14 +466,14 @@ void set_stack_frame_return_value(RValue const& rvalue,
             },
         m::pattern | m::app(local_contains, true) =
             [&] {
-                auto value_at = type::get_value_from_rvalue_data_type(
+                auto value_at = type::get_value_from_typed_rvalue(
                     frame.locals.get_symbol_by_name(rvalue));
                 frame.ret = std::make_pair(value_at, rvalue);
             },
-        m::pattern | m::app(type::is_rvalue_data_type, true) =
+        m::pattern | m::app(type::is_typed_rvalue, true) =
             [&] {
-                auto datatype = type::get_rvalue_datatype_from_string(rvalue);
-                auto value_at = type::get_value_from_rvalue_data_type(datatype);
+                auto typed_rvalue = type::get_typed_rvalue_from_string(rvalue);
+                auto value_at = type::get_value_from_typed_rvalue(typed_rvalue);
                 frame.ret = std::make_pair(value_at, rvalue);
             },
         m::pattern | m::app(is_vector_lvalue, true) =
@@ -481,7 +481,7 @@ void set_stack_frame_return_value(RValue const& rvalue,
                 auto value_at = get_rvalue_at_lvalue_object_storage(
                     rvalue, frame, vectors, __source__);
                 frame.ret = std::make_pair(
-                    type::get_value_from_rvalue_data_type(value_at), rvalue);
+                    type::get_value_from_typed_rvalue(value_at), rvalue);
             },
         m::pattern | m::app(type::is_temporary, true) =
             [&] {

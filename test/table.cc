@@ -125,14 +125,11 @@ TEST_CASE_FIXTURE(Table_Fixture, "build_vector_definitions_from_globals")
     REQUIRE(table->vectors.size() == 4);
     REQUIRE(table->vectors.at("mess").get().data.size() == 6);
     REQUIRE(table->vectors.at("putchar").get().data.size() == 1);
-    REQUIRE(
-        std::get<0>(table->vectors.at("putchar").get().data["0"]) == "puts");
-    REQUIRE(std::get<0>(table->vectors.at("unit").get().data["0"]) == "10");
-    REQUIRE(std::get<1>(table->vectors.at("unit").get().data["0"]) == "int");
-    REQUIRE(
-        std::get<0>(table->vectors.at("mess").get().data["0"]) == "too bad");
-    REQUIRE(
-        std::get<0>(table->vectors.at("mess").get().data["1"]) == "tough luck");
+    REQUIRE(table->vectors.at("putchar").get().data["0"].value == "puts");
+    REQUIRE(table->vectors.at("unit").get().data["0"].value == "10");
+    REQUIRE(table->vectors.at("unit").get().data["0"].type == "int");
+    REQUIRE(table->vectors.at("mess").get().data["0"].value == "too bad");
+    REQUIRE(table->vectors.at("mess").get().data["1"].value == "tough luck");
 }
 
 TEST_CASE_FIXTURE(Table_Fixture, "from_label_ita_instruction")
@@ -173,9 +170,9 @@ TEST_CASE_FIXTURE(Table_Fixture, "from_mov_ita_instruction")
     table_pointer.from_mov_ita_instruction(test4);
     REQUIRE(frame.temporary["_t1"] == "(5:int:4)");
     REQUIRE(frame.locals.get_symbol_by_name("a") ==
-            credence::type::Data_Type{ "10", "int", 4UL });
+            credence::type::Typed_RValue{ "10", "int", 4UL });
     REQUIRE(frame.locals.get_symbol_by_name("z") ==
-            credence::type::Data_Type{ "10", "int", 4UL });
+            credence::type::Typed_RValue{ "10", "int", 4UL });
     REQUIRE(frame.allocation == 8);
 }
 
@@ -187,7 +184,8 @@ TEST_CASE_FIXTURE(Table_Fixture, "bind_vector")
     vector.data["0"] = { "4", "int", 4UL };
     // the left-hand-side inserts into the vector it copies from
     REQUIRE_NOTHROW(table_pointer.bind_vector("v[1]", "v[0]"));
-    REQUIRE(vector.data["1"] == credence::type::Data_Type{ "4", "int", 4UL });
+    REQUIRE(
+        vector.data["1"] == credence::type::Typed_RValue{ "4", "int", 4UL });
 }
 
 TEST_CASE_FIXTURE(Table_Fixture, "from_decay_offset")
@@ -308,11 +306,11 @@ TEST_CASE_FIXTURE(Table_Fixture, "from_rvalue_unary_expression")
         table_pointer.from_rvalue_unary_expression("b", test_pointer2, "&");
     auto test5 = table_pointer.from_rvalue_unary_expression(
         "a", test_pointer3, test_pointer3);
-    REQUIRE(get<0>(test) == "5");
-    REQUIRE(get<0>(test2) == "5");
-    REQUIRE(get<0>(test3) == "5");
-    REQUIRE(get<0>(test4) == "b");
-    REQUIRE(get<0>(test5) == "5");
+    REQUIRE(test.value == "5");
+    REQUIRE(test2.value == "5");
+    REQUIRE(test3.value == "5");
+    REQUIRE(test4.value == "b");
+    REQUIRE(test5.value == "5");
 }
 
 TEST_CASE_FIXTURE(Table_Fixture, "from_rvalue_binary_expression")
@@ -361,9 +359,9 @@ TEST_CASE_FIXTURE(Table_Fixture, "from_temporary_reassignment")
     auto test = locals.get_symbol_by_name("_t1");
     auto test2 = locals.get_symbol_by_name("_t2");
     auto test3 = locals.get_symbol_by_name("_t4");
-    REQUIRE(std::get<0>(test) == "50");
-    REQUIRE(std::get<0>(test2) == "~ _t1");
-    REQUIRE(std::get<0>(test3) == "_t1 || _t2");
+    REQUIRE(test.value == "50");
+    REQUIRE(test2.value == "~ _t1");
+    REQUIRE(test3.value == "_t1 || _t2");
 }
 
 TEST_CASE_FIXTURE(Table_Fixture, "from_scaler_symbol_assignment")
@@ -375,12 +373,12 @@ TEST_CASE_FIXTURE(Table_Fixture, "from_scaler_symbol_assignment")
     locals.table_["a"] = { "5", "int", 4UL };
     locals.table_["c"] = { "6", "int", 4UL };
     table_pointer.from_scaler_symbol_assignment("a", "c");
-    REQUIRE(std::get<0>(locals.table_["a"]) == "6");
+    REQUIRE(locals.table_["a"].value == "6");
     // a parameter has no storage in the table, so its value is a word
     frame.parameters.emplace_back("p");
     table_pointer.from_scaler_symbol_assignment("a", "p");
     REQUIRE(locals.table_["a"] ==
-            credence::type::Data_Type{ "p", "word", sizeof(void*) });
+            credence::type::Typed_RValue{ "p", "word", sizeof(void*) });
 }
 
 TEST_CASE_FIXTURE(Table_Fixture, "from_integral_unary_expression")
@@ -388,9 +386,9 @@ TEST_CASE_FIXTURE(Table_Fixture, "from_integral_unary_expression")
     auto table_pointer = make_table_with_frame(make_node());
     auto table = table_pointer.get_table_object();
     auto& locals = table_pointer.get_stack_frame().locals;
-    credence::type::Data_Type expected1 = { "5", "int", 4UL };
-    credence::type::Data_Type expected2 = { "5", "long", 8UL };
-    credence::type::Data_Type expected3 = { "5", "double", 8UL };
+    credence::type::Typed_RValue expected1 = { "5", "int", 4UL };
+    credence::type::Typed_RValue expected2 = { "5", "long", 8UL };
+    credence::type::Typed_RValue expected3 = { "5", "double", 8UL };
     locals.set_symbol_by_name("a", expected1);
     locals.set_symbol_by_name("b", expected2);
     locals.set_symbol_by_name("c", expected3);
@@ -402,7 +400,8 @@ TEST_CASE_FIXTURE(Table_Fixture, "from_integral_unary_expression")
     REQUIRE(test == expected1);
     REQUIRE(test2 == expected2);
     REQUIRE(test3 == expected3);
-    REQUIRE(test4 == credence::type::Data_Type{ "p", "word", sizeof(void*) });
+    REQUIRE(
+        test4 == credence::type::Typed_RValue{ "p", "word", sizeof(void*) });
 }
 
 TEST_CASE_FIXTURE(Table_Fixture, "is_unary")
@@ -512,24 +511,24 @@ _L1:
     SETUP_TABLE_FIXTURE_AND_TEST_FROM_AST("floats", expected);
 }
 
-TEST_CASE("get_rvalue_datatype_from_string")
+TEST_CASE("get_typed_rvalue_from_string")
 {
     auto [test1_1, test1_2, test1_3] =
-        credence::type::get_rvalue_datatype_from_string("(10:int:4)");
+        credence::type::get_typed_rvalue_from_string("(10:int:4)");
     auto [test2_1, test2_2, test2_3] =
-        credence::type::get_rvalue_datatype_from_string(
+        credence::type::get_typed_rvalue_from_string(
             std::format("(10.005:float:{})", sizeof(float)));
     auto [test3_1, test3_2, test3_3] =
-        credence::type::get_rvalue_datatype_from_string(
+        credence::type::get_typed_rvalue_from_string(
             std::format("(10.000000000000000005:double:{})", sizeof(double)));
     auto [test4_1, test4_2, test4_3] =
-        credence::type::get_rvalue_datatype_from_string(
+        credence::type::get_typed_rvalue_from_string(
             std::format("('0':byte:{})", sizeof(char)));
     auto [test5_1, test5_2, test5_3] =
-        credence::type::get_rvalue_datatype_from_string(
+        credence::type::get_typed_rvalue_from_string(
             std::format("(__WORD__:word:{})", sizeof(void*)));
     auto [test6_1, test6_2, test6_3] =
-        credence::type::get_rvalue_datatype_from_string(
+        credence::type::get_typed_rvalue_from_string(
             std::format("(\"hello this is a very long string\":string:{})",
                 std::string{ "hello this is a very long string" }.size()));
 

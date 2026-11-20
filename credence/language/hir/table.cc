@@ -20,7 +20,7 @@
 #include <credence/error.h>  // for throw_compiletime_error
 #include <credence/object.h> // for Object_Table, Vector
 #include <credence/symbol.h> // for Symbol_Table
-#include <credence/types.h>  // for get_rvalue_datatype_fr...
+#include <credence/types.h>  // for get_typed_rvalue_fr...
 #include <credence/util.h>   // for AST_Node
 #include <cstddef>           // for size_t
 #include <easyjson.h>        // for JSON
@@ -393,7 +393,7 @@ void Table::set_unset_global_values()
             m::pattern | "double" = [] { return "(0.0:double:8)"; },
             m::pattern | "string" = [] { return "(\"\":string:0)"; },
             m::pattern | m::_ = [] { return "(0:int:4)"; });
-        auto value = credence::type::get_rvalue_datatype_from_string(zero);
+        auto value = credence::type::get_typed_rvalue_from_string(zero);
         objects_->data.insert(value);
         objects_->vectors.at(name).get().data["0"] = value;
     }
@@ -451,7 +451,7 @@ void Table::build_vector_definitions_from_globals()
             objects_->set_vector_definition(symbol.first, symbol.second.size());
         for (auto const& item : symbol.second) {
             auto key = std::to_string(index++);
-            auto value = credence::type::get_rvalue_datatype_from_string(
+            auto value = credence::type::get_typed_rvalue_from_string(
                 data_kind_to_string(item, false));
             objects_->data.insert(value);
             vector.data[key] = value;

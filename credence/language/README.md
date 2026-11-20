@@ -201,6 +201,8 @@ This is not the `Symbol_Table` template in [`symbol.h`](/credence/symbol.h). Tha
 
 These tuples are the leaves of the HIR.
 
+From the IR on, the same `(Value : Type : Size)` form is a `Typed_RValue` in [`types.h`](/credence/types.h). Its value is the rvalue as text, so it is a literal or any other rvalue with a type and size, such as a binary expression of a word, `(x * y:word:8)`.
+
 ## HIR
 
 [`hir.h`](/credence/language/hir/hir.h)'s `Data_Kind` is the HIR node. `Data_Kind::Kind` is the algebraic sum of every kind of expression the rest of the compiler operates on: `Literal`, `Array`, `Symbol`, `Unary`, `Relation`, `Function`, `LValue`. "Type" is kept for the middle of the tuple - a value's data type - and "kind" is which of these expressions a node is.

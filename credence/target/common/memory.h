@@ -81,11 +81,11 @@ enum class Operand_Type
  */
 
 /**
- * @brief Check if an rvalue is a literal in data type form, `(5:int:4)`
+ * @brief Check if an rvalue is a literal as a typed rvalue, `(5:int:4)`
  */
 constexpr bool is_immediate(std::string const& rvalue)
 {
-    return type::is_rvalue_data_type(rvalue);
+    return type::is_typed_rvalue(rvalue);
 }
 
 /**

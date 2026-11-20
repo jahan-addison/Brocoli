@@ -219,7 +219,7 @@ void Syscall_Invocation_Inserter::syscall_operands_to_instructions(
 
         if (is_immediate_relative_address(arg)) {
             auto immediate =
-                type::get_value_from_rvalue_data_type(std::get<Immediate>(arg));
+                type::get_value_from_typed_rvalue(std::get<Immediate>(arg));
             auto imm_1 = assembly::page_offset_upper_immediate(immediate);
             arm64_add__asm(instructions, adrp, storage, imm_1);
             auto imm_2 = assembly::page_offset_lower_immediate(immediate);

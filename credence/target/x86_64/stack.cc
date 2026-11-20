@@ -152,7 +152,7 @@ class Stack::Stack_IMPL
         if (stack_address[lvalue].second != assembly::Operand_Size::Empty)
             return;
         auto operand_size =
-            assembly::get_operand_size_from_rvalue_datatype(rvalue);
+            assembly::get_operand_size_from_typed_rvalue(rvalue);
         auto value_size = assembly::get_size_from_operand_size(operand_size);
         allocate_aligned_lvalue(lvalue, value_size, operand_size);
     }
@@ -243,7 +243,7 @@ class Stack::Stack_IMPL
                     search = true;
                 if (!search)
                     offset -= assembly::get_size_from_operand_size(
-                        assembly::get_operand_size_from_rvalue_datatype(
+                        assembly::get_operand_size_from_typed_rvalue(
                             entry.second));
                 return offset;
             });
@@ -266,7 +266,7 @@ class Stack::Stack_IMPL
                     object::Vector::Entry const& entry) {
                     return offset +
                            assembly::get_size_from_operand_size(
-                               assembly::get_operand_size_from_rvalue_datatype(
+                               assembly::get_operand_size_from_typed_rvalue(
                                    entry.second));
                 });
 

@@ -18,7 +18,7 @@
 #include <credence/ir/ita.h> // for Instruction, Quadruple, emit
 #include <credence/object.h> // for Object, Function, LValue
 #include <credence/symbol.h> // for Symbol_Table
-#include <credence/types.h>  // for get_rvalue_datatype_from_string
+#include <credence/types.h>  // for get_typed_rvalue_from_string
 #include <credence/util.h>   // for contains, AST_Node, str_trim_ws
 #include <deque>             // for deque
 #include <easyjson.h>        // for JSON
@@ -63,7 +63,7 @@ namespace m = matchit;
 namespace {
 
 /**
- * @brief Check if an rvalue is one literal in data type form
+ * @brief Check if an rvalue is one literal as a typed rvalue
  *
  * A binary expression of two literals is also in parentheses, so the
  * parenthesis that opens a literal must close at its end. A parenthesis or
@@ -71,12 +71,12 @@ namespace {
  *
  *  Examples:
  *
- *    is_single_rvalue_data_type("(\"m is %d\":string:7)")   // true
- *    is_single_rvalue_data_type("(2:int:4) + (3:int:4)")    // false
+ *    is_single_typed_rvalue("(\"m is %d\":string:7)")   // true
+ *    is_single_typed_rvalue("(2:int:4) + (3:int:4)")    // false
  */
-bool is_single_rvalue_data_type(RValue const& rvalue)
+bool is_single_typed_rvalue(RValue const& rvalue)
 {
-    if (!type::is_rvalue_data_type(rvalue))
+    if (!type::is_typed_rvalue(rvalue))
         return false;
     bool quoted{ false };
     int depth{ 0 };
@@ -164,9 +164,9 @@ void Table::from_return_instruction(Quadruple const& instruction)
     auto return_rvalue = util::str_trim_ws(std::get<1>(instruction));
     auto& frame = get_stack_frame();
     // a returned literal, such as a string, is a literal of the data section
-    if (is_single_rvalue_data_type(return_rvalue))
+    if (is_single_typed_rvalue(return_rvalue))
         objects_->data.insert(
-            type::get_rvalue_datatype_from_string(return_rvalue));
+            type::get_typed_rvalue_from_string(return_rvalue));
     object::set_stack_frame_return_value(
         return_rvalue, frame, objects_->vectors, stack);
 }
@@ -233,17 +233,17 @@ void Table::from_mov_ita_instruction(Quadruple const& instruction)
         return;
     }
 
-    type::Data_Type rvalue_symbol = type::NULL_RVALUE_LITERAL;
+    type::Typed_RValue rvalue_symbol = type::NULL_RVALUE_LITERAL;
 
     if (type::is_unary_expression(rhs))
         rvalue_symbol = from_rvalue_unary_expression(
             lhs, rhs, type::get_unary_operator(rhs));
 
     if (type::is_binary_expression(rhs))
-        rvalue_symbol = type::Data_Type{ rhs, "word", sizeof(void*) };
+        rvalue_symbol = type::Typed_RValue{ rhs, "word", sizeof(void*) };
 
     if (rvalue_symbol == type::NULL_RVALUE_LITERAL and rvalue.second.empty())
-        rvalue_symbol = type::get_rvalue_datatype_from_string(rhs);
+        rvalue_symbol = type::get_typed_rvalue_from_string(rhs);
     if (rvalue_symbol == type::NULL_RVALUE_LITERAL and
         type::is_unary_expression(rvalue.second))
         rvalue_symbol = from_rvalue_unary_expression(lhs, rhs, rvalue.second);
@@ -251,7 +251,7 @@ void Table::from_mov_ita_instruction(Quadruple const& instruction)
     credence_assert(rvalue_symbol != type::NULL_RVALUE_LITERAL);
 
     frame.locals.set_symbol_by_name(lhs, rvalue_symbol);
-    frame.allocation += std::get<2>(rvalue_symbol);
+    frame.allocation += rvalue_symbol.size;
 
     objects_->data.insert(rvalue_symbol);
 }
@@ -284,8 +284,8 @@ void Table::from_pointer_or_vector_assignment(LValue const& lvalue,
     if (util::contains(lvalue, "[")) {
         auto lhs_lvalue = type::from_lvalue_offset(lvalue);
         auto offset = type::from_decay_offset(lvalue);
-        if (type::is_rvalue_data_type(rvalue)) {
-            auto value = type::get_rvalue_datatype_from_string(rvalue);
+        if (type::is_typed_rvalue(rvalue)) {
+            auto value = type::get_typed_rvalue_from_string(rvalue);
             objects_->data.insert(value);
             if (vectors.contains(lhs_lvalue))
                 vectors.at(lhs_lvalue).get().data[offset] = value;
@@ -293,8 +293,8 @@ void Table::from_pointer_or_vector_assignment(LValue const& lvalue,
         return;
     }
     // a literal assigned to a global, `ratio = 2.5;`, is in the data section
-    if (vectors.contains(lvalue) and type::is_rvalue_data_type(rvalue))
-        objects_->data.insert(type::get_rvalue_datatype_from_string(rvalue));
+    if (vectors.contains(lvalue) and type::is_typed_rvalue(rvalue))
+        objects_->data.insert(type::get_typed_rvalue_from_string(rvalue));
     // the right-hand-side is an address-of rvalue, `k = &m;`
     if (rvalue.starts_with("&")) {
         locals.set_symbol_by_name(
@@ -348,7 +348,7 @@ void Table::bind_pointer(LValue const& lvalue, RValue const& rvalue)
     // pointer to pointer
     if (locals.is_pointer(rvalue)) {
         locals.set_symbol_by_name(lvalue,
-            type::get_rvalue_data_type_as_string(
+            type::get_typed_rvalue_as_string(
                 object::get_rvalue_at_lvalue_object_storage(
                     rvalue, frame, objects_->vectors, __source__)));
         return;
@@ -359,15 +359,15 @@ void Table::bind_pointer(LValue const& lvalue, RValue const& rvalue)
         return;
     }
     // pointer to string literal
-    if (type::is_rvalue_data_type_string(rvalue)) {
+    if (type::is_typed_rvalue_string(rvalue)) {
         objects_->data.strings.insert(
-            type::get_value_from_rvalue_data_type(rvalue));
+            type::get_value_from_typed_rvalue(rvalue));
         locals.set_symbol_by_name(lvalue, rvalue);
         return;
     }
     // pointer to string storage in a vector
     if (object::is_vector(rvalue, objects_->vectors) and
-        type::get_type_from_rvalue_data_type(
+        type::get_type_from_typed_rvalue(
             object::get_rvalue_at_lvalue_object_storage(
                 rvalue, frame, objects_->vectors)) == "string")
         locals.set_symbol_by_name(lvalue, rvalue);
@@ -461,7 +461,7 @@ void Table::bind_vector(LValue const& lvalue, RValue const& rvalue)
             m::ds(m::app(local_contains, true), m::app(vector_contains, true)) =
             [&] {
                 if (locals.is_defined(rvalue_offset))
-                    rvalue_offset = type::get_value_from_rvalue_data_type(
+                    rvalue_offset = type::get_value_from_typed_rvalue(
                         object::get_rvalue_at_lvalue_object_storage(
                             rvalue_offset, frame, objects_->vectors));
                 auto& vector = objects_->vectors.at(rvalue_direct).get();
@@ -555,7 +555,7 @@ void Table::from_pop_instruction(Quadruple const& instruction)
 /**
  * @brief Parse the unary rvalue types into their operator and lvalue
  */
-type::Data_Type Table::from_rvalue_unary_expression(LValue const& lvalue,
+type::Typed_RValue Table::from_rvalue_unary_expression(LValue const& lvalue,
     RValue const& rvalue,
     std::string_view unary_operator)
 {
@@ -565,12 +565,12 @@ type::Data_Type Table::from_rvalue_unary_expression(LValue const& lvalue,
         m::pattern | "*" =
             [&] {
                 from_pointer_or_vector_assignment(lvalue, rvalue);
-                return type::Data_Type{ rvalue, "word", sizeof(void*) };
+                return type::Typed_RValue{ rvalue, "word", sizeof(void*) };
             },
         m::pattern | "&" =
             [&] {
                 locals.set_symbol_by_name(lvalue, rvalue);
-                return type::Data_Type{ lvalue, "word", sizeof(void*) };
+                return type::Typed_RValue{ lvalue, "word", sizeof(void*) };
             },
         m::pattern |
             "+" = [&] { return from_integral_unary_expression(lvalue); },
@@ -616,9 +616,9 @@ void Table::from_temporary_reassignment(LValue const& lhs, LValue const& rhs)
                 locals.set_symbol_by_name(lhs, { rvalue, type, size });
                 return;
             }
-            if (type::is_rvalue_data_type(rvalue_reference)) {
+            if (type::is_typed_rvalue(rvalue_reference)) {
                 auto [_, type, size] =
-                    type::get_rvalue_datatype_from_string(rvalue_reference);
+                    type::get_typed_rvalue_from_string(rvalue_reference);
                 locals.set_symbol_by_name(lhs, { rvalue, type, size });
                 return;
             }
@@ -639,14 +639,14 @@ void Table::from_temporary_assignment(LValue const& lhs, LValue const& rhs)
         frame.locals.set_symbol_by_name(lhs, rhs);
     // each literal operand of a binary expression is a literal of the data
     // section
-    if (is_single_rvalue_data_type(rhs)) {
-        objects_->data.insert(type::get_rvalue_datatype_from_string(rhs));
+    if (is_single_typed_rvalue(rhs)) {
+        objects_->data.insert(type::get_typed_rvalue_from_string(rhs));
     } else if (type::is_binary_expression(rhs)) {
         auto [left, right, _] = type::from_rvalue_binary_expression(rhs);
         for (auto const& operand : { left, right })
-            if (is_single_rvalue_data_type(operand))
+            if (is_single_typed_rvalue(operand))
                 objects_->data.insert(
-                    type::get_rvalue_datatype_from_string(operand));
+                    type::get_typed_rvalue_from_string(operand));
     }
 }
 
@@ -671,28 +671,27 @@ void Table::from_scaler_symbol_assignment(LValue const& lhs, LValue const& rhs)
  * Parse numeric ITA unary expressions, where the rvalue may
  * be from the temporary stack or the local frame stack
  */
-type::Data_Type Table::from_integral_unary_expression(RValue const& lvalue)
+type::Typed_RValue Table::from_integral_unary_expression(RValue const& lvalue)
 {
     auto& frame = get_stack_frame();
     auto& locals = frame.locals;
     auto rvalue = type::get_unary_rvalue_reference(lvalue);
 
     if (frame.temporary.contains(lvalue))
-        return type::get_rvalue_datatype_from_string(
+        return type::get_typed_rvalue_from_string(
             type::get_unary_rvalue_reference(frame.temporary[lvalue]));
     if (frame.is_parameter(rvalue) and not locals.is_defined(rvalue))
-        return type::Data_Type{ rvalue, "word", sizeof(void*) };
+        return type::Typed_RValue{ rvalue, "word", sizeof(void*) };
 
     auto symbol = locals.get_symbol_by_name(rvalue);
-    if (std::get<1>(symbol) != "word")
+    if (symbol.type != "word")
         return symbol;
 
-    auto symbol_value = std::get<0>(symbol);
+    auto symbol_value = symbol.value;
     if (type::is_unary_expression(symbol_value)) {
         auto rhs = type::get_unary_rvalue_reference(symbol_value);
-        return locals.is_defined(rhs)
-                   ? locals.get_symbol_by_name(rhs)
-                   : type::get_rvalue_datatype_from_string(rhs);
+        return locals.is_defined(rhs) ? locals.get_symbol_by_name(rhs)
+                                      : type::get_typed_rvalue_from_string(rhs);
     }
     return symbol;
 }

@@ -271,8 +271,8 @@ void ITA::build_from_global_vector(std::string const& name,
     for (auto& child_node : right_child_node.array_range()) {
         auto rvalue = language::AST_Lowering::lower(
             child_node, internal_symbols_, symbols_, globals_);
-        auto datatype = std::get<language::literal::Literal>(rvalue.value);
-        values_at.emplace_back(datatype);
+        auto typed_rvalue = std::get<language::literal::Literal>(rvalue.value);
+        values_at.emplace_back(typed_rvalue);
     }
 
     globals_.set_symbol_by_name(name, values_at);

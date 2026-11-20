@@ -114,7 +114,7 @@ bool Library_Call_Inserter::is_address_device_pointer_to_buffer(
                                 assembly::Operand_Size::Doubleword;
                     return;
                 }
-                auto type = type::get_type_from_rvalue_data_type(
+                auto type = type::get_type_from_typed_rvalue(
                     object::get_rvalue_at_lvalue_object_storage(
                         lvalue, stack_frame, table->vectors, __source__));
                 is_buffer = type == "null" or type == "string";
@@ -135,7 +135,7 @@ bool Library_Call_Inserter::is_address_device_pointer_to_buffer(
                                        assembly::Register>(immediate),
                         "._L"))
                     is_buffer = true;
-                if (type::is_rvalue_data_type_string(immediate))
+                if (type::is_typed_rvalue_string(immediate))
                     is_buffer = true;
             } },
         address);
@@ -165,7 +165,7 @@ void Library_Call_Inserter::
     // the type of a literal is only its storage while it is a label
     std::string arg_type =
         locals.size() > index and is_variant(Immediate, argument)
-            ? type::get_type_from_rvalue_data_type(locals.at(index))
+            ? type::get_type_from_typed_rvalue(locals.at(index))
             : "";
 
     auto is_double_immediate = [&](RValue const& rvalue) {
@@ -181,7 +181,7 @@ void Library_Call_Inserter::
     m::match(rvalue)(
         m::pattern | m::app(is_string, true) =
             [&] {
-                auto immediate = type::get_value_from_rvalue_data_type(
+                auto immediate = type::get_value_from_typed_rvalue(
                     std::get<Immediate>(argument));
                 auto imm_1 = assembly::page_offset_upper_immediate(immediate);
                 arm64_add__asm(instructions, adrp, storage, imm_1);
@@ -191,7 +191,7 @@ void Library_Call_Inserter::
         m::pattern | m::or_(m::app(is_double_immediate, true),
                          m::app(is_float_immediate, true)) =
             [&] {
-                auto immediate = type::get_value_from_rvalue_data_type(
+                auto immediate = type::get_value_from_typed_rvalue(
                     std::get<Immediate>(argument));
                 auto imm_1 = assembly::page_offset_upper_immediate(immediate);
                 arm64_add__asm(instructions, adrp, x8, imm_1);

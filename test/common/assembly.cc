@@ -2,7 +2,7 @@
 
 #include <credence/target/common/assembly.h> // for get_result_from_trivia...
 #include <credence/target/common/types.h>    // for Immediate
-#include <credence/types.h> // for get_value_from_rvalue_data_type, from_rva...
+#include <credence/types.h> // for get_value_from_typed_rvalue, from_rva...
 #include <vector>           // for vector
 
 using Immediate = credence::target::common::Immediate;
@@ -14,7 +14,7 @@ namespace {
  */
 inline std::string get_value(Immediate const& immediate)
 {
-    return std::string{ credence::type::get_value_from_rvalue_data_type(
+    return std::string{ credence::type::get_value_from_typed_rvalue(
         immediate) };
 }
 

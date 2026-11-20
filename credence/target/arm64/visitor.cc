@@ -726,7 +726,7 @@ void IR_Instruction_Visitor::from_jmp_e_ita(ir::Quadruple const& inst)
             .get_arm64_lvalue_and_insertion_instructions(
                 of_comparator, instructions.size(), accessor_->device_accessor)
             .first;
-    auto with_rvalue_storage = type::get_rvalue_datatype_from_string(with);
+    auto with_rvalue_storage = type::get_typed_rvalue_from_string(with);
     auto jump_label = assembly::make_label(jump, stack_frame_.symbol);
     auto comparator_instructions = assembly::r_eq(
         of_rvalue_storage, with_rvalue_storage, jump_label, Register::w8);

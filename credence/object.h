@@ -16,7 +16,7 @@
 #include <array>             // for array
 #include <credence/map.h>    // for Ordered_Map
 #include <credence/symbol.h> // for Symbol_Table
-#include <credence/types.h>  // for Parameters, Address, Data_Type, Label
+#include <credence/types.h>  // for Parameters, Address, Typed_RValue, Label
 #include <credence/util.h>   // for contains, AST_Node
 #include <cstddef>           // for size_t
 #include <deque>             // for deque
@@ -75,8 +75,8 @@ struct Vector
     using Label = credence::type::semantic::Label;
     using Address = credence::type::semantic::Address;
     using Size = credence::type::semantic::Size;
-    using Entry = std::pair<Label, credence::type::Data_Type>;
-    using Storage = Ordered_Map<Label, credence::type::Data_Type>;
+    using Entry = std::pair<Label, credence::type::Typed_RValue>;
+    using Storage = Ordered_Map<Label, credence::type::Typed_RValue>;
     using Offset = Ordered_Map<Label, Address>;
 
     static constexpr std::size_t max_size{ 999 };
@@ -183,7 +183,7 @@ struct Vector_Offset
 
 } // namespace detail
 
-credence::type::Data_Type get_rvalue_at_lvalue_object_storage(
+credence::type::Typed_RValue get_rvalue_at_lvalue_object_storage(
     LValue const& lvalue,
     Function& stack_frame,
     Vectors& vectors,
@@ -225,7 +225,7 @@ Size get_size_of_temporary_binary_rvalue(RValue const& rvalue,
 struct Data_Section
 {
     void insert(RValue const& rvalue);
-    void insert(credence::type::Data_Type const& rvalue);
+    void insert(credence::type::Typed_RValue const& rvalue);
 
     RValues strings{};
     RValues floats{};

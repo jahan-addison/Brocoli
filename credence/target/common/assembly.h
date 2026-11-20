@@ -286,7 +286,7 @@ constexpr OS_Type get_os_type()
  */
 inline Immediate make_array_immediate(std::string_view address)
 {
-    return Immediate{ address, "string", 8UL };
+    return Immediate{ std::string{ address }, "string", 8UL };
 }
 
 /**
@@ -298,7 +298,7 @@ inline Immediate make_array_immediate(std::string_view address)
  */
 inline Immediate make_direct_immediate(std::string_view str)
 {
-    return Immediate{ str, "string", 8UL };
+    return Immediate{ std::string{ str }, "string", 8UL };
 }
 
 /**
@@ -315,7 +315,7 @@ std::string get_storage_as_string(Storage_T<Registers> const& storage)
                    },
                    [&](Registers const& s) { result << s; },
                    [&](Immediate const& s) {
-                       result << type::get_value_from_rvalue_data_type(s);
+                       result << type::get_value_from_typed_rvalue(s);
                    },
                },
         storage);

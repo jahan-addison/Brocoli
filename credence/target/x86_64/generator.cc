@@ -349,7 +349,7 @@ void Data_Emitter::set_data_doubles()
 /**
  * @brief Get the `.p2align` of a value of a type, the log2 of its alignment
  */
-std::size_t get_alignment_size_from_rvalue_data_type(
+std::size_t get_alignment_size_from_typed_rvalue(
     type::semantic::Type const& type)
 {
     using T = type::semantic::Type;
@@ -375,8 +375,8 @@ void Data_Emitter::set_data_globals()
         credence_assert(table->vectors.contains(global));
         auto& vector = table->vectors.at(global).get();
         if (vector.size == 1) {
-            auto align = get_alignment_size_from_rvalue_data_type(
-                type::get_type_from_rvalue_data_type(vector.data.at("0")));
+            auto align = get_alignment_size_from_typed_rvalue(
+                type::get_type_from_typed_rvalue(vector.data.at("0")));
             insert_alignment_directive(instructions_, align);
         } else {
             insert_alignment_directive(instructions_, 3);
@@ -386,10 +386,10 @@ void Data_Emitter::set_data_globals()
         for (auto const& item : vector.data) {
             auto directive =
                 assembly::get_data_directive_from_rvalue_type(item.second);
-            auto data = type::get_value_from_rvalue_data_type(item.second);
+            auto data = type::get_value_from_typed_rvalue(item.second);
             vector.set_address_offset(item.first, address);
             address += assembly::get_size_from_operand_size(
-                assembly::get_operand_size_from_rvalue_datatype(item.second));
+                assembly::get_operand_size_from_typed_rvalue(item.second));
 
             auto instructions =
                 get_instructions_from_directive_type(directive, data);
