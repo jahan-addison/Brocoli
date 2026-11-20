@@ -1,0 +1,1 @@
+the size of a binary expression is the size of its first operand with a size, so 10 * 2.5f is sized as an int, and float arithmetic does not assemble on arm64
