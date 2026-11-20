@@ -339,7 +339,7 @@ void write_to_file_from_string_stream(std::string_view file_name,
     std::ostringstream const& oss,
     std::string_view ext = "bo");
 
-std::string read_file_from_path(std::string_view path);
+std::string read_file_from_path(std::filesystem::path const& path);
 
 //////////
 // Other
