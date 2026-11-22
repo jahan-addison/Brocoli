@@ -353,14 +353,6 @@ class Memory_Accessor final : public X8664_Memory_Accessor
         , table_(std::move(table))
         , instructions_(std::move(instructions))
         , stack(std::move(stack_pointer))
-        , table_accessor(table_, instructions_)
-        , accumulator_accessor{ &signal_register }
-        , vector_accessor{ table_, get_frame_in_memory() }
-        , address_accessor{ table_,
-            stack,
-            flag_accessor,
-            get_frame_in_memory() }
-        , register_accessor{ &signal_register, address_accessor }
     {
         instruction_accessor = std::make_shared<detail::Instruction_Accessor>();
     }
