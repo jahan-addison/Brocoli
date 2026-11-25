@@ -13,6 +13,7 @@
 
 #include "object.h"
 
+#include <algorithm>         // for max
 #include <array>             // for array
 #include <credence/error.h>  // for credence_assert, assert_nequal_impl
 #include <credence/map.h>    // for Ordered_Map
@@ -24,21 +25,27 @@
 #include <fmt/compile.h>     // for format, operator""_cf
 #include <fmt/format.h>      // for format
 #include <matchit.h>         // for App, app, pattern, PatternHelper, Patte...
+#include <numeric>           // for accumulate
 #include <source_location>   // for source_location
 #include <string>            // for basic_string, char_traits, operator==
 #include <string_view>       // for basic_string_view, string_view
 #include <tuple>             // for get, tuple
+#include <utility>           // for move
+#include <variant>           // for visit
 
 /****************************************************************************
  * Object Table
  *
- * The vectors, functions, and stack frames of a program, as queryable
- * lvalues and rvalues. hir::Table defines each function, vector, and label,
- * ir::Table binds the IR onto their frames and storage, and each backend
- * allocates and addresses memory from it.
+ * The vectors, unions, functions, and stack frames of a program, as
+ * queryable lvalues and rvalues. hir::Table defines each function, vector,
+ * union, and label, ir::Table binds the IR onto their frames and storage,
+ * and each backend allocates and addresses memory from it.
+ *
+ *   union value_t { integer 0, pair (0, 0) };
  *
  *   main() {
  *     auto array[10];
+ *     union value_t v;
  *     array[5] = 42;
  *   }
  *
@@ -46,7 +53,11 @@
  *
  *  * a Vector "array" of size 10, where array[5] is (42:int:4)
  *
- *  * a Function "main", with "array" in its locals
+ *  * a Tagged_Union "value_t", where "integer" is (0:int:4) and "pair" is a
+ *    Vector of two ints
+ *
+ *  * a Function "main", with "array" in its locals and "v" of "value_t" in
+ *    its union table
  *
  ****************************************************************************/
 
@@ -77,73 +88,6 @@ void Function::set_parameters_from_symbolic_label(Label const& label)
     }
 }
 
-bool Function::is_pointer_in_stack_frame(RValue const& rvalue)
-{
-    return locals.is_pointer(rvalue) or is_pointer_parameter(rvalue);
-}
-
-bool Function::is_pointer_parameter(RValue const& parameter)
-{
-    using namespace fmt::literals;
-    return util::range_contains(fmt::format("*{}"_cf, parameter), parameters);
-}
-
-bool Function::is_scaler_parameter(RValue const& parameter)
-{
-    return util::range_contains(
-        type::from_lvalue_offset(parameter), parameters);
-}
-
-bool Function::is_parameter(RValue const& parameter)
-{
-    return is_scaler_parameter(parameter) or is_pointer_parameter(parameter);
-}
-
-int Function::get_index_of_parameter(RValue const& parameter)
-{
-    for (std::size_t i = 0; i < parameters.size(); i++) {
-        if (type::get_unary_rvalue_reference(parameters[i]) ==
-            type::from_lvalue_offset(parameter))
-            return i;
-    }
-    return -1;
-}
-
-namespace detail {
-
-/**
- * @brief Get the rvalue at the address of an offset in memory
- */
-RValue Vector_Offset::get_rvalue_offset_of_vector(RValue const& offset)
-{
-    // clang-format off
-    return stack_frame_.locals.is_defined(offset)
-    ? type::get_value_from_typed_rvalue(
-        get_rvalue_at_lvalue_object_storage(offset, stack_frame_, vectors_))
-    : offset;
-    // clang-format on
-}
-
-/**
- * @brief Check that the offset rvalue is a valid address in the vector
- */
-bool Vector_Offset::is_valid_vector_address_offset(LValue const& lvalue)
-{
-    auto lvalue_reference = type::get_unary_rvalue_reference(lvalue);
-    auto address = type::from_lvalue_offset(lvalue_reference);
-    // a global with no index, `counter`, is its first element
-    auto offset = util::contains(lvalue_reference, "[")
-                      ? type::from_decay_offset(lvalue_reference)
-                      : std::string{ "0" };
-    if (stack_frame_.is_parameter(offset)) {
-        return true;
-    }
-    return vectors_.at(address).get().data.contains(
-        get_rvalue_offset_of_vector(offset));
-}
-
-} // namespace detail
-
 /**
  * @brief Insert a function definition owned by the object table
  */
@@ -152,6 +96,16 @@ Function& Object_Table::set_function_definition(Label const& label)
     auto& function = function_storage_.emplace_back(label);
     functions.insert(label, std::ref(function));
     return function;
+}
+
+/**
+ * @brief Insert a union definition owned by the object table
+ */
+Tagged_Union& Object_Table::set_union_definition(Label const& label)
+{
+    auto& tagged_union = union_storage_.emplace_back(label);
+    unions.insert(label, std::ref(tagged_union));
+    return tagged_union;
 }
 
 /**
@@ -165,11 +119,43 @@ Vector& Object_Table::set_vector_definition(Label const& label, Address size_of)
 }
 
 /**
- * @brief Whether a vector is defined in the object table
+ * @brief Set the value of a scalar tag
  */
-bool Object_Table::vector_contains(LValue const& lvalue)
+void Tagged_Union::set_tag_entry(Label const& label,
+    credence::type::Typed_RValue const& entry)
 {
-    return vectors.contains(lvalue);
+    entries.insert(label, entry);
+}
+
+/**
+ * @brief Set the elements of a tuple tag, owned by the union
+ */
+void Tagged_Union::set_tag_entry(Label const& label, Vector entry)
+{
+    entries.insert(label, std::move(entry));
+}
+
+/**
+ * @brief The size in storage of the largest tag of the union, unpadded
+ *
+ * The storage of a union variable is its largest tag and its active tag.
+ */
+Size Tagged_Union::get_largest_tag_entry() const
+{
+    return std::accumulate(entries.begin(),
+        entries.end(),
+        Size{ 0 },
+        [](Size largest, auto const& entry) {
+            return std::max(largest,
+                std::visit(
+                    util::overload{ [](type::Typed_RValue const& rvalue) {
+                                       return get_storage_size(rvalue);
+                                   },
+                        [](Vector const& vector) {
+                            return vector.size_of_data();
+                        } },
+                    entry.second));
+        });
 }
 
 /**
@@ -198,64 +184,6 @@ void Data_Section::insert(type::Typed_RValue const& rvalue)
 }
 
 /**
- * @brief Reset the number of calls of each function
- */
-void Object_Table::reset_frame_calls()
-{
-    for (auto& function : functions) {
-        function.second.get().reset_calls();
-    }
-}
-
-/**
- * @brief The stack frame of a function by its label
- */
-Function& Object_Table::get_stack_frame(Label const& label)
-{
-    credence_assert(functions.contains(label));
-    return functions.at(label);
-}
-
-/**
- * @brief Whether an rvalue, or the vector of an element, is a vector
- */
-bool is_vector(RValue const& rvalue, Vectors& vectors)
-{
-    auto label =
-        util::contains(rvalue, "[") ? type::from_lvalue_offset(rvalue) : rvalue;
-    return vectors.contains(label);
-}
-
-/**
- * @brief Whether an rvalue is a pointer, an address-of, or a string literal
- */
-bool is_pointer(RValue const& rvalue, Function& stack_frame)
-{
-    return stack_frame.locals.is_pointer(rvalue) or rvalue.starts_with("&") or
-           type::is_typed_rvalue_string(rvalue);
-}
-
-/**
- * @brief Whether an rvalue is a vector, a pointer, or a dereference
- */
-bool is_vector_or_pointer(RValue const& rvalue,
-    Function& stack_frame,
-    Vectors& vectors)
-{
-    return is_vector(rvalue, vectors) or is_pointer(rvalue, stack_frame) or
-           type::is_dereference_expression(rvalue);
-}
-
-/**
- * @brief Whether an lvalue is a local of a stack frame, and not a vector
- */
-bool local_contains(LValue const& lvalue, Function& stack_frame)
-{
-    return stack_frame.locals.is_defined(lvalue) and
-           not is_vector_lvalue(lvalue);
-}
-
-/**
  * @brief Get the type from a symbol in the stack frame or vector storage
  *
  * Note: vector boundaries are not checked here, see
@@ -274,6 +202,42 @@ Type get_type_from_object_data_type(LValue const& lvalue,
     }
     return locals.get_symbol_by_name(lvalue).type;
 }
+
+namespace {
+
+/**
+ * @brief Resolve the rvalue of an element of a vector in the object table
+ */
+type::Typed_RValue get_rvalue_at_vector_object_storage(LValue const& lvalue,
+    Function& stack_frame,
+    Vectors& vectors,
+    std::source_location const& location)
+{
+    auto lvalue_reference = type::get_unary_rvalue_reference(lvalue);
+    auto vector_offset = detail::Vector_Offset{ stack_frame, vectors };
+    auto address = type::from_lvalue_offset(lvalue_reference);
+    // a global with no index, `counter`, is its first element
+    auto offset = util::contains(lvalue_reference, "[")
+                      ? type::from_decay_offset(lvalue_reference)
+                      : std::string{ "0" };
+    auto offset_rvalue = vector_offset.get_rvalue_offset_of_vector(offset);
+    if (stack_frame.is_parameter(offset)) {
+        return type::Typed_RValue{ lvalue, "word", 8UL };
+    }
+    if (!vector_offset.is_valid_vector_address_offset(lvalue))
+        throw_compiletime_error(
+            fmt::format("lvalue '{}' is not a vector with offset '{}' with "
+                        "and storage of '{}'",
+                address,
+                offset,
+                offset_rvalue),
+            lvalue,
+            location);
+
+    return vectors.at(address).get().data[offset_rvalue];
+}
+
+} // namespace
 
 /**
  * @brief Resolve the rvalue of a pointer in the table object and stack frame
@@ -296,28 +260,10 @@ type::Typed_RValue get_rvalue_at_lvalue_object_storage(LValue const& lvalue,
         return get_rvalue_at_lvalue_object_storage(
             address_at, stack_frame, vectors, location);
     }
-    if (vectors.contains(type::from_lvalue_offset(lvalue_reference))) {
-        auto vector_offset = detail::Vector_Offset{ stack_frame, vectors };
-        auto address = type::from_lvalue_offset(lvalue_reference);
-        // a global with no index, `counter`, is its first element
-        auto offset = util::contains(lvalue_reference, "[")
-                          ? type::from_decay_offset(lvalue_reference)
-                          : std::string{ "0" };
-        auto offset_rvalue = vector_offset.get_rvalue_offset_of_vector(offset);
-        if (stack_frame.is_parameter(offset)) {
-            return type::Typed_RValue{ lvalue, "word", 8UL };
-        }
-        if (!vector_offset.is_valid_vector_address_offset(lvalue))
-            throw_compiletime_error(
-                fmt::format("lvalue '{}' is not a vector with offset '{}' with "
-                            "and storage of '{}'",
-                    address,
-                    offset,
-                    offset_rvalue),
-                lvalue,
-                location);
-        return vectors.at(address).get().data[offset_rvalue];
-    }
+    if (vectors.contains(type::from_lvalue_offset(lvalue_reference)))
+        return get_rvalue_at_vector_object_storage(
+            lvalue, stack_frame, vectors, location);
+
     if (type::is_typed_rvalue(lvalue))
         return type::get_typed_rvalue_from_string(lvalue);
 
@@ -343,29 +289,29 @@ RValue lvalue_at_temporary_object_address(LValue const& lvalue,
     }
 }
 
+namespace {
+
 /**
- * @brief Resolve the size at a temporary storage address in the object table
+ * @brief Resolve the size of a binary expression in a stack frame
+ *
+ * The size is of the first operand with a size, the left then the right,
+ * as both are assumed the same size. Tracked by `mixed_operand_sizes`.
  */
-Size lvalue_size_at_temporary_object_address(LValue const& lvalue,
+Size lvalue_size_at_temporary_binary_expression(RValue const& rvalue,
     Function& stack_frame)
 {
-    auto rvalue = lvalue_at_temporary_object_address(lvalue, stack_frame);
     auto& locals = stack_frame.locals;
-
-    if (type::is_typed_rvalue(rvalue) and
-        not type::is_typed_rvalue_word(rvalue))
-        return type::get_size_from_typed_rvalue(rvalue);
-    if (type::is_unary_expression(rvalue))
-        return lvalue_size_at_temporary_object_address(
-            type::get_unary_rvalue_reference(rvalue), stack_frame);
     if (type::is_binary_expression(rvalue)) {
         auto [left, right, op] = type::from_rvalue_binary_expression(rvalue);
+        // a literal operand, left then right
         if (type::is_typed_rvalue(left) and
             not type::is_typed_rvalue_word(left))
             return type::get_size_from_typed_rvalue(left);
         if (type::is_typed_rvalue(right) and
             not type::is_typed_rvalue_word(right))
             return type::get_size_from_typed_rvalue(right);
+
+        // a local of the frame, left then right
         if (locals.is_defined(left) and not locals.is_pointer(left)) {
             auto typed_rvalue = locals.get_symbol_by_name(left);
             if (type::is_typed_rvalue_word(typed_rvalue))
@@ -387,10 +333,40 @@ Size lvalue_size_at_temporary_object_address(LValue const& lvalue,
                     locals.get_symbol_by_name(right));
         }
     }
+    return 0UL;
+}
+
+} // namespace
+
+/**
+ * @brief Resolve the size at a temporary storage address in the object table
+ *
+ * Note: a binary expression is sized by one of its operands, see
+ * lvalue_size_at_temporary_binary_expression
+ */
+Size lvalue_size_at_temporary_object_address(LValue const& lvalue,
+    Function& stack_frame)
+{
+    auto rvalue = lvalue_at_temporary_object_address(lvalue, stack_frame);
+    auto& locals = stack_frame.locals;
+
+    if (type::is_typed_rvalue(rvalue) and
+        not type::is_typed_rvalue_word(rvalue))
+        return type::get_size_from_typed_rvalue(rvalue);
+    if (type::is_unary_expression(rvalue))
+        return lvalue_size_at_temporary_object_address(
+            type::get_unary_rvalue_reference(rvalue), stack_frame);
+
+    if (auto binary_expression_size =
+            lvalue_size_at_temporary_binary_expression(rvalue, stack_frame))
+        return binary_expression_size;
+
+    // A temporary binary expression, e.g. `_t5 * 102`
     if (type::is_temporary_typed_rvalue_binary_expression(rvalue)) {
         auto [left, right, op] = type::from_rvalue_binary_expression(rvalue);
         return lvalue_size_at_temporary_object_address(left, stack_frame);
     }
+
     if (locals.is_defined(rvalue)) {
         auto typed_rvalue = locals.get_symbol_by_name(rvalue);
         if (type::is_typed_rvalue_word(typed_rvalue))
@@ -400,9 +376,12 @@ Size lvalue_size_at_temporary_object_address(LValue const& lvalue,
             return type::get_size_from_typed_rvalue(
                 locals.get_symbol_by_name(rvalue));
     }
+
     if (rvalue == "RET")
         return 8UL;
+
     credence_error(fmt::format("undefined object: {}", rvalue));
+
     return 0UL;
 }
 

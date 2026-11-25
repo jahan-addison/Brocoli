@@ -18,7 +18,7 @@ Each bug is a known failure of the [end-to-end suite](/development.md#end-to-end
 * `global_arithmetic` - a global as an operand of a binary expression, `x = unit + 1;`, is moved from memory, `mov x8, [x6]` and `mov rax, dword ptr [rip + unit]`, which do not assemble
 * `global_double` - a double global is the address of its literal, so `printf("%f", ratio)` prints `0.000000` on arm64, and does not assemble on x86-64
 * `vector_parameter` - a vector offset that is a parameter, `mess[n]`, fails to compile with "symbol not found"
-* `mixed_operand_sizes` - the size of a binary expression is the size of its first operand with a size, in `lvalue_size_at_temporary_object_address` of [`object.cc`](/credence/object.cc), so `10 * 2.5f` is sized as an int. Float arithmetic, `float_arithmetic`, fails first
+* `mixed_operand_sizes` - the size of a binary expression is the size of its first operand with a size, in `lvalue_size_at_temporary_binary_expression` of [`object.cc`](/credence/object.cc), so `10 * 2.5f` is sized as an int. Float arithmetic, `float_arithmetic`, fails first
 * `long_literal` - an integer literal larger than an int is lowered as an int, so `3000000000` is `(-1294967296:int:4)`, and arm64 cannot move it as an immediate
 
 ## x86-64

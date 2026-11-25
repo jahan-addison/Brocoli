@@ -13,8 +13,10 @@
 
 #pragma once
 
+#include <algorithm>         // for all_of
 #include <compare>           // for operator<=>
 #include <concepts>          // for integral
+#include <credence/error.h>  // for credence_assert_message
 #include <credence/symbol.h> // for Symbol_Table
 #include <credence/util.h>   // for AST_Node, CREDENCE_PRIVATE_UNLESS_TESTED
 #include <deque>             // for deque
@@ -28,6 +30,7 @@
 #include <string>            // for basic_string, string
 #include <string_view>       // for string_view
 #include <tuple>             // for tuple
+#include <utility>           // for pair
 #include <variant>           // for variant
 #include <vector>            // for vector
 
@@ -386,6 +389,127 @@ constexpr bool is_temporary(RValue_Reference rvalue)
             return false;
     }
     return true;
+}
+
+/**
+ * @brief Whether a name is an identifier, a letter or underscore followed by
+ * letters, digits, or underscores
+ *
+ *  Examples:
+ *
+ *    is_valid_identifier("value_t")    // true
+ *    is_valid_identifier("_t1")        // true
+ *    is_valid_identifier("1x")         // false
+ */
+constexpr bool is_valid_identifier(std::string_view id)
+{
+    if (id.empty())
+        return false;
+    auto is_alpha_or_underscore = [](char c) {
+        return (c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z') or c == '_';
+    };
+    auto is_alnum_or_underscore = [&](char c) {
+        return is_alpha_or_underscore(c) or (c >= '0' and c <= '9');
+    };
+    return is_alpha_or_underscore(id.front()) and
+           std::ranges::all_of(id.substr(1), is_alnum_or_underscore);
+}
+
+/**
+ * @brief Split an lvalue into its object and the offset of its subscript
+ *
+ * The offset is empty when the lvalue has no subscript, or when the
+ * subscript is not a single offset at its end.
+ *
+ *  Examples:
+ *
+ *    get_subscript_sections("v.pair[0]")    // { "v.pair", "0" }
+ *    get_subscript_sections("v.pair[n]")    // { "v.pair", "n" }
+ *    get_subscript_sections("v.text")       // { "v.text", "" }
+ *    get_subscript_sections("v.pair[0")     // { "v.pair[0", "" }
+ */
+constexpr std::pair<std::string_view, std::string_view> get_subscript_sections(
+    std::string_view lvalue)
+{
+    auto open = lvalue.find('[');
+    if (open == std::string_view::npos or not lvalue.ends_with(']') or
+        lvalue.find('[', open + 1) != std::string_view::npos)
+        return { lvalue, {} };
+    return { lvalue.substr(0, open),
+        lvalue.substr(open + 1, lvalue.size() - open - 2) };
+}
+
+/**
+ * @brief Whether an offset is an integer or an identifier
+ *
+ *  Examples:
+ *
+ *    is_valid_offset("0")     // true
+ *    is_valid_offset("n")     // true
+ *    is_valid_offset("1x")    // false
+ */
+constexpr bool is_valid_offset(std::string_view offset)
+{
+    auto is_digit = [](char c) { return c >= '0' and c <= '9'; };
+    return is_valid_identifier(offset) or
+           (not offset.empty() and std::ranges::all_of(offset, is_digit));
+}
+
+/**
+ * @brief Whether an rvalue is an object and a tag, with an optional offset
+ *
+ * The object is a union, `value_t.text`, or a union variable, `v.text`.
+ *
+ *  Examples:
+ *
+ *    is_dot_notation_object_identifier("value_t.text")    // true
+ *    is_dot_notation_object_identifier("v.pair[0]")       // true
+ *    is_dot_notation_object_identifier("v.pair[0][1]")    // false
+ *    is_dot_notation_object_identifier("2.5")             // false
+ */
+constexpr bool is_dot_notation_object_identifier(std::string_view rvalue)
+{
+    auto [object, offset] = get_subscript_sections(rvalue);
+    if (object.size() != rvalue.size() and not is_valid_offset(offset))
+        return false;
+    auto dot = object.find('.');
+    if (dot == std::string_view::npos)
+        return false;
+    return is_valid_identifier(object.substr(0, dot)) and
+           is_valid_identifier(object.substr(dot + 1));
+}
+
+/**
+ * @brief The object and the tag of a dot notation identifier
+ *
+ *  Examples:
+ *
+ *    get_union_identifier_sections("value_t.text")    // { "value_t", "text" }
+ *    get_union_identifier_sections("v.pair[1]")       // { "v", "pair" }
+ */
+constexpr std::pair<std::string_view, std::string_view>
+get_union_identifier_sections(std::string_view identifier)
+{
+    credence_assert_message(is_dot_notation_object_identifier(identifier),
+        "identifier is not a union");
+    auto object = get_subscript_sections(identifier).first;
+    auto dot = object.find('.');
+    return { object.substr(0, dot), object.substr(dot + 1) };
+}
+
+/**
+ * @brief The offset of an element of a tuple tag, or empty for a scalar tag
+ *
+ *  Examples:
+ *
+ *    get_union_tag_offset("v.pair[1]")    // "1"
+ *    get_union_tag_offset("v.text")       // ""
+ */
+constexpr std::string_view get_union_tag_offset(std::string_view identifier)
+{
+    credence_assert_message(is_dot_notation_object_identifier(identifier),
+        "identifier is not a union");
+    return get_subscript_sections(identifier).second;
 }
 
 /**

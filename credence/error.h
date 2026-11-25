@@ -193,7 +193,7 @@ inline void assert_fail(std::source_location const& location,
     }
 }
 
-inline void assert_impl(std::source_location const& location,
+constexpr void assert_impl(std::source_location const& location,
     bool condition,
     std::string_view message = "")
 {
