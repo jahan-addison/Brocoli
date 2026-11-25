@@ -116,7 +116,7 @@ bool Library_Call_Inserter::is_address_device_pointer_to_buffer(
                 }
                 auto type = type::get_type_from_typed_rvalue(
                     object::get_rvalue_at_lvalue_object_storage(
-                        lvalue, stack_frame, table->vectors, __source__));
+                        lvalue, stack_frame, table->vectors));
                 is_buffer = type == "null" or type == "string";
             },
             [&](assembly::Register& device) {

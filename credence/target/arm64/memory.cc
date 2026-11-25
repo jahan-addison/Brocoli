@@ -24,10 +24,11 @@
 #include <credence/symbol.h>                 // for Symbol_Table
 #include <credence/target/common/assembly.h> // for direct_immediate, make_...
 #include <credence/types.h>                  // for get_size_from_rvalue_da...
-#include <credence/util.h>                   // for INLINE_DEBUG, is_variant
+#include <credence/util.h>                   // for is_variant
 #include <deque>                             // for deque
 #include <fmt/format.h>                      // for format
 #include <matchit.h>                         // for App, pattern, app, Patt...
+#include <source_location>                   // for source_location
 #include <string>                            // for basic_string, char_traits
 #include <string_view>                       // for basic_string_view
 #include <tuple>                             // for get
@@ -515,7 +516,7 @@ void Device_Accessor::insert_lvalue_to_device(LValue const& lvalue,
  * The size is the size of the value of the lvalue in the object table
  */
 void Device_Accessor::insert_lvalue_to_device(LValue const& lvalue,
-    INLINE_DEBUG)
+    std::source_location const& location)
 {
     auto& table_ = address_accessor_.table_;
     auto& frame = stack_frame_.get_stack_frame();
@@ -528,7 +529,7 @@ void Device_Accessor::insert_lvalue_to_device(LValue const& lvalue,
         table_->get_stack_frame(stack_frame_.symbol),
         table_accessor_.get_ir_instructions());
     auto rvalue = object::get_rvalue_at_lvalue_object_storage(
-        lvalue, frame, table_->vectors, DEBUG_SOURCE);
+        lvalue, frame, table_->vectors, location);
     auto operand = assembly::get_operand_size_from_typed_rvalue(rvalue);
 
     switch (operand) {

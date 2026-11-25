@@ -23,13 +23,14 @@
 #include <credence/target/common/stack_frame.h> // for Stack_Frame
 #include <credence/target/common/types.h>       // for Storage_T
 #include <credence/types.h>                     // for get_size_from_rvalue...
-#include <credence/util.h>                      // for SET_INLINE_DEBUG
+#include <credence/util.h>                      // for overload
 #include <cstddef>                              // for size_t
 #include <deque>                                // for deque
 #include <functional>                           // for function
 #include <memory>                               // for shared_ptr, make_shared
 #include <optional>                             // for optional
 #include <set>                                  // for set
+#include <source_location>                      // for source_location
 #include <string>                               // for basic_string, string
 #include <utility>                              // for move
 
@@ -385,7 +386,8 @@ class Device_Accessor
   public:
     Register get_available_storage_register(Operand_Size size);
     void insert_lvalue_to_device(LValue const& lvalue, Operand_Size size);
-    void insert_lvalue_to_device(LValue const& lvalue, SET_INLINE_DEBUG);
+    void insert_lvalue_to_device(LValue const& lvalue,
+        std::source_location const& location = std::source_location::current());
     void set_vector_offset_to_storage_space(LValue const& lvalue);
     bool is_address_taken(LValue const& lvalue);
     Size get_size_from_rvalue_reference(RValue const& rvalue);

@@ -40,31 +40,18 @@
  * > File I/O operations
  * > Type checking and variant helpers
  * > AST node manipulation
- * > Debugging and source location tracking
  *
  *****************************************************************************/
 
 namespace easyjson {
 class JSON;
-} // lines 41-41
+} // namespace easyjson
 
 #define STRINGIFY2(X) #X
 #define STRINGIFY(X) STRINGIFY2(X)
 
 #define WIDE_AND_STRINGIFY(x) L##x
 #define WIDE_STRINGIFY(x) WIDE_AND_STRINGIFY(x)
-
-#define __source__ std::source_location::current()
-#define SET_INLINE_DEBUG std::source_location const& source = __source__
-#define INLINE_DEBUG std::source_location const& source
-#define DEBUG_SOURCE source
-
-namespace easyjson {
-class JSON;
-} // lines 30-30
-namespace easyjson {
-class JSON;
-} // lines 31-31
 
 #define CREDENCE_PUBLIC public
 #ifdef CREDENCE_TEST

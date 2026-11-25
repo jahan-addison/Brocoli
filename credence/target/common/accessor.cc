@@ -20,7 +20,7 @@
 #include <credence/target/common/memory.h>      // for is_vector_offset
 #include <credence/target/common/stack_frame.h> // for Stack_Frame, Locals
 #include <credence/types.h>                     // for get_size_from_rvalue...
-#include <credence/util.h>                      // for is_numeric, __source__
+#include <credence/util.h>                      // for is_numeric
 #include <easyjson.h>                           // for JSON
 #include <fmt/format.h>                         // for format
 #include <map>                                  // for map
@@ -199,7 +199,7 @@ Size Buffer_Accessor::get_size_in_local_address(LValue const& lvalue,
     }
     if (locals.is_pointer(lvalue)) {
         auto rvalue_address = object::get_rvalue_at_lvalue_object_storage(
-            lvalue, frame, pimpl->table->vectors, __source__);
+            lvalue, frame, pimpl->table->vectors);
         return type::get_size_from_typed_rvalue(rvalue_address);
     }
     auto local_symbol = locals.get_symbol_by_name(lvalue);
@@ -266,7 +266,7 @@ Size Buffer_Accessor::get_size_of_string_lvalue_buffer_address(
             key = offset;
         } else {
             auto index = object::get_rvalue_at_lvalue_object_storage(
-                offset, frame, vectors, __source__);
+                offset, frame, vectors);
             key = std::string{ type::get_value_from_typed_rvalue(index) };
         }
         return type::get_size_from_typed_rvalue(vector.data.at(key));
@@ -279,7 +279,7 @@ Size Buffer_Accessor::get_size_of_string_lvalue_buffer_address(
             key = offset;
         } else {
             auto index = object::get_rvalue_at_lvalue_object_storage(
-                offset, frame, vectors, __source__);
+                offset, frame, vectors);
             key = std::string{ type::get_value_from_typed_rvalue(index) };
         }
         return type::get_size_from_typed_rvalue(vector.data.at(key));
@@ -291,7 +291,7 @@ Size Buffer_Accessor::get_size_of_string_lvalue_buffer_address(
     else
         return type::get_size_from_typed_rvalue(
             object::get_rvalue_at_lvalue_object_storage(
-                lvalue, frame, vectors, __source__));
+                lvalue, frame, vectors));
 }
 
 /**
@@ -550,8 +550,8 @@ auto Vector_Accessor<Entry>::get_offset_from_hoisted_symbols(
 {
     auto& frame = stack_frame_.get_stack_frame();
     auto& vectors = table_->vectors;
-    auto index = object::get_rvalue_at_lvalue_object_storage(
-        offset, frame, vectors, __source__);
+    auto index =
+        object::get_rvalue_at_lvalue_object_storage(offset, frame, vectors);
     auto key = std::string{ type::get_value_from_typed_rvalue(index) };
     if (!vectors.at(vector).get().data.contains(key))
         throw_compiletime_error(

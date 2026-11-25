@@ -23,7 +23,8 @@
 #include <credence/error.h>  // for assert_equal_impl, credence_assert_e...
 #include <credence/object.h> // for Function
 #include <credence/types.h>  // for Label
-#include <credence/util.h>   // for AST_Node, AST, __source__
+#include <credence/util.h>   // for AST_Node, AST
+#include <source_location>   // for source_location
 #include <string>            // for basic_string, string, operator==
 #include <string_view>       // for basic_string_view
 
@@ -110,7 +111,7 @@ std::pair<bool, bool> argc_argv_kernel_runtime_access(
         throw_runtime_error("invalid argument count, expected at most two for "
                             "'argc' and 'argv'",
             "main",
-            __source__,
+            std::source_location::current(),
             "program invocation");
 
     auto main_argc = entry_point.parameters.size() >= 1;

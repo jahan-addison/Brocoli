@@ -350,7 +350,7 @@ void Table::bind_pointer(LValue const& lvalue, RValue const& rvalue)
         locals.set_symbol_by_name(lvalue,
             type::get_typed_rvalue_as_string(
                 object::get_rvalue_at_lvalue_object_storage(
-                    rvalue, frame, objects_->vectors, __source__)));
+                    rvalue, frame, objects_->vectors)));
         return;
     }
     // pointer to address-of lvalue

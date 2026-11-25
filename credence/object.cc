@@ -457,8 +457,8 @@ void set_stack_frame_return_value(RValue const& rvalue,
             },
         m::pattern | m::app(is_vector_lvalue, true) =
             [&] {
-                auto value_at = get_rvalue_at_lvalue_object_storage(
-                    rvalue, frame, vectors, __source__);
+                auto value_at =
+                    get_rvalue_at_lvalue_object_storage(rvalue, frame, vectors);
                 frame.ret = std::make_pair(
                     type::get_value_from_typed_rvalue(value_at), rvalue);
             },

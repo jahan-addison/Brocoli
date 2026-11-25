@@ -13,14 +13,23 @@
 
 #pragma once
 
-#include <credence/util.h>
-#include <easyjson.h>
-#include <exception>
-#include <fmt/compile.h>
-#include <fmt/format.h>
-#include <source_location>
-#include <string_view>
-#include <type_traits>
+#include <array>           // for array
+#include <credence/util.h> // for to_constexpr_string, AST_Node
+#include <cstdlib>         // for free
+#include <easyjson.h>      // for JSON
+#include <exception>       // for exception
+#include <fmt/compile.h>   // for operator""_cf
+#include <fmt/format.h>    // for format, format_string
+#include <source_location> // for source_location
+#include <string>          // for basic_string, string
+#include <string_view>     // for string_view
+#include <utility>         // for forward
+
+#if defined(DEBUG) && __has_include(<execinfo.h>)
+#define CREDENCE_BACKTRACE
+#include <cxxabi.h>   // for __cxa_demangle
+#include <execinfo.h> // for backtrace, backtrace_symbols
+#endif
 
 /****************************************************************************
  *
@@ -56,6 +65,8 @@
  *   }
  *
  * All errors include source location (file, line, column) for easy debugging.
+ * An internal assertion is usable in a constant expression, and in a debug
+ * build prints the backtrace of its caller.
  *
  *****************************************************************************/
 
@@ -170,54 +181,97 @@ inline void compile_error_impl(
 #endif
 }
 
+#ifdef CREDENCE_BACKTRACE
+
+/**
+ * @brief Demangle the symbol in a frame of backtrace_symbols
+ *
+ * The symbol is the first `_Z` name, `main + 24` on macOS and
+ * `credence(main+0x18)` on Linux. A frame with no mangled name is unchanged.
+ */
+inline std::string demangle_frame(std::string_view frame)
+{
+    auto start = frame.find("_Z");
+    if (start == std::string_view::npos)
+        return std::string{ frame };
+    auto end = frame.find_first_of(" +)", start);
+    auto mangled = std::string{ frame.substr(start, end - start) };
+    int status = 0;
+    char* name =
+        abi::__cxa_demangle(mangled.c_str(), nullptr, nullptr, &status);
+    if (status != 0 or name == nullptr)
+        return std::string{ frame };
+    auto demangled = fmt::format("{}{}{}",
+        frame.substr(0, start),
+        name,
+        end == std::string_view::npos ? "" : frame.substr(end));
+    std::free(static_cast<void*>(name));
+    return demangled;
+}
+
+#endif
+
+/**
+ * @brief The call stack of an internal assertion, in debug builds
+ *
+ * The frames of the assertion itself, in credence::detail, are left out.
+ * Empty in a release build, or where execinfo.h is not available.
+ */
+inline std::string get_backtrace()
+{
+#ifdef CREDENCE_BACKTRACE
+    std::array<void*, 64> frames{};
+    auto size = ::backtrace(frames.data(), static_cast<int>(frames.size()));
+    auto* symbols = ::backtrace_symbols(frames.data(), size);
+    if (symbols == nullptr)
+        return {};
+    auto trace = std::string{ "\n    Backtrace:\n" };
+    for (int i = 0; i < size; i++) {
+        auto frame = demangle_frame(symbols[i]);
+        if (not util::contains(frame, "credence::detail::"))
+            trace += fmt::format("      {}\n", frame);
+    }
+    std::free(static_cast<void*>(symbols));
+    return trace;
+#else
+    return {};
+#endif
+}
+
+/**
+ * @brief Throw an internal assertion, with its location and message
+ */
 inline void assert_fail(std::source_location const& location,
     std::string_view message = "")
 {
-    if (message.empty()) {
+    if (message.empty())
         throw Credence_Exception(
-            "\n    Assertion failed in '{}'\n    at line {}\n  ::: "
-            "'{}'\n",
-            location.file_name(),
-            location.line(),
-            location.function_name());
-    } else {
-        throw Credence_Exception(
-            "\n    Assertion failed in '{}'\n    at line {}\n  ::: "
-            "'{}'\n    "
-            "with "
-            "'{}'\n",
+            "\n    Assertion failed in '{}'\n    at line {}\n  ::: '{}'\n{}",
             location.file_name(),
             location.line(),
             location.function_name(),
-            message);
-    }
+            get_backtrace());
+    throw Credence_Exception("\n    Assertion failed in '{}'\n    at line "
+                             "{}\n  ::: '{}'\n    with '{}'\n{}",
+        location.file_name(),
+        location.line(),
+        location.function_name(),
+        message,
+        get_backtrace());
 }
 
+/**
+ * @brief An internal assertion, usable in a constant expression
+ *
+ * The failure is not a constant expression, so a failed assertion in a
+ * constant evaluation is a compile error.
+ */
 constexpr void assert_impl(std::source_location const& location,
     bool condition,
     std::string_view message = "")
 {
-    if (!condition) {
-        if (message.empty()) {
-            throw Credence_Exception(
-                "\n    Assertion Failed in '{}'\n    at line {} "
-                "\n  ::: '{}'\n",
-                location.file_name(),
-                location.line(),
-                location.function_name());
-        } else {
-            throw Credence_Exception(
-                "\n    Assertion failed in '{}'\n    at line {} "
-                "\n  ::: '{}': \n   "
-                " "
-                "with "
-                "'{}'\n",
-                location.file_name(),
-                location.line(),
-                location.function_name(),
-                message);
-        }
-    }
+    if (not condition)
+        assert_fail(location, message);
 }
 
 template<typename T1, typename T2>

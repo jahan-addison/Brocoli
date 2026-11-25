@@ -19,7 +19,7 @@
 #include <credence/object.h> // for Object, get_rvalue_at_lvalue_object_...
 #include <credence/symbol.h> // for Symbol_Table
 #include <credence/types.h>  // for from_lvalue_offset, get_rvalue_data_...
-#include <credence/util.h>   // for __source__, overload
+#include <credence/util.h>   // for overload
 #include <cstddef>           // for size_t
 #include <deque>             // for deque
 #include <memory>            // for shared_ptr, unique_ptr
@@ -389,8 +389,7 @@ class Address_Accessor
             return type::get_type_from_typed_rvalue(
                        type::get_typed_rvalue_as_string(
                            object::get_rvalue_at_lvalue_object_storage(
-                               lvalue, frame, table_->vectors, __source__))) ==
-                   type_check;
+                               lvalue, frame, table_->vectors))) == type_check;
         } catch (...) {
             return false;
         }

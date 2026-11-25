@@ -18,7 +18,7 @@
 #include <array>             // for array
 #include <credence/error.h>  // for compile_error_impl, throw_compiletim...
 #include <credence/object.h> // for Object_Table
-#include <credence/util.h>   // for AST_Node, __source__, range_contains
+#include <credence/util.h>   // for AST_Node, range_contains
 #include <cstddef>           // for size_t
 #include <deque>             // for deque
 #include <easyjson.h>        // for object
@@ -196,7 +196,7 @@ struct Library_Call_Inserter
                         arguments.size(),
                         arg_size),
                     library_function,
-                    __source__,
+                    std::source_location::current(),
                     "function invocation");
         } else {
             if (arguments.size() != arg_size)
@@ -206,7 +206,7 @@ struct Library_Call_Inserter
                         arguments.size(),
                         arg_size),
                     library_function,
-                    __source__,
+                    std::source_location::current(),
                     "function invocation");
         }
     }

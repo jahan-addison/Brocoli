@@ -33,6 +33,7 @@
 #include <fmt/format.h>                         // for format
 #include <matchit.h>                            // for App, pattern, app
 #include <memory>                               // for shared_ptr
+#include <source_location>                      // for source_location
 #include <tuple>                                // for get, tuple
 #include <variant>                              // for variant, get, operat...
 
@@ -874,7 +875,7 @@ void Invocation_Inserter::insert_type_check_stdlib_print_arguments(
                 fmt::format("argument '{}' is not a valid buffer address",
                     argument_stack.front()),
                 "print",
-                __source__,
+                std::source_location::current(),
                 "function invocation");
     auto buffer = operands.back();
     auto buffer_size = address_storage.buffer_accessor.has_read_bytes()
@@ -908,7 +909,7 @@ void Invocation_Inserter::insert_type_check_stdlib_printf_arguments(
         throw_compiletime_error(
             fmt::format("invalid format string '{}'", argument_stack.front()),
             "printf",
-            __source__,
+            std::source_location::current(),
             "function invocation");
 }
 

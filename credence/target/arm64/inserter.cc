@@ -34,6 +34,7 @@
 #include <fmt/format.h>                         // for format
 #include <matchit.h>                            // for App, pattern, app
 #include <memory>                               // for shared_ptr
+#include <source_location>                      // for source_location
 #include <tuple>                                // for get, tuple
 #include <variant>                              // for variant, get, operat...
 
@@ -168,7 +169,7 @@ void Invocation_Inserter::insert_type_check_stdlib_print_arguments(
                 fmt::format("argument '{}' is not a valid buffer address",
                     argument_stack.front()),
                 "print",
-                __source__,
+                std::source_location::current(),
                 "function invocation");
     auto buffer = operands.back();
     auto buffer_size = address_storage.buffer_accessor.has_read_bytes()
@@ -203,7 +204,7 @@ void Invocation_Inserter::insert_type_check_stdlib_printf_arguments(
         throw_compiletime_error(
             fmt::format("invalid format string '{}'", argument_stack.front()),
             "printf",
-            __source__,
+            std::source_location::current(),
             "function invocation");
 }
 
@@ -1106,10 +1107,8 @@ void Expression_Inserter::insert_from_global_vector_assignment(
     auto& frame = accessor_->get_frame_in_memory().get_stack_frame();
     if (!type::is_unary_expression(lhs) and frame.locals.is_defined(lhs) and
         not accessor_->device_accessor.is_lvalue_allocated_in_memory(lhs)) {
-        auto element = object::get_rvalue_at_lvalue_object_storage(rhs,
-            frame,
-            accessor_->table_accessor.get_table()->vectors,
-            __source__);
+        auto element = object::get_rvalue_at_lvalue_object_storage(
+            rhs, frame, accessor_->table_accessor.get_table()->vectors);
         auto size = assembly::get_operand_size_from_typed_rvalue(element);
         accessor_->device_accessor.insert_lvalue_to_device(
             lhs, size == Operand_Size::Empty ? Operand_Size::Doubleword : size);
@@ -1177,8 +1176,7 @@ void Expression_Inserter::insert_to_global_vector(LValue const& lhs,
     assembly::inserter(instructions, lhs_storage_inst);
     auto element = object::get_rvalue_at_lvalue_object_storage(lhs,
         accessor_->get_frame_in_memory().get_stack_frame(),
-        accessor_->table_accessor.get_table()->vectors,
-        __source__);
+        accessor_->table_accessor.get_table()->vectors);
     auto size = assembly::get_operand_size_from_typed_rvalue(element);
     if (size == Operand_Size::Doubleword and
         not assembly::is_doubleword_register(value)) {
