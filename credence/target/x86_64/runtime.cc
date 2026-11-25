@@ -96,8 +96,8 @@ namespace credence::target::x86_64::runtime {
 bool Library_Call_Inserter::is_address_device_pointer_to_buffer(
     address_t& address)
 {
-    auto& table = accessor_->table_accessor.get_table();
-    auto& stack = accessor_->stack;
+    auto& table = accessor_->ir().get_table();
+    auto& stack = accessor_->stack();
     auto& stack_frame = accessor_->get_frame_in_memory().get_stack_frame();
     bool is_buffer{ false };
 
@@ -156,7 +156,7 @@ Library_Call_Inserter::get_available_standard_library_register(
     std::size_t index)
 {
     Register storage = Register::eax;
-    auto& address_accessor = accessor_->address_accessor;
+    auto& address_accessor = accessor_->addresses();
     try {
         if (address_accessor.is_lvalue_storage_type(
                 argument_stack.at(index), "float") or
@@ -185,7 +185,6 @@ void Library_Call_Inserter::
         std::string_view arg_type,
         address_t const& argument)
 {
-    auto* signal_register = accessor_->register_accessor.signal_register;
     if (arg_type == "string") {
         instructions.emplace_back(assembly::Instruction{
             assembly::Mnemonic::lea, storage, argument });
@@ -197,15 +196,16 @@ void Library_Call_Inserter::
             assembly::Mnemonic::movsd, storage, argument });
     } else {
         if (storage == assembly::Register::rdi and
-            *signal_register == assembly::Register::rcx) {
-            *signal_register = assembly::Register::eax;
+            accessor_->state().get_signal_register() ==
+                assembly::Register::rcx) {
+            accessor_->state().set_signal_register(assembly::Register::eax);
             instructions.emplace_back(assembly::Instruction{
                 assembly::Mnemonic::movq_, storage, assembly::Register::rcx });
             return;
         }
         // a char on the stack is zero extended into its register
         if (is_variant(common::Stack_Offset, argument) and
-            accessor_->stack->get_operand_size_from_offset(
+            accessor_->stack()->get_operand_size_from_offset(
                 std::get<common::Stack_Offset>(argument)) ==
                 assembly::Operand_Size::Byte) {
             instructions.emplace_back(
@@ -279,7 +279,7 @@ void Library_Call_Inserter::make_library_call(Instructions& instructions,
     credence_assert(common::runtime::library_list.contains(syscall_function));
     auto [arg_size] = common::runtime::library_list.at(syscall_function);
 
-    auto& address_space = accessor_->address_accessor;
+    auto& address_space = accessor_->addresses();
 
     library_call_argument_check(syscall_function, arguments, arg_size);
 

@@ -80,7 +80,7 @@ inline Register get_storage_register_from_safe_address(
     Register storage = target::common::get_first_of_enum_t<Register>();
     if (accessor != nullptr and stack_frame != nullptr) {
         auto& accessor_ = *accessor;
-        if (accessor_.address_accessor.is_qword_storage_size(argument)) {
+        if (accessor_.addresses().is_qword_storage_size(argument)) {
             storage = w_registers.back();
         } else {
             storage = d_registers.back();

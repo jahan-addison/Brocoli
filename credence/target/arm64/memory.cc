@@ -38,8 +38,8 @@
 /****************************************************************************
  * ARM64 Memory Accessor
  *
- * The memory accessor facade of the ARM64 target, and the device of each
- * local: a register in a frame with no calls, or a stack slot. A local whose
+ * The Memory_Accessor of the ARM64 target, and the device of each local:
+ * a register in a frame with no calls, or a stack slot. A local whose
  * address is taken is always on the stack, since a register has no address.
  *
  *  Example:
@@ -178,11 +178,11 @@ Register Memory_Accessor::get_accumulator_with_rvalue_context(
     Storage const& device)
 {
     auto size =
-        get_word_size_from_storage(device, stack, get_frame_in_memory());
-    return table_accessor.next_ir_instruction_is_temporary() and
-                   not table_accessor.last_ir_instruction_is_assignment()
+        get_word_size_from_storage(device, stack_, get_frame_in_memory());
+    return table_accessor_.next_ir_instruction_is_temporary() and
+                   not table_accessor_.last_ir_instruction_is_assignment()
                ? get_second_register_for_binary_operand(size)
-               : accumulator_accessor.get_accumulator_register_from_size(size);
+               : accumulator_accessor_.get_accumulator_register_from_size(size);
 }
 
 /**
@@ -191,10 +191,10 @@ Register Memory_Accessor::get_accumulator_with_rvalue_context(
 Register Memory_Accessor::get_accumulator_with_rvalue_context(
     assembly::Operand_Size size)
 {
-    return table_accessor.next_ir_instruction_is_temporary() and
-                   not table_accessor.last_ir_instruction_is_assignment()
+    return table_accessor_.next_ir_instruction_is_temporary() and
+                   not table_accessor_.last_ir_instruction_is_assignment()
                ? get_second_register_for_binary_operand(size)
-               : accumulator_accessor.get_accumulator_register_from_size(size);
+               : accumulator_accessor_.get_accumulator_register_from_size(size);
 }
 
 namespace detail {
@@ -242,11 +242,8 @@ Register Accumulator_Accessor::get_accumulator_register_from_size(
     assembly::Operand_Size size)
 {
     namespace m = matchit;
-    if (*signal_register_ != Register::wzr) {
-        auto designated = *signal_register_;
-        *signal_register_ = Register::wzr;
-        return designated;
-    }
+    if (state_.has_signal_register())
+        return state_.take_signal_register();
     return m::match(size)(
         m::pattern |
             assembly::Operand_Size::Doubleword = [&] { return Register::x8; },
@@ -371,24 +368,20 @@ Address_Accessor::get_lvalue_address_and_from_unary_and_vectors(
 Address_Accessor::Address
 Address_Accessor::get_arm64_lvalue_and_insertion_instructions(
     LValue const& lvalue,
-    std::size_t instruction_index,
-    Device_Accessor& device_accessor)
+    std::size_t instruction_index)
 {
     Address instructions{ assembly::O_NUL, {} };
-    auto* signal_register = register_accessor_.signal_register;
-    if (*signal_register != Register::wzr) {
-        Storage rr = *signal_register;
-        *signal_register = Register::wzr;
-        instructions.first = rr;
+    if (state_.has_signal_register()) {
+        instructions.first = state_.take_signal_register();
         return instructions;
     }
     get_lvalue_address_and_from_unary_and_vectors(
         instructions, lvalue, instruction_index);
     if (instructions.first == assembly::O_NUL)
-        instructions.first = device_accessor.get_device_by_lvalue(lvalue);
+        instructions.first = device_accessor_.get_device_by_lvalue(lvalue);
     if (is_variant(common::Stack_Offset, instructions.first)) {
         auto str_r = register_accessor_.get_available_register(
-            device_accessor.get_word_size_from_lvalue(lvalue));
+            device_accessor_.get_word_size_from_lvalue(lvalue));
         // the load is needed by a read-modify-write, such as `++x`, and the
         // register is stored back after the assignment
         arm64_add__asm(instructions.second, ldr, str_r, instructions.first);
@@ -463,11 +456,8 @@ Device_Accessor::Device Device_Accessor::get_device_by_lvalue(
 assembly::Storage Register_Accessor::get_available_register(
     assembly::Operand_Size size)
 {
-    if (*signal_register != Register::wzr) {
-        auto rr = *signal_register;
-        *signal_register = Register::wzr;
-        return rr;
-    }
+    if (state_.has_signal_register())
+        return state_.take_signal_register();
     return size == assembly::Operand_Size::Doubleword ? Register::x10
                                                       : Register::w10;
 }
@@ -484,7 +474,6 @@ void Device_Accessor::insert_lvalue_to_device(LValue const& lvalue,
 {
     if (is_lvalue_allocated_in_memory(lvalue))
         return;
-    auto& table_ = address_accessor_.table_;
     auto stack_frame_has_jump = ir::stack_frame_contains_call_instruction(
         table_->get_stack_frame(stack_frame_.symbol),
         table_accessor_.get_ir_instructions());
@@ -518,7 +507,6 @@ void Device_Accessor::insert_lvalue_to_device(LValue const& lvalue,
 void Device_Accessor::insert_lvalue_to_device(LValue const& lvalue,
     std::source_location const& location)
 {
-    auto& table_ = address_accessor_.table_;
     auto& frame = stack_frame_.get_stack_frame();
     credence_assert(frame.locals.is_defined(lvalue));
 
@@ -570,8 +558,7 @@ void Device_Accessor::insert_lvalue_to_device(LValue const& lvalue,
  */
 bool Device_Accessor::is_address_taken(LValue const& lvalue)
 {
-    auto const& frame =
-        address_accessor_.table_->get_stack_frame(stack_frame_.symbol);
+    auto const& frame = table_->get_stack_frame(stack_frame_.symbol);
     auto& instructions = table_accessor_.get_ir_instructions();
     auto end = std::min(static_cast<std::size_t>(frame.address_location[1]) + 1,
         instructions.size());
@@ -635,7 +622,6 @@ Size Device_Accessor::get_size_from_rvalue_reference(RValue const& rvalue)
 Size Device_Accessor::get_size_from_typed_rvalue(LValue const& lvalue,
     Immediate const& rvalue)
 {
-    auto& table_ = address_accessor_.table_;
     auto& frame = stack_frame_.get_stack_frame();
 
     if (!type::is_typed_rvalue_a_type(rvalue, "word"))

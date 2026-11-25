@@ -91,7 +91,7 @@ assembly::Register get_storage_register_from_safe_address(
     Register storage = Register::rdi;
     if (accessor != nullptr) {
         auto accessor_ = *accessor;
-        if (accessor_->address_accessor.is_qword_storage_size(argument)) {
+        if (accessor_->addresses().is_qword_storage_size(argument)) {
             storage = qword_registers.back();
         } else {
             storage = dword_registers.back();
@@ -113,9 +113,9 @@ bool check_signal_register_from_safe_address(Instructions& instructions,
 {
     if (accessor != nullptr) {
         auto accessor_ = *accessor;
-        auto* address_of = accessor_->register_accessor.signal_register;
-        if (storage == x64_rr(rsi) and *address_of == Register::rcx) {
-            accessor_->set_signal_register(Register::eax);
+        if (storage == x64_rr(rsi) and
+            accessor_->state().get_signal_register() == Register::rcx) {
+            accessor_->state().set_signal_register(Register::eax);
             x8664_add__asm(instructions, movq_, storage, rcx);
             return false;
         }

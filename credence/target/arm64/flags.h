@@ -38,10 +38,9 @@
 #define set_alignment_flag_inline(flag_name, index) \
     flag_accessor.set_instruction_flag(arm64::detail::flags::flag_name, index)
 
-#define set_alignment_flag(flag_name)              \
-    accessor_->flag_accessor.set_instruction_flag( \
-        arm64::detail::flags::flag_name,           \
-        accessor_->instruction_accessor->size())
+#define set_alignment_flag(flag_name)        \
+    accessor_->flags().set_instruction_flag( \
+        arm64::detail::flags::flag_name, accessor_->instructions()->size())
 
 namespace credence::target::arm64::detail::flags {
 

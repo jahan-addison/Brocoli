@@ -37,7 +37,7 @@ Check out the test suites in `test/x86_64/generator.cc` and `test/arm64/generato
 ## Assembly
 #### Raw ISA mnemonics types, registers, operand storage helpers with string overloading
 ## Memory
-#### Dynamic `Memory_Accessor` pointer that mediates available memory, stack, and registers and their runtime storage via the accessors.
+#### The `Memory_Accessor`, a Layered Aggregate shared by the inserters - its layers are private and wired in dependency order, and each is reached through its role, such as `ir()`, `addresses()`, `buffers()`, or `state()`
 ## Stack
 #### A push-down stack that corresponds to the platform stack pointer with memory-safe offset resolution
 ## Flags

@@ -242,36 +242,30 @@ Directives Data_Emitter::get_instructions_from_directive_type(
     Directive directive,
     RValue const& rvalue)
 {
-    auto& address_storage = accessor_->address_accessor;
     assembly::Directives instructions{};
     m::match(directive)(
         m::pattern | Directive::quad =
             [&] {
                 credence_assert(
-                    address_storage.buffer_accessor.is_allocated_string(
-                        rvalue));
+                    accessor_->buffers().is_allocated_string(rvalue));
                 instructions = assembly::quad(
-                    address_storage.buffer_accessor.get_string_address_offset(
-                        rvalue));
+                    accessor_->buffers().get_string_address_offset(rvalue));
             },
         m::pattern |
             Directive::long_ = [&] { instructions = assembly::long_(rvalue); },
         m::pattern | Directive::float_ =
             [&] {
                 credence_assert(
-                    address_storage.buffer_accessor.is_allocated_float(rvalue));
+                    accessor_->buffers().is_allocated_float(rvalue));
                 instructions = assembly::float_(
-                    address_storage.buffer_accessor.get_float_address_offset(
-                        rvalue));
+                    accessor_->buffers().get_float_address_offset(rvalue));
             },
         m::pattern | Directive::double_ =
             [&] {
                 credence_assert(
-                    address_storage.buffer_accessor.is_allocated_double(
-                        rvalue));
+                    accessor_->buffers().is_allocated_double(rvalue));
                 instructions = assembly::double_(
-                    address_storage.buffer_accessor.get_double_address_offset(
-                        rvalue));
+                    accessor_->buffers().get_double_address_offset(rvalue));
             },
         m::pattern |
             Directive::byte_ = [&] { instructions = assembly::byte_(rvalue); }
@@ -296,13 +290,11 @@ void Data_Emitter::set_data_section()
  */
 void Data_Emitter::set_data_strings()
 {
-    auto& table = accessor_->table_accessor.get_table();
+    auto& table = accessor_->ir().get_table();
     for (auto const& string : table->data.strings) {
-        auto data_instruction =
-            assembly::asciz(accessor_->address_accessor.buffer_accessor
-                                .get_constant_size_index(),
-                string);
-        accessor_->address_accessor.buffer_accessor.insert_string_literal(
+        auto data_instruction = assembly::asciz(
+            accessor_->buffers().get_constant_size_index(), string);
+        accessor_->buffers().insert_string_literal(
             string, data_instruction.first);
         assembly::inserter(instructions_, data_instruction.second);
     }
@@ -313,15 +305,13 @@ void Data_Emitter::set_data_strings()
  */
 void Data_Emitter::set_data_floats()
 {
-    auto& table = accessor_->table_accessor.get_table();
+    auto& table = accessor_->ir().get_table();
     if (!table->data.floats.empty())
         insert_alignment_directive(instructions_, 2);
     for (auto const& floatz : table->data.floats) {
-        auto data_instruction =
-            assembly::floatz(accessor_->address_accessor.buffer_accessor
-                                 .get_constant_size_index(),
-                floatz);
-        accessor_->address_accessor.buffer_accessor.insert_float_literal(
+        auto data_instruction = assembly::floatz(
+            accessor_->buffers().get_constant_size_index(), floatz);
+        accessor_->buffers().insert_float_literal(
             floatz, data_instruction.first);
         assembly::inserter(instructions_, data_instruction.second);
     }
@@ -332,15 +322,13 @@ void Data_Emitter::set_data_floats()
  */
 void Data_Emitter::set_data_doubles()
 {
-    auto& table = accessor_->table_accessor.get_table();
+    auto& table = accessor_->ir().get_table();
     if (!table->data.doubles.empty())
         insert_alignment_directive(instructions_, 3);
     for (auto const& doublez : table->data.doubles) {
-        auto data_instruction =
-            assembly::doublez(accessor_->address_accessor.buffer_accessor
-                                  .get_constant_size_index(),
-                doublez);
-        accessor_->address_accessor.buffer_accessor.insert_double_literal(
+        auto data_instruction = assembly::doublez(
+            accessor_->buffers().get_constant_size_index(), doublez);
+        accessor_->buffers().insert_double_literal(
             doublez, data_instruction.first);
         assembly::inserter(instructions_, data_instruction.second);
     }
@@ -370,7 +358,7 @@ std::size_t get_alignment_size_from_typed_rvalue(
  */
 void Data_Emitter::set_data_globals()
 {
-    auto& table = accessor_->table_accessor.get_table();
+    auto& table = accessor_->ir().get_table();
     for (auto const& global : table->globals.get_pointers()) {
         credence_assert(table->vectors.contains(global));
         auto& vector = table->vectors.at(global).get();
@@ -445,12 +433,12 @@ std::string Storage_Emitter::get_storage_device_as_string(
     m::Id<assembly::Immediate> i;
     if (address_size != Operand_Size::Empty)
         size = address_size;
-    auto flags = accessor_->flag_accessor.get_instruction_flags_at_index(
-        instruction_index_);
+    auto flags =
+        accessor_->flags().get_instruction_flags_at_index(instruction_index_);
     return m::match(storage)(
         m::pattern | m::as<assembly::Stack::Offset>(s) =
             [&] {
-                // size = accessor_->stack->get_operand_size_from_offset(*s);
+                // size = accessor_->stack()->get_operand_size_from_offset(*s);
                 return emit_stack_storage(*s, size, flags);
             },
         m::pattern | m::as<assembly::Register>(r) =
@@ -479,12 +467,12 @@ void Storage_Emitter::emit(std::ostream& os,
     assembly::Mnemonic mnemonic,
     memory::Operand_Type type_)
 {
-    auto& stack = accessor_->stack;
-    auto& flag_accessor = accessor_->flag_accessor;
+    auto& stack = accessor_->stack();
+    auto& flag_accessor = accessor_->flags();
     auto flags =
         flag_accessor.get_instruction_flags_at_index(instruction_index_);
     auto size =
-        get_operand_size_from_storage(source_storage_, accessor_->stack);
+        get_operand_size_from_storage(source_storage_, accessor_->stack());
     if (is_variant(std::monostate, storage))
         return;
     switch (type_) {
@@ -495,7 +483,7 @@ void Storage_Emitter::emit(std::ostream& os,
             if (flag_accessor.index_contains_flag(
                     instruction_index_, common::flag::Address))
                 set_address_size(
-                    get_operand_size_from_storage(storage, accessor_->stack));
+                    get_operand_size_from_storage(storage, accessor_->stack()));
             os << " " << get_storage_device_as_string(storage, size);
             if (flags & common::flag::Indirect and
                 is_variant(Register, source_storage_))
@@ -544,7 +532,7 @@ void Text_Emitter::emit_assembly_label(std::ostream& os,
     Label const& s,
     bool set_label)
 {
-    auto& table = accessor_->table_accessor.get_table();
+    auto& table = accessor_->ir().get_table();
     // function labels
     if (table->hoisted_symbols.has_key(s) and
         table->hoisted_symbols[s]["type"].to_string() ==
@@ -554,7 +542,8 @@ void Text_Emitter::emit_assembly_label(std::ostream& os,
             emit_function_epilogue(os);
         frame_ = s;
         if (set_label)
-            label_size_ = accessor_->table_accessor.get_table()
+            label_size_ = accessor_->ir()
+                              .get_table()
                               ->functions.at(s)
                               .get()
                               .labels.size();
@@ -591,7 +580,7 @@ void Text_Emitter::emit_assembly_instruction(std::ostream& os,
     std::size_t index,
     assembly::Instruction const& s)
 {
-    auto flags = accessor_->flag_accessor.get_instruction_flags_at_index(index);
+    auto flags = accessor_->flags().get_instruction_flags_at_index(index);
     auto [mnemonic, dest, src] = s;
     // a memory operand is the size of a register destination, except for
     // the extending moves
@@ -672,7 +661,7 @@ void Text_Emitter::emit_function_epilogue(std::ostream& os)
  */
 void Text_Emitter::emit_text_section(std::ostream& os)
 {
-    auto instructions_accessor = accessor_->instruction_accessor;
+    auto instructions_accessor = accessor_->instructions();
     auto& instructions = instructions_accessor->get_instructions();
     emit_text_directives(os);
     for (std::size_t index = 0; index < instructions_accessor->size(); index++)

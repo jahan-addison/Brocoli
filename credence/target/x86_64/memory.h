@@ -33,8 +33,8 @@
 /****************************************************************************
  * x86-64 Memory Accessor
  *
- * The memory accessor facade of the x86-64 target, and the address of each
- * lvalue. A local is on the stack below rbp, a global is relative to rip,
+ * The Memory_Accessor of the x86-64 target, and the address of each lvalue.
+ * A local is on the stack below rbp, a global is relative to rip,
  * and a vector element is an offset in its vector.
  *
  *  Example:
@@ -185,6 +185,8 @@ using Table_Accessor = common::memory::Table_Accessor;
 
 using X8664_Register_Accessor = common::memory::Register_Accessor<Register>;
 
+using Instruction_State = common::memory::Instruction_State<Register>;
+
 using Operand_Lambda = std::function<bool(RValue)>;
 
 using Flag_Accessor = common::Flag_Accessor;
@@ -197,8 +199,8 @@ using Flag_Accessor = common::Flag_Accessor;
  */
 struct Accumulator_Accessor : public X8664_Accumulator_Accessor
 {
-    explicit Accumulator_Accessor(Register* signal_register)
-        : X8664_Accumulator_Accessor(signal_register)
+    explicit Accumulator_Accessor(Instruction_State& state)
+        : X8664_Accumulator_Accessor(state)
     {
     }
     assembly::Operand_Size get_operand_size_from_immediate(
@@ -211,11 +213,8 @@ struct Accumulator_Accessor : public X8664_Accumulator_Accessor
         Operand_Size size = Operand_Size::Dword) override
     {
         namespace m = matchit;
-        if (*signal_register_ != Register::eax) {
-            auto designated = *signal_register_;
-            *signal_register_ = Register::eax;
-            return designated;
-        }
+        if (state_.has_signal_register())
+            return state_.take_signal_register();
         return m::match(size)(
             m::pattern | Operand_Size::Qword = [&] { return Register::rax; },
             m::pattern | Operand_Size::Word = [&] { return Register::ax; },
@@ -287,12 +286,10 @@ struct Instruction_Accessor : public X8664_Instruction_Accessor
  */
 struct Register_Accessor
 {
-    explicit Register_Accessor(Register* signal_register,
-        Address_Accessor& address_accessor)
-        : signal_register(signal_register)
-        , address_accessor(address_accessor)
-        , available_qword(registers::available_qword_register)
-        , available_dword(registers::available_dword_register)
+    explicit Register_Accessor(Address_Accessor& address_accessor)
+        : address_accessor_(address_accessor)
+        , available_qword_(registers::available_qword_register)
+        , available_dword_(registers::available_dword_register)
     {
     }
 
@@ -302,8 +299,8 @@ struct Register_Accessor
 
     void reset_available_registers()
     {
-        available_qword = registers::available_qword_register;
-        available_dword = registers::available_dword_register;
+        available_qword_ = registers::available_qword_register;
+        available_dword_ = registers::available_dword_register;
     }
 
     /**
@@ -319,27 +316,29 @@ struct Register_Accessor
             m::pattern | m::_ = [&] { return Register::edi; });
     }
 
-    Register* signal_register;
-    Address_Accessor& address_accessor;
-    registers::general_purpose available_qword;
-    registers::general_purpose available_dword;
+  private:
+    Address_Accessor& address_accessor_;
+    registers::general_purpose available_qword_;
+    registers::general_purpose available_dword_;
 };
 
 } // namespace detail
 
 /**
- * @brief The memory accessor facade of the x86-64 target
+ * @brief The Memory_Accessor of the x86-64 target, a Layered Aggregate
  *
- * The inserters, visitor, and emitter share one facade, which holds each
- * accessor, the stack, the instructions of the program, and the state that
- * is passed from one IR instruction to the next
+ * The inserters, visitor, and emitter share one Memory_Accessor. Its layers
+ * are private and declared in dependency order, the registers above the
+ * address, and each is reached through its role, such as `ir()`,
+ * `addresses()`, or `state()`. The instruction state is what one IR
+ * instruction passes to the next.
  */
 class Memory_Accessor final : public X8664_Memory_Accessor
 {
   public:
     Memory_Accessor() = delete;
 
-    // the accessors refer to members of this object, so a copy or a move
+    // the layers refer to members of this object, so a copy or a move
     // would refer to the members of its source
     Memory_Accessor(Memory_Accessor const&) = delete;
     Memory_Accessor& operator=(Memory_Accessor const&) = delete;
@@ -352,45 +351,51 @@ class Memory_Accessor final : public X8664_Memory_Accessor
         : X8664_Memory_Accessor(table)
         , table_(std::move(table))
         , instructions_(std::move(instructions))
-        , stack(std::move(stack_pointer))
+        , stack_(std::move(stack_pointer))
     {
-        instruction_accessor = std::make_shared<detail::Instruction_Accessor>();
     }
 
-    constexpr void set_signal_register(Register signal_)
+  public:
+    // each layer by its role
+    detail::Instruction_State& state() { return state_; }
+    detail::Table_Accessor& ir() { return table_accessor_; }
+    detail::Flag_Accessor& flags() { return flag_accessor_; }
+    detail::Register_Accessor& registers() { return register_accessor_; }
+    detail::Accumulator_Accessor& accumulator()
     {
-        signal_register = signal_;
+        return accumulator_accessor_;
     }
+    detail::Vector_Accessor& vectors() { return vector_accessor_; }
+    detail::Address_Accessor& addresses() { return address_accessor_; }
+    detail::Address_Accessor const& addresses() const
+    {
+        return address_accessor_;
+    }
+    detail::Buffer_Accessor& buffers() { return buffer_accessor_; }
+    Instruction_Pointer& instructions() { return instruction_accessor_; }
+    Stack_Pointer& stack() { return stack_; }
 
-  private:
-    Register signal_register = assembly::Register::eax;
-
+  public:
   private:
     Table_Pointer table_;
     ir::Instructions_PTR instructions_;
+    Stack_Pointer stack_;
 
-  public:
-    Stack_Pointer stack;
-
-  public:
-    // the temporary and the register that holds it after the instruction
-    // that computes it, valid until the next instruction
-    std::optional<std::pair<LValue, Register>> accumulator_temporary{};
-    // a relational expression inserted the conditional jump of the next IF
-    bool relational_jump{ false };
-
-  public:
-    detail::Flag_Accessor flag_accessor{};
-    detail::Table_Accessor table_accessor{ table_, instructions_ };
-    detail::Accumulator_Accessor accumulator_accessor{ &signal_register };
-    detail::Vector_Accessor vector_accessor{ table_, get_frame_in_memory() };
-    detail::Address_Accessor address_accessor{ table_,
-        stack,
-        flag_accessor,
+  private:
+    detail::Instruction_State state_{ Register::eax };
+    detail::Flag_Accessor flag_accessor_{};
+    detail::Table_Accessor table_accessor_{ table_, instructions_ };
+    detail::Buffer_Accessor buffer_accessor_{ table_ };
+    detail::Accumulator_Accessor accumulator_accessor_{ state_ };
+    detail::Vector_Accessor vector_accessor_{ table_, get_frame_in_memory() };
+    detail::Address_Accessor address_accessor_{ table_,
+        stack_,
+        flag_accessor_,
         get_frame_in_memory() };
-    detail::Register_Accessor register_accessor{ &signal_register,
-        address_accessor };
-    Instruction_Pointer instruction_accessor{};
+    detail::Register_Accessor register_accessor_{ address_accessor_ };
+    Instruction_Pointer instruction_accessor_{
+        std::make_shared<detail::Instruction_Accessor>()
+    };
 };
 
 } // namespace memory

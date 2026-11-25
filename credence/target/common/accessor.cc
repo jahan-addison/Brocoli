@@ -31,10 +31,11 @@
 /****************************************************************************
  * Memory Accessors
  *
- * The platform-agnostic base types of the Memory_Accessor facade. Each target
- * derives its own accessors from them, and the inserters reach the object
- * table, the IR instruction under translation, the stack, the registers, and
- * the literals of the data section through one accessor object.
+ * The platform-agnostic layers of each target's Memory_Accessor, a Layered
+ * Aggregate. The Memory_Accessor owns its layers as private members, wired in
+ * declaration order so each depends only on the layers declared before it,
+ * and an inserter reaches each layer through its role, such as `ir()` or
+ * `buffers()`, never through another layer.
  *
  *  Example:
  *

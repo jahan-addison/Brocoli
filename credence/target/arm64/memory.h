@@ -37,8 +37,8 @@
 /****************************************************************************
  * ARM64 Memory Accessor
  *
- * The memory accessor facade of the ARM64 target, and the device of each
- * local: a register in a frame with no calls, or a stack slot. A local whose
+ * The Memory_Accessor of the ARM64 target, and the device of each local:
+ * a register in a frame with no calls, or a stack slot. A local whose
  * address is taken is always on the stack, since a register has no address.
  *
  *  Example:
@@ -208,6 +208,8 @@ using ARM64_Vector_Accessor = common::memory::Vector_Accessor<Size>;
 
 using ARM64_Register_Accessor = common::memory::Register_Accessor<Register>;
 
+using Instruction_State = common::memory::Instruction_State<Register>;
+
 using Buffer_Accessor = common::memory::Buffer_Accessor;
 
 using Table_Accessor = common::memory::Table_Accessor;
@@ -224,8 +226,8 @@ using Flag_Accessor = common::Flag_Accessor;
  */
 struct Accumulator_Accessor : public ARM64_Accumulator_Accessor
 {
-    explicit Accumulator_Accessor(Register* signal_register)
-        : ARM64_Accumulator_Accessor(signal_register)
+    explicit Accumulator_Accessor(Instruction_State& state)
+        : ARM64_Accumulator_Accessor(state)
     {
     }
 
@@ -248,13 +250,13 @@ struct Instruction_Accessor : public ARM64_Instruction_Accessor
 /**
  * @brief The registers of locals, and the stack move register
  *
- * The registers of locals are reset at the end of each function, and
- * `stack` holds the scratch registers of an assignment until it is done
+ * The registers of locals are reset at the end of each function, and the
+ * scratch registers of an assignment are held until it is done
  */
 struct Register_Accessor : public ARM64_Register_Accessor
 {
-    explicit Register_Accessor(Register* signal_register)
-        : ARM64_Register_Accessor(signal_register)
+    explicit Register_Accessor(Instruction_State& state)
+        : ARM64_Register_Accessor(state)
     {
         d_size_registers = registers::available_doubleword;
         w_size_registers = registers::available_word;
@@ -276,53 +278,18 @@ struct Register_Accessor : public ARM64_Register_Accessor
         d_size_registers = registers::available_doubleword;
         w_size_registers = registers::available_word;
     }
-    std::deque<Register> stack{};
-};
 
-/**
- * @brief The address of an lvalue and the instructions that load it
- *
- * A global vector element is addressed from its page, a local vector
- * element from the stack pointer, and a local on the stack is loaded into
- * the stack move register
- *
- *  Example:
- *
- *    y = (2:int:4);
- *
- *  Becomes, where y is on the stack:
- *
- *    ldr w10, [sp, #16]   // the insertion instructions, the address is w10
- *    mov w10, #2
- */
-struct Address_Accessor : public ARM64_Address_Accessor
-{
-  public:
-    explicit Address_Accessor(Table_Pointer& table,
-        ARM64_Address_Accessor::Stack_Pointer_Type& stack,
-        Flag_Accessor& flag_accessor,
-        Register_Accessor& register_accessor,
-        Stack_Frame& stack_frame)
-        : ARM64_Address_Accessor(table, stack, flag_accessor, stack_frame)
-        , register_accessor_(register_accessor)
+    /**
+     * @brief Hold a scratch register of an assignment until it is done
+     */
+    void push_scratch_register(Register scratch)
     {
+        scratch_registers_.emplace_back(scratch);
     }
-
-    friend class Device_Accessor;
-
-    Address_Accessor::Address get_arm64_lvalue_and_insertion_instructions(
-        LValue const& lvalue,
-        std::size_t instruction_index,
-        Device_Accessor& device_accessor);
+    void clear_scratch_registers() { scratch_registers_.clear(); }
 
   private:
-    Address_Accessor::Address get_lvalue_address_and_from_unary_and_vectors(
-        Address& instructions,
-        LValue const& lvalue,
-        std::size_t instruction_index);
-
-  private:
-    Register_Accessor& register_accessor_;
+    std::deque<Register> scratch_registers_{};
 };
 
 /**
@@ -338,19 +305,18 @@ class Device_Accessor
     using Device = Storage;
 
   public:
-    Device_Accessor(Address_Accessor& address_accessor,
+    Device_Accessor(Table_Pointer& table,
         Table_Accessor& table_accessor,
+        Register_Accessor& register_accessor,
         Stack_Frame& stack_frame,
         Stack_Pointer& stack)
-        : address_accessor_(address_accessor)
+        : table_(table)
         , table_accessor_(table_accessor)
-        , register_accessor_(address_accessor.register_accessor_)
+        , register_accessor_(register_accessor)
         , stack_frame_(stack_frame)
         , stack_(stack)
     {
     }
-
-    friend struct Address_Accessor;
 
     using Operand_Size = assembly::Operand_Size;
 
@@ -400,7 +366,7 @@ class Device_Accessor
     Size get_size_of_address_table();
 
   private:
-    Address_Accessor& address_accessor_;
+    Table_Pointer& table_;
     Table_Accessor& table_accessor_;
     Register_Accessor& register_accessor_;
     Stack_Frame& stack_frame_;
@@ -408,11 +374,61 @@ class Device_Accessor
 
   private:
     Label frame_symbol{ "main" };
+
     Ordered_Map<LValue, Storage> address_table{};
     std::set<unsigned int> register_id{};
     unsigned int id_index{ 0 };
 
     unsigned int vector_index{ 0 };
+};
+
+/**
+ * @brief The address of an lvalue and the instructions that load it
+ *
+ * A global vector element is addressed from its page, a local vector
+ * element from the stack pointer, and a local on the stack is loaded into
+ * the stack move register
+ *
+ *  Example:
+ *
+ *    y = (2:int:4);
+ *
+ *  Becomes, where y is on the stack:
+ *
+ *    ldr w10, [sp, #16]   // the insertion instructions, the address is w10
+ *    mov w10, #2
+ */
+struct Address_Accessor : public ARM64_Address_Accessor
+{
+  public:
+    explicit Address_Accessor(Table_Pointer& table,
+        ARM64_Address_Accessor::Stack_Pointer_Type& stack,
+        Flag_Accessor& flag_accessor,
+        Register_Accessor& register_accessor,
+        Device_Accessor& device_accessor,
+        Instruction_State& state,
+        Stack_Frame& stack_frame)
+        : ARM64_Address_Accessor(table, stack, flag_accessor, stack_frame)
+        , register_accessor_(register_accessor)
+        , device_accessor_(device_accessor)
+        , state_(state)
+    {
+    }
+
+    Address_Accessor::Address get_arm64_lvalue_and_insertion_instructions(
+        LValue const& lvalue,
+        std::size_t instruction_index);
+
+  private:
+    Address_Accessor::Address get_lvalue_address_and_from_unary_and_vectors(
+        Address& instructions,
+        LValue const& lvalue,
+        std::size_t instruction_index);
+
+  private:
+    Register_Accessor& register_accessor_;
+    Device_Accessor& device_accessor_;
+    Instruction_State& state_;
 };
 
 /**
@@ -434,18 +450,20 @@ struct Vector_Accessor : public ARM64_Vector_Accessor
 } // namespace detail
 
 /**
- * @brief The memory accessor facade of the ARM64 target
+ * @brief The Memory_Accessor of the ARM64 target, a Layered Aggregate
  *
- * The inserters, visitor, and emitter share one facade, which holds each
- * accessor, the stack, the instructions of the program, and the state that
- * is passed from one IR instruction to the next
+ * The inserters, visitor, and emitter share one Memory_Accessor. Its layers
+ * are private and declared in dependency order, the device below the
+ * address, and each is reached through its role, such as `ir()`,
+ * `devices()`, or `state()`. The instruction state is what one IR
+ * instruction passes to the next.
  */
 class Memory_Accessor final : public ARM64_Memory_Accessor
 {
   public:
     Memory_Accessor() = delete;
 
-    // the accessors refer to members of this object, so a copy or a move
+    // the layers refer to members of this object, so a copy or a move
     // would refer to the members of its source
     Memory_Accessor(Memory_Accessor const&) = delete;
     Memory_Accessor& operator=(Memory_Accessor const&) = delete;
@@ -458,52 +476,59 @@ class Memory_Accessor final : public ARM64_Memory_Accessor
         : ARM64_Memory_Accessor(table)
         , table_(std::move(table))
         , instructions_(std::move(instructions))
-        , stack(std::move(stack_pointer))
+        , stack_(std::move(stack_pointer))
     {
-        instruction_accessor = std::make_shared<detail::Instruction_Accessor>();
     }
 
   public:
-    constexpr void set_signal_register(Register signal_)
+    // each layer by its role
+    detail::Instruction_State& state() { return state_; }
+    detail::Table_Accessor& ir() { return table_accessor_; }
+    detail::Flag_Accessor& flags() { return flag_accessor_; }
+    detail::Register_Accessor& registers() { return register_accessor_; }
+    detail::Accumulator_Accessor& accumulator()
     {
-        signal_register = signal_;
+        return accumulator_accessor_;
     }
+    detail::Vector_Accessor& vectors() { return vector_accessor_; }
+    detail::Address_Accessor& addresses() { return address_accessor_; }
+    detail::Device_Accessor& devices() { return device_accessor_; }
+    detail::Buffer_Accessor& buffers() { return buffer_accessor_; }
+    Instruction_Pointer& instructions() { return instruction_accessor_; }
+    Stack_Pointer& stack() { return stack_; }
 
   public:
     Register get_accumulator_with_rvalue_context(Storage const& device);
     Register get_accumulator_with_rvalue_context(assembly::Operand_Size size);
 
   private:
-    Register signal_register = assembly::Register::wzr;
     Table_Pointer table_;
     ir::Instructions_PTR instructions_;
+    Stack_Pointer stack_;
 
-  public:
-    Stack_Pointer stack;
-
-  public:
-    // the temporary and the register that holds it after the instruction
-    // that computes it, valid until the next instruction
-    std::optional<std::pair<LValue, Register>> accumulator_temporary{};
-    // a relational expression inserted the conditional jump of the next IF
-    bool relational_jump{ false };
-
-  public:
-    detail::Flag_Accessor flag_accessor{};
-    detail::Table_Accessor table_accessor{ table_, instructions_ };
-    detail::Accumulator_Accessor accumulator_accessor{ &signal_register };
-    detail::Vector_Accessor vector_accessor{ table_, get_frame_in_memory() };
-    detail::Register_Accessor register_accessor{ &signal_register };
-    detail::Address_Accessor address_accessor{ table_,
-        stack,
-        flag_accessor,
-        register_accessor,
-        get_frame_in_memory() };
-    detail::Device_Accessor device_accessor{ address_accessor,
-        table_accessor,
+  private:
+    detail::Instruction_State state_{ Register::wzr };
+    detail::Flag_Accessor flag_accessor_{};
+    detail::Table_Accessor table_accessor_{ table_, instructions_ };
+    detail::Buffer_Accessor buffer_accessor_{ table_ };
+    detail::Accumulator_Accessor accumulator_accessor_{ state_ };
+    detail::Vector_Accessor vector_accessor_{ table_, get_frame_in_memory() };
+    detail::Register_Accessor register_accessor_{ state_ };
+    detail::Device_Accessor device_accessor_{ table_,
+        table_accessor_,
+        register_accessor_,
         get_frame_in_memory(),
-        stack };
-    Instruction_Pointer instruction_accessor{};
+        stack_ };
+    detail::Address_Accessor address_accessor_{ table_,
+        stack_,
+        flag_accessor_,
+        register_accessor_,
+        device_accessor_,
+        state_,
+        get_frame_in_memory() };
+    Instruction_Pointer instruction_accessor_{
+        std::make_shared<detail::Instruction_Accessor>()
+    };
 };
 
 } // namespace memory

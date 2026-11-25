@@ -35,8 +35,8 @@
 /****************************************************************************
  * x86-64 Memory Accessor
  *
- * The memory accessor facade of the x86-64 target, and the address of each
- * lvalue. A local is on the stack below rbp, a global is relative to rip,
+ * The Memory_Accessor of the x86-64 target, and the address of each lvalue.
+ * A local is on the stack below rbp, a global is relative to rip,
  * and a vector element is an offset in its vector.
  *
  *  Example:
@@ -113,7 +113,7 @@ assembly::Storage Register_Accessor::get_register_for_binary_operator(
     if (type::from_lvalue_offset(rvalue) == "argv") {
         auto offset = type::from_decay_offset(rvalue);
         if (!util::is_numeric(offset) and
-            not address_accessor.is_lvalue_storage_type(offset, "int"))
+            not address_accessor_.is_lvalue_storage_type(offset, "int"))
             throw_compiletime_error(
                 fmt::format(
                     "invalid argv access, argv has malformed offset '{}'",
@@ -143,12 +143,12 @@ assembly::Storage Register_Accessor::get_available_register(
     assembly::Operand_Size size,
     Stack_Pointer& stack)
 {
-    if (available_qword.empty() or available_dword.empty())
+    if (available_qword_.empty() or available_dword_.empty())
         return stack->allocate(size);
-    Storage storage = size == Operand_Size::Qword ? available_qword.front()
-                                                  : available_dword.front();
-    available_qword.pop_front();
-    available_dword.pop_front();
+    Storage storage = size == Operand_Size::Qword ? available_qword_.front()
+                                                  : available_dword_.front();
+    available_qword_.pop_front();
+    available_dword_.pop_front();
     return storage;
 }
 

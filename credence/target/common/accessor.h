@@ -23,9 +23,10 @@
 #include <cstddef>           // for size_t
 #include <deque>             // for deque
 #include <memory>            // for shared_ptr, unique_ptr
+#include <optional>          // for optional
 #include <string>            // for basic_string, char_traits, string
 #include <string_view>       // for basic_string_view, operator==, strin...
-#include <utility>           // for pair
+#include <utility>           // for pair, exchange
 #include <variant>           // for monostate, visit
 
 namespace credence::target::common {
@@ -35,10 +36,11 @@ struct Flag_Accessor;
 /****************************************************************************
  * Memory Accessors
  *
- * The platform-agnostic base types of the Memory_Accessor facade. Each target
- * derives its own accessors from them, and the inserters reach the object
- * table, the IR instruction under translation, the stack, the registers, and
- * the literals of the data section through one accessor object.
+ * The platform-agnostic layers of each target's Memory_Accessor, a Layered
+ * Aggregate. The Memory_Accessor owns its layers as private members, wired in
+ * declaration order so each depends only on the layers declared before it,
+ * and an inserter reaches each layer through its role, such as `ir()` or
+ * `buffers()`, never through another layer.
  *
  *  Example:
  *
@@ -63,11 +65,11 @@ struct Flag_Accessor;
 namespace credence::target::common::memory {
 
 /**
- * @brief The base of each target's memory accessor facade
+ * @brief The context of each target's Memory_Accessor
  *
  * Owns the object table and the stack frame of the function under
- * translation. A target's facade adds its own register, stack, device,
- * address, and instruction accessors, and is shared by every inserter as a
+ * translation, and is constructed before any layer. A target's
+ * Memory_Accessor adds its layers, and is shared by every inserter as a
  * Memory_Access pointer.
  */
 class Memory_Accessor
@@ -94,6 +96,88 @@ using Memory_Access = std::shared_ptr<Accessor>;
 
 template<Enum_T Registers, Stack_T Stack, Pair_T Address_Result>
 class Address_Accessor;
+
+/**
+ * @brief The state an inserter passes to the translation of a later IR
+ * instruction
+ *
+ *  * the signal register, the register that holds a value for the next
+ *    lvalue that reads it, such as the result of a syscall. Taking it resets
+ *    it to the empty register of the target
+ *
+ *  * the held temporary, the temporary and the register that holds it after
+ *    the instruction that computes it, valid until the next instruction
+ *
+ *  * the relational jump, set when a relational expression inserted the
+ *    conditional jump of the next `IF`
+ *
+ *  * the address assignment, set while an address-of expression is stored to
+ *    an lvalue
+ *
+ *  * the folded immediates, the value of a bitwise expression of two
+ *    immediates in a temporary, in place of a `mov`
+ */
+template<Enum_T Register>
+class Instruction_State
+{
+  public:
+    using Held_Temporary = std::optional<std::pair<LValue, Register>>;
+
+  public:
+    explicit Instruction_State(Register empty_register)
+        : empty_register_(empty_register)
+        , signal_register_(empty_register)
+    {
+    }
+
+  public:
+    void set_signal_register(Register signal) { signal_register_ = signal; }
+    Register get_signal_register() const { return signal_register_; }
+    bool has_signal_register() const
+    {
+        return signal_register_ != empty_register_;
+    }
+    Register take_signal_register()
+    {
+        return std::exchange(signal_register_, empty_register_);
+    }
+
+  public:
+    void hold_temporary(LValue const& temporary, Register storage)
+    {
+        held_temporary_ = { temporary, storage };
+    }
+    Held_Temporary const& get_held_temporary() const { return held_temporary_; }
+    void release_held_temporary() { held_temporary_.reset(); }
+
+  public:
+    void set_relational_jump() { relational_jump_ = true; }
+    bool take_relational_jump()
+    {
+        return std::exchange(relational_jump_, false);
+    }
+
+  public:
+    void set_address_assignment() { address_assignment_ = true; }
+    bool take_address_assignment()
+    {
+        return std::exchange(address_assignment_, false);
+    }
+
+  public:
+    void push_folded_immediate(Immediate const& immediate)
+    {
+        folded_immediates_.emplace_back(immediate);
+    }
+
+  private:
+    Register empty_register_;
+    Register signal_register_;
+    Held_Temporary held_temporary_{};
+    bool relational_jump_{ false };
+    bool address_assignment_{ false };
+    std::deque<Immediate> folded_immediates_{};
+};
 
 /**
  * @brief Compile-time buffer sizes and the literals of the data section
@@ -292,8 +376,8 @@ class Vector_Accessor
 template<typename T, Enum_T Register, Stack_T Stack>
 struct Accumulator_Accessor
 {
-    explicit Accumulator_Accessor(Register* signal_register)
-        : signal_register_(signal_register)
+    explicit Accumulator_Accessor(Instruction_State<Register>& state)
+        : state_(state)
     {
     }
 
@@ -331,7 +415,7 @@ struct Accumulator_Accessor
     virtual Register get_accumulator_register_from_size(T size) = 0;
 
   protected:
-    Register* signal_register_;
+    Instruction_State<Register>& state_;
 };
 
 /**
@@ -340,10 +424,6 @@ struct Accumulator_Accessor
  * Each target derives the lvalue address and insertion instructions from it,
  * the instructions that load a vector element, a dereference, or a stack
  * local into a register before it is used.
- *
- * `address_ir_assignment` is set while an address-of expression is stored to
- * an lvalue, and `immediate_stack` holds the folded value of a bitwise
- * expression of two immediates in a temporary, in place of a `mov`.
  */
 template<Enum_T Registers, Stack_T Stack, Pair_T Address_Result>
 class Address_Accessor
@@ -357,7 +437,6 @@ class Address_Accessor
         , stack_(stack)
         , flag_accessor_(flag_accessor)
         , stack_frame_(stack_frame)
-        , buffer_accessor(table)
     {
     }
 
@@ -407,40 +486,30 @@ class Address_Accessor
                table_->globals.is_pointer(rvalue_reference);
     };
 
-  public:
-    bool address_ir_assignment{ false };
-
-    std::deque<Immediate> immediate_stack{};
-
   protected:
     Table_Pointer& table_;
     Stack_Pointer<Stack>& stack_;
     Flag_Accessor& flag_accessor_;
     Stack_Frame& stack_frame_;
-
-  public:
-    Buffer_Accessor buffer_accessor;
 };
 
 /**
  * @brief The registers of a target available to locals and temporaries
  *
- * `signal_register` is set by an inserter to pass the register that holds a
- * value to the assignment of the next lvalue, such as the result of a syscall,
- * and is reset to the zero register once the assignment reads it.
+ * A signal register in the instruction state is taken in place of the next
+ * available register.
  */
 template<Enum_T Register>
 struct Register_Accessor
 {
-    explicit Register_Accessor(Register* signal_register)
-        : signal_register(signal_register)
+    explicit Register_Accessor(Instruction_State<Register>& state)
+        : state_(state)
     {
     }
     using available_registers = std::deque<Register>;
 
-    Register* signal_register;
-
   protected:
+    Instruction_State<Register>& state_;
     std::deque<Register> d_size_registers;
     std::deque<Register> w_size_registers;
 };

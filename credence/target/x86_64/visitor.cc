@@ -114,10 +114,10 @@ namespace m = matchit;
  */
 void IR_Instruction_Visitor::from_func_start_ita(Label const& name)
 {
-    auto instruction_accessor = accessor_->instruction_accessor;
-    auto& table = accessor_->table_accessor.get_table();
+    auto instruction_accessor = accessor_->instructions();
+    auto& table = accessor_->ir().get_table();
     credence_assert(table->functions.contains(name));
-    accessor_->stack->clear();
+    accessor_->stack()->clear();
     stack_frame_.symbol = name;
     stack_frame_.set_stack_frame(name);
     auto& frame = table->functions.at(name).get();
@@ -127,10 +127,10 @@ void IR_Instruction_Visitor::from_func_start_ita(Label const& name)
     x8664_add__asm(inst, mov_, rbp, rsp);
     // a frame with no calls keeps its locals below rsp, in the red zone
     if (!ir::stack_frame_contains_call_instruction(
-            frame, accessor_->table_accessor.get_ir_instructions()))
+            frame, accessor_->ir().get_ir_instructions()))
         return;
     auto imm = u32_int_immediate(0);
-    accessor_->flag_accessor.set_instruction_flag(
+    accessor_->flags().set_instruction_flag(
         common::flag::Align, instruction_accessor->size());
     x8664_add__asm(inst, sub, rsp, imm);
     if (name == "main")
@@ -145,8 +145,8 @@ void IR_Instruction_Visitor::from_func_start_ita(Label const& name)
                 : memory::registers::available_dword_register.at(index);
         auto slot = fmt::format(
             "__parameter_{}", type::get_unary_rvalue_reference(parameter));
-        accessor_->stack->set_address_from_accumulator(slot, value);
-        x8664_add__asm(inst, mov, accessor_->stack->get(slot).first, value);
+        accessor_->stack()->set_address_from_accumulator(slot, value);
+        x8664_add__asm(inst, mov, accessor_->stack()->get(slot).first, value);
     }
 }
 
@@ -157,15 +157,15 @@ void IR_Instruction_Visitor::from_func_start_ita(Label const& name)
  */
 void IR_Instruction_Visitor::from_func_end_ita()
 {
-    auto instruction_accessor = accessor_->instruction_accessor;
+    auto instruction_accessor = accessor_->instructions();
     auto& frame = stack_frame_.get_stack_frame();
     if (ir::stack_frame_contains_call_instruction(
-            frame, accessor_->table_accessor.get_ir_instructions())) {
+            frame, accessor_->ir().get_ir_instructions())) {
         auto imm = u32_int_immediate(0);
-        accessor_->flag_accessor.set_instruction_flag(
+        accessor_->flags().set_instruction_flag(
             common::flag::Align, instruction_accessor->size());
     }
-    accessor_->register_accessor.reset_available_registers();
+    accessor_->registers().reset_available_registers();
 }
 
 /**
@@ -188,8 +188,8 @@ void IR_Instruction_Visitor::from_func_end_ita()
 void IR_Instruction_Visitor::from_locl_ita(ir::Quadruple const& inst)
 {
     auto locl_lvalue = std::get<1>(inst);
-    auto& table = accessor_->table_accessor.get_table();
-    auto& stack = accessor_->stack;
+    auto& table = accessor_->ir().get_table();
+    auto& stack = accessor_->stack();
     auto is_vector = [&](RValue const& rvalue) {
         return table->vectors.contains(type::from_lvalue_offset(rvalue));
     };
@@ -231,7 +231,7 @@ void IR_Instruction_Visitor::from_push_ita(ir::Quadruple const& inst)
     stack_frame_.argument_stack.emplace_front(
         object::lvalue_at_temporary_object_address(argument, frame));
     stack_frame_.argument_slots.emplace_front(
-        accessor_->stack->is_allocated(argument) ? argument : "");
+        accessor_->stack()->is_allocated(argument) ? argument : "");
 }
 
 /**
@@ -267,7 +267,7 @@ void IR_Instruction_Visitor::from_pop_ita()
  */
 void IR_Instruction_Visitor::from_call_ita(ir::Quadruple const& inst)
 {
-    auto instruction_accessor = accessor_->instruction_accessor;
+    auto instruction_accessor = accessor_->instructions();
     auto inserter = Invocation_Inserter{ accessor_ };
     auto function_name = type::get_label_as_human_readable(std::get<1>(inst));
     auto is_syscall_function = [&](Label const& label) {
@@ -320,7 +320,7 @@ void IR_Instruction_Visitor::from_call_ita(ir::Quadruple const& inst)
             });
     stack_frame_.call_stack.emplace_back(function_name);
     stack_frame_.tail = function_name;
-    accessor_->register_accessor.reset_available_registers();
+    accessor_->registers().reset_available_registers();
 }
 
 /**
@@ -352,7 +352,7 @@ void IR_Instruction_Visitor::from_call_ita(ir::Quadruple const& inst)
  */
 void IR_Instruction_Visitor::from_mov_ita(ir::Quadruple const& inst)
 {
-    auto& table = accessor_->table_accessor.get_table();
+    auto& table = accessor_->ir().get_table();
     auto lhs = ir::get_lvalue_from_mov_qaudruple(inst);
     auto rhs = ir::get_rvalue_from_mov_qaudruple(inst).first;
 
@@ -371,10 +371,10 @@ void IR_Instruction_Visitor::from_mov_ita(ir::Quadruple const& inst)
         // instruction, otherwise it's resolved when it's pushed
         m::pattern | m::ds(m::app(is_parameter, true), m::_) =
             [&] {
-                auto const& held = accessor_->accumulator_temporary;
+                auto const& held = accessor_->state().get_held_temporary();
                 if ((type::is_temporary(rhs) and
                         ((held.has_value() and held->first == rhs) or
-                            accessor_->stack->is_allocated(rhs))) or
+                            accessor_->stack()->is_allocated(rhs))) or
                     type::is_dereference_expression(rhs))
                     insert_temporary_to_stack(rhs, lhs);
             },
@@ -382,7 +382,7 @@ void IR_Instruction_Visitor::from_mov_ita(ir::Quadruple const& inst)
             [&] {
                 expression_inserter.insert_lvalue_at_temporary_object_address(
                     lhs);
-                auto const& held = accessor_->accumulator_temporary;
+                auto const& held = accessor_->state().get_held_temporary();
                 if (held.has_value() and held->first == lhs and
                     is_temporary_used_after_next_instruction(lhs))
                     insert_temporary_to_stack(lhs, lhs);
@@ -416,7 +416,7 @@ void IR_Instruction_Visitor::from_mov_ita(ir::Quadruple const& inst)
 bool IR_Instruction_Visitor::is_temporary_used_after_next_instruction(
     LValue const& temporary)
 {
-    auto& ir_instructions = accessor_->table_accessor.get_ir_instructions();
+    auto& ir_instructions = accessor_->ir().get_ir_instructions();
     auto is_operand = [&](std::string_view operand) {
         return std::ranges::any_of(
             std::views::split(operand, ' '), [&](auto const& part) {
@@ -456,12 +456,13 @@ bool IR_Instruction_Visitor::is_temporary_used_after_next_instruction(
 void IR_Instruction_Visitor::insert_temporary_to_stack(LValue const& temporary,
     LValue const& slot)
 {
-    auto& instructions = accessor_->instruction_accessor->get_instructions();
+    auto& instructions = accessor_->instructions()->get_instructions();
     auto operand_inserter = Operand_Inserter{ accessor_ };
     auto value = operand_inserter.insert_operand_into_accumulator(temporary);
-    if (!accessor_->stack->is_allocated(slot))
-        accessor_->stack->set_address_from_accumulator(slot, value);
-    x8664_add__asm(instructions, mov, accessor_->stack->get(slot).first, value);
+    if (!accessor_->stack()->is_allocated(slot))
+        accessor_->stack()->set_address_from_accumulator(slot, value);
+    x8664_add__asm(
+        instructions, mov, accessor_->stack()->get(slot).first, value);
 }
 
 /**
@@ -483,11 +484,10 @@ void IR_Instruction_Visitor::from_cmp_ita(
  */
 void IR_Instruction_Visitor::from_if_ita(ir::Quadruple const& inst)
 {
-    if (accessor_->relational_jump) {
-        accessor_->relational_jump = false;
+    if (accessor_->state().take_relational_jump()) {
         return;
     }
-    auto& instructions = accessor_->instruction_accessor->get_instructions();
+    auto& instructions = accessor_->instructions()->get_instructions();
     auto operand_inserter = Operand_Inserter{ accessor_ };
     auto condition =
         operand_inserter.insert_operand_into_accumulator(std::get<1>(inst));
@@ -519,8 +519,8 @@ void IR_Instruction_Visitor::from_jmp_e_ita(ir::Quadruple const& inst)
     auto [_, of, with, jump] = inst;
     auto& frame = stack_frame_.get_stack_frame();
     auto of_comparator = frame.temporary.at(of).substr(4);
-    auto& instructions = accessor_->instruction_accessor->get_instructions();
-    auto of_rvalue_storage = accessor_->address_accessor
+    auto& instructions = accessor_->instructions()->get_instructions();
+    auto of_rvalue_storage = accessor_->addresses()
                                  .get_lvalue_address_and_insertion_instructions(
                                      of_comparator, instructions.size())
                                  .first;
@@ -546,7 +546,7 @@ void IR_Instruction_Visitor::from_goto_ita(ir::Quadruple const& inst)
 {
     auto label = direct_immediate(
         assembly::make_label(std::get<1>(inst), stack_frame_.symbol));
-    auto instruction_accessor = accessor_->instruction_accessor;
+    auto instruction_accessor = accessor_->instructions();
     auto& instructions = instruction_accessor->get_instructions();
     x8664_add__asm(instructions, goto_, label);
 }
@@ -560,9 +560,8 @@ void IR_Instruction_Visitor::from_goto_ita(ir::Quadruple const& inst)
 void IR_Instruction_Visitor::from_return_ita(ir::Quadruple const& inst)
 {
     auto inserter = Expression_Inserter{ accessor_ };
-    auto& frame = accessor_->table_accessor.get_table()
-                      ->functions.at(stack_frame_.symbol)
-                      .get();
+    auto& frame =
+        accessor_->ir().get_table()->functions.at(stack_frame_.symbol).get();
     if (!frame.ret.has_value())
         return;
     // each return statement returns its own rvalue
@@ -590,18 +589,16 @@ void IR_Instruction_Visitor::from_return_ita(ir::Quadruple const& inst)
  */
 void IR_Instruction_Visitor::from_leave_ita()
 {
-    auto& instructions = accessor_->instruction_accessor->get_instructions();
+    auto& instructions = accessor_->instructions()->get_instructions();
     // `main` is the entry point, so there is no caller to return to
     if (stack_frame_.symbol == "main") {
         if (ir::stack_frame_contains_call_instruction(
                 stack_frame_.get_stack_frame(),
-                accessor_->table_accessor.get_ir_instructions())) {
+                accessor_->ir().get_ir_instructions())) {
             auto size = u32_int_immediate(
-                accessor_->stack->get_stack_frame_allocation_size());
-            x8664_add__asm(accessor_->instruction_accessor->get_instructions(),
-                add,
-                rsp,
-                size);
+                accessor_->stack()->get_stack_frame_allocation_size());
+            x8664_add__asm(
+                accessor_->instructions()->get_instructions(), add, rsp, size);
         }
         syscall_ns::common::exit_syscall(instructions, 0);
     } else {
@@ -618,7 +615,7 @@ void IR_Instruction_Visitor::from_leave_ita()
  */
 void IR_Instruction_Visitor::from_label_ita(ir::Quadruple const& inst)
 {
-    auto& instructions = accessor_->instruction_accessor->get_instructions();
+    auto& instructions = accessor_->instructions()->get_instructions();
     instructions.emplace_back(
         type::get_label_as_human_readable(std::get<1>(inst)));
 }

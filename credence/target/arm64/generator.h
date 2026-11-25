@@ -203,7 +203,7 @@ class Text_Emitter
     explicit Text_Emitter(memory::Memory_Access accessor)
         : accessor_(accessor)
     {
-        instructions_ = accessor->instruction_accessor;
+        instructions_ = accessor->instructions();
     }
     friend class Assembly_Emitter;
 
@@ -296,7 +296,7 @@ class Assembly_Emitter
     explicit Assembly_Emitter(memory::Memory_Access accessor)
         : accessor_(std::move(accessor))
     {
-        ir_instructions_ = accessor_->table_accessor.get_ir_instructions();
+        ir_instructions_ = accessor_->ir().get_ir_instructions();
     }
 
   public:

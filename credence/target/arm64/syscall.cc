@@ -65,14 +65,14 @@ Register Syscall_Invocation_Inserter::get_storage_register_from_safe_address(
 {
     try {
         if (memory::is_doubleword_storage_size(
-                argument, accessor_->stack, stack_frame_))
+                argument, accessor_->stack(), stack_frame_))
             return dword_registers_.back();
         else {
-            if (accessor_->address_accessor.is_lvalue_storage_type(
+            if (accessor_->addresses().is_lvalue_storage_type(
                     argument_stack.at(index), "float")) {
                 return float_registers_.back();
             }
-            if (accessor_->address_accessor.is_lvalue_storage_type(
+            if (accessor_->addresses().is_lvalue_storage_type(
                     argument_stack.at(index), "double")) {
                 return double_registers_.back();
             }
@@ -94,9 +94,9 @@ bool Syscall_Invocation_Inserter::check_signal_register_from_safe_address(
     Instructions& instructions,
     assembly::Register storage)
 {
-    auto* address_of = accessor_->register_accessor.signal_register;
-    if (storage == arm_rr(x6) and *address_of == Register::x6) {
-        accessor_->set_signal_register(Register::w0);
+    if (storage == arm_rr(x6) and
+        accessor_->state().get_signal_register() == Register::x6) {
+        accessor_->state().set_signal_register(Register::w0);
         arm64_add__asm(instructions, mov, storage, arm_rr(x6));
         return false;
     }

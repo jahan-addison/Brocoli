@@ -98,8 +98,8 @@ namespace credence::target::arm64::runtime {
 bool Library_Call_Inserter::is_address_device_pointer_to_buffer(
     address_t& address)
 {
-    auto& stack = accessor_->stack;
-    auto& table = accessor_->table_accessor.get_table();
+    auto& stack = accessor_->stack();
+    auto& table = accessor_->ir().get_table();
     auto& stack_frame = accessor_->get_frame_in_memory().get_stack_frame();
     bool is_buffer{ false };
 
@@ -158,7 +158,6 @@ void Library_Call_Inserter::
         address_t const& argument,
         unsigned int index)
 {
-    auto* signal_register = accessor_->register_accessor.signal_register;
     namespace m = matchit;
     auto& locals = accessor_->get_frame_in_memory().argument_stack;
     auto rvalue = index >= locals.size() ? locals.at(0) : locals.at(index);
@@ -201,11 +200,13 @@ void Library_Call_Inserter::
             },
         m::pattern | m::_ =
             [&] {
-                accessor_->flag_accessor.set_instruction_flag(
+                accessor_->flags().set_instruction_flag(
                     common::flag::Argument, instructions.size());
                 if (storage == assembly::Register::x6 and
-                    *signal_register == assembly::Register::x6) {
-                    *signal_register = assembly::Register::w0;
+                    accessor_->state().get_signal_register() ==
+                        assembly::Register::x6) {
+                    accessor_->state().set_signal_register(
+                        assembly::Register::w0);
                     arm64_add__asm(instructions, mov, storage, x6);
                     return;
                 }
@@ -282,7 +283,7 @@ void Library_Call_Inserter::make_library_call(Instructions& instructions,
     auto [arg_size] = common::runtime::library_list.at(syscall_function);
     auto& locals = accessor_->get_frame_in_memory().argument_stack;
     library_call_argument_check(syscall_function, arguments, arg_size);
-    auto& address_accessor = accessor_->address_accessor;
+    auto& address_accessor = accessor_->addresses();
 
     for (std::size_t i = 0; i < arguments.size(); i++) {
         auto arg = arguments.at(i);
@@ -290,7 +291,7 @@ void Library_Call_Inserter::make_library_call(Instructions& instructions,
 
         try {
             if (memory::is_doubleword_storage_size(
-                    arg, accessor_->stack, stack_frame_))
+                    arg, accessor_->stack(), stack_frame_))
                 storage = dword_registers_.back();
             if (address_accessor.is_lvalue_storage_type(locals.at(i), "float"))
                 storage = float_registers_.back();
@@ -313,10 +314,10 @@ void Library_Call_Inserter::make_library_call(Instructions& instructions,
         if (is_variant(Register, arg) and
             (std::get<Register>(arg) == Register::x0 or
                 std::get<Register>(arg) == Register::w0)) {
-            auto lvalue = accessor_->table_accessor.get_last_lvalue_assignment(
-                accessor_->table_accessor.get_index(),
+            auto lvalue = accessor_->ir().get_last_lvalue_assignment(
+                accessor_->ir().get_index(),
                 accessor_->get_frame_in_memory().get_stack_frame());
-            auto stack_address = accessor_->stack->get(lvalue).first;
+            auto stack_address = accessor_->stack()->get(lvalue).first;
             arm64_add__asm(instructions, ldr, storage, stack_address);
         } else {
             insert_argument_instructions_standard_library_function(

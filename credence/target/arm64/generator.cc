@@ -162,7 +162,6 @@ assembly::Directives Data_Emitter::get_instructions_from_directive_type(
     RValue const& rvalue)
 {
     using d = enum assembly::Directive;
-    auto& address_storage = accessor_->address_accessor;
     assembly::Directives instructions;
 
     m::match(directive)(
@@ -172,29 +171,24 @@ assembly::Directives Data_Emitter::get_instructions_from_directive_type(
         m::pattern | m::or_(d::string, d::xword) =
             [&] {
                 credence_assert(
-                    address_storage.buffer_accessor.is_allocated_string(
-                        rvalue));
+                    accessor_->buffers().is_allocated_string(rvalue));
                 instructions = assembly::xword(
-                    address_storage.buffer_accessor.get_string_address_offset(
-                        rvalue));
+                    accessor_->buffers().get_string_address_offset(rvalue));
             },
         m::pattern | d::space = [&] { instructions = assembly::zero(rvalue); },
         m::pattern | d::double_ =
             [&] {
                 credence_assert(
-                    address_storage.buffer_accessor.is_allocated_double(
-                        rvalue));
+                    accessor_->buffers().is_allocated_double(rvalue));
                 instructions = assembly::xword(
-                    address_storage.buffer_accessor.get_double_address_offset(
-                        rvalue));
+                    accessor_->buffers().get_double_address_offset(rvalue));
             },
         m::pattern | d::float_ =
             [&] {
                 credence_assert(
-                    address_storage.buffer_accessor.is_allocated_float(rvalue));
+                    accessor_->buffers().is_allocated_float(rvalue));
                 instructions = assembly::xword(
-                    address_storage.buffer_accessor.get_float_address_offset(
-                        rvalue));
+                    accessor_->buffers().get_float_address_offset(rvalue));
             },
         m::pattern | d::align = [&] { instructions = assembly::align(rvalue); },
         m::pattern | m::_ =
@@ -227,13 +221,11 @@ std::size_t get_alignment_size_from_typed_rvalue(
 void Data_Emitter::set_data_strings()
 {
     index_before_strings = instructions_.size();
-    auto& table = accessor_->table_accessor.get_table();
+    auto& table = accessor_->ir().get_table();
     for (auto const& string : table->data.strings) {
-        auto data_instruction =
-            assembly::asciz(accessor_->address_accessor.buffer_accessor
-                                .get_constant_size_index(),
-                string);
-        accessor_->address_accessor.buffer_accessor.insert_string_literal(
+        auto data_instruction = assembly::asciz(
+            accessor_->buffers().get_constant_size_index(), string);
+        accessor_->buffers().insert_string_literal(
             string, data_instruction.first);
         assembly::inserter(instructions_, data_instruction.second);
     }
@@ -245,15 +237,13 @@ void Data_Emitter::set_data_strings()
  */
 void Data_Emitter::set_data_floats()
 {
-    auto& table = accessor_->table_accessor.get_table();
+    auto& table = accessor_->ir().get_table();
     if (!table->data.floats.empty())
         insert_arm64_alignment_directive(instructions_, 2);
     for (auto const& floatz : table->data.floats) {
-        auto data_instruction =
-            assembly::floatz(accessor_->address_accessor.buffer_accessor
-                                 .get_constant_size_index(),
-                floatz);
-        accessor_->address_accessor.buffer_accessor.insert_float_literal(
+        auto data_instruction = assembly::floatz(
+            accessor_->buffers().get_constant_size_index(), floatz);
+        accessor_->buffers().insert_float_literal(
             floatz, data_instruction.first);
         assembly::inserter(instructions_, data_instruction.second);
     }
@@ -264,16 +254,14 @@ void Data_Emitter::set_data_floats()
  */
 void Data_Emitter::set_data_doubles()
 {
-    auto& table = accessor_->table_accessor.get_table();
+    auto& table = accessor_->ir().get_table();
 
     if (!table->data.doubles.empty())
         insert_arm64_alignment_directive(instructions_, 3);
     for (auto const& doublez : table->data.doubles) {
-        auto data_instruction =
-            assembly::doublez(accessor_->address_accessor.buffer_accessor
-                                  .get_constant_size_index(),
-                doublez);
-        accessor_->address_accessor.buffer_accessor.insert_double_literal(
+        auto data_instruction = assembly::doublez(
+            accessor_->buffers().get_constant_size_index(), doublez);
+        accessor_->buffers().insert_double_literal(
             doublez, data_instruction.first);
         assembly::inserter(instructions_, data_instruction.second);
     }
@@ -288,7 +276,7 @@ void Data_Emitter::set_data_doubles()
  */
 void Data_Emitter::set_data_globals()
 {
-    auto& table = accessor_->table_accessor.get_table();
+    auto& table = accessor_->ir().get_table();
 
     for (auto const& global : table->globals.get_pointers()) {
         credence_assert(table->vectors.contains(global));
@@ -463,8 +451,8 @@ std::string Storage_Emitter::get_storage_device_as_string(
     m::Id<assembly::Stack::Offset> s;
     m::Id<assembly::Register> r;
     m::Id<assembly::Immediate> i;
-    auto flags = accessor_->flag_accessor.get_instruction_flags_at_index(
-        instruction_index_);
+    auto flags =
+        accessor_->flags().get_instruction_flags_at_index(instruction_index_);
     return m::match(storage)(
         m::pattern | m::as<assembly::Stack::Offset>(
                          s) = [&] { return emit_stack_storage(*s, flags); },
@@ -494,7 +482,7 @@ void Storage_Emitter::apply_stack_alignment(Storage& operand,
     Source source,
     common::flag::flags flags)
 {
-    auto& stack = accessor_->stack;
+    auto& stack = accessor_->stack();
     constexpr auto instruction_contains_flag = [](auto target_flag) {
         return [target_flag](
                    auto argument) { return (argument & target_flag) != 0; };
@@ -503,8 +491,7 @@ void Storage_Emitter::apply_stack_alignment(Storage& operand,
         return [target_source](
                    auto argument) { return argument == target_source; };
     };
-    auto& frame =
-        accessor_->table_accessor.get_table()->get_stack_frame(frame_name_);
+    auto& frame = accessor_->ir().get_table()->get_stack_frame(frame_name_);
     if (is_alignment_mnemonic(mnemonic)) {
         m::match(flags, source)(
 
@@ -608,7 +595,7 @@ void Storage_Emitter::emit(std::ostream& os,
     Mnemonic mnemonic,
     Source source)
 {
-    auto& flag_accessor = accessor_->flag_accessor;
+    auto& flag_accessor = accessor_->flags();
     auto flags =
         flag_accessor.get_instruction_flags_at_index(instruction_index_);
 
@@ -646,23 +633,24 @@ void Text_Emitter::emit_assembly_label(std::ostream& os,
     Label const& s,
     bool set_label)
 {
-    auto& table = accessor_->table_accessor.get_table();
+    auto& table = accessor_->ir().get_table();
     // function labels
     if (table->hoisted_symbols.has_key(s) and
         table->hoisted_symbols[s]["type"].to_string() ==
             "function_definition") {
         // callee saved registers are saved as "tokens" on the frame object
         if (!accessor_->get_frame_in_memory().get_stack_frame(s).tokens.empty())
-            accessor_->stack->allocate(16);
+            accessor_->stack()->allocate(16);
         // this is a new frame, emit the last frame function epilogue
         if (frame_ != s) {
             emit_function_epilogue(os);
-            accessor_->device_accessor.set_current_frame_symbol(s);
+            accessor_->devices().set_current_frame_symbol(s);
         }
         frame_ = s;
         address_pointer_index = table->functions.at(s).get().pointers.size();
         if (set_label)
-            label_size_ = accessor_->table_accessor.get_table()
+            label_size_ = accessor_->ir()
+                              .get_table()
                               ->functions.at(s)
                               .get()
                               .labels.size();
@@ -702,7 +690,7 @@ void Text_Emitter::emit_vector_storage_instruction(std::ostream& os,
     auto storage_emitter =
         Storage_Emitter{ accessor_, frame_, index, &address_pointer_index };
     auto size =
-        memory::get_operand_size_from_storage(operand, accessor_->stack);
+        memory::get_operand_size_from_storage(operand, accessor_->stack());
 
     if (assembly::is_immediate_relative_address(operand)) {
         storage_emitter.emit(
@@ -740,7 +728,7 @@ void Text_Emitter::emit_assembly_instruction(std::ostream& os,
     std::size_t index,
     Instruction const& s)
 {
-    auto& flag_accessor = accessor_->flag_accessor;
+    auto& flag_accessor = accessor_->flags();
     auto [mnemonic, src1, src2, src3, src4] = s;
     auto storage_emitter =
         Storage_Emitter{ accessor_, frame_, index, &address_pointer_index };
@@ -830,7 +818,7 @@ void Text_Emitter::emit_function_epilogue(std::ostream& os)
  */
 void Text_Emitter::emit_text_section(std::ostream& os)
 {
-    auto instructions_accessor = accessor_->instruction_accessor;
+    auto instructions_accessor = accessor_->instructions();
     const Instructions instructions = instructions_accessor->get_instructions();
     emit_text_directives(os);
     for (std::size_t index = 0; index < instructions_accessor->size(); index++)
