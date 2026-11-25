@@ -90,6 +90,17 @@ class Ordered_Map
 
   public:
     /**
+     * @brief Equal entries in the same order, since the index follows from
+     * the entries
+     */
+    [[nodiscard]] friend bool operator==(Ordered_Map const& a,
+        Ordered_Map const& b)
+    {
+        return a.entries_ == b.entries_;
+    }
+
+  public:
+    /**
      * @brief Insert an entry at the end, or set the value of an existing key
      *
      * An existing key keeps its position in insertion order.

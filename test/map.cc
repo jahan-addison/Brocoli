@@ -102,3 +102,23 @@ TEST_CASE("map.h: Ordered_Map::clear")
     copy.insert("b", 2);
     CHECK(copy.rbegin()->first == "b");
 }
+
+TEST_CASE("map.h: Ordered_Map::operator==")
+{
+    Ordered_Map<std::string, int> a{};
+    a.insert("x", 1);
+    a.insert("y", 2);
+    Ordered_Map<std::string, int> b{};
+    b.insert("x", 1);
+    b.insert("y", 2);
+    CHECK(a == b);
+
+    b.insert("y", 3);
+    CHECK(a != b);
+
+    // the same entries in another order are not equal, as with a vector
+    Ordered_Map<std::string, int> reversed{};
+    reversed.insert("y", 2);
+    reversed.insert("x", 1);
+    CHECK(a != reversed);
+}
