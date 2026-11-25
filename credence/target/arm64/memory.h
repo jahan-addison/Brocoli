@@ -452,11 +452,10 @@ struct Vector_Accessor : public ARM64_Vector_Accessor
 /**
  * @brief The Memory_Accessor of the ARM64 target, a Layered Aggregate
  *
- * The inserters, visitor, and emitter share one Memory_Accessor. Its layers
- * are private and declared in dependency order, the device below the
- * address, and each is reached through its role, such as `ir()`,
- * `devices()`, or `state()`. The instruction state is what one IR
- * instruction passes to the next.
+ * The inserters, visitor, and emitter share one Memory_Accessor, where its
+ * layers are private and declared in dependency order with the device below
+ * the address, and each is reached through its role such as `ir()`,
+ * `devices()`, or `state()`
  */
 class Memory_Accessor final : public ARM64_Memory_Accessor
 {
@@ -482,7 +481,7 @@ class Memory_Accessor final : public ARM64_Memory_Accessor
 
   public:
     /**
-     * @brief The roles of the aggregate, each one of its private layers
+     * @brief Get each private layer of the aggregate by its role
      */
     detail::Instruction_State& state() { return state_; }
     detail::Table_Accessor& ir() { return table_accessor_; }
@@ -501,7 +500,7 @@ class Memory_Accessor final : public ARM64_Memory_Accessor
 
   public:
     /**
-     * @brief The queries of the aggregate, each answered from more than one
+     * @brief Queries of the aggregate that are answered from more than one
      * layer
      */
     Register get_accumulator_with_rvalue_context(Storage const& device);

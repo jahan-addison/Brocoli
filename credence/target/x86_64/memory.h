@@ -327,11 +327,10 @@ struct Register_Accessor
 /**
  * @brief The Memory_Accessor of the x86-64 target, a Layered Aggregate
  *
- * The inserters, visitor, and emitter share one Memory_Accessor. Its layers
- * are private and declared in dependency order, the registers above the
- * address, and each is reached through its role, such as `ir()`,
- * `addresses()`, or `state()`. The instruction state is what one IR
- * instruction passes to the next.
+ * The inserters, visitor, and emitter share one Memory_Accessor, where its
+ * layers are private and declared in dependency order with the registers
+ * above the address, and each is reached through its role such as `ir()`,
+ * `addresses()`, or `state()`
  */
 class Memory_Accessor final : public X8664_Memory_Accessor
 {
@@ -357,7 +356,7 @@ class Memory_Accessor final : public X8664_Memory_Accessor
 
   public:
     /**
-     * @brief The roles of the aggregate, each one of its private layers
+     * @brief Get each private layer of the aggregate by its role
      */
     detail::Instruction_State& state() { return state_; }
     detail::Table_Accessor& ir() { return table_accessor_; }

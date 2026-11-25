@@ -37,10 +37,10 @@ struct Flag_Accessor;
  * Memory Accessors
  *
  * The platform-agnostic layers of each target's Memory_Accessor, a Layered
- * Aggregate. The Memory_Accessor owns its layers as private members, wired in
- * declaration order so each depends only on the layers declared before it,
- * and an inserter reaches each layer through its role, such as `ir()` or
- * `buffers()`, never through another layer.
+ * Aggregate that owns its layers as private members wired in declaration
+ * order, so each depends only on the layers declared before it and an
+ * inserter reaches each layer through its role such as `ir()` or `buffers()`,
+ * and never through another layer.
  *
  *  Example:
  *
@@ -68,9 +68,9 @@ namespace credence::target::common::memory {
  * @brief The context of each target's Memory_Accessor
  *
  * Owns the object table and the stack frame of the function under
- * translation, and is constructed before any layer. A target's
- * Memory_Accessor adds its layers, and is shared by every inserter as a
- * Memory_Access pointer.
+ * translation and is constructed before any layer, where each target's
+ * Memory_Accessor adds its own layers and is shared by every inserter as a
+ * Memory_Access pointer
  */
 class Memory_Accessor
 {
@@ -89,11 +89,11 @@ class Memory_Accessor
 };
 
 /**
- * @brief The roles of a target's Memory_Accessor
+ * @brief The roles of a target's Memory_Accessor, each of which hands out one
+ * private layer of the aggregate so an inserter reaches a layer only through
+ * its role
  *
- * Each role hands out one private layer of the aggregate, one step from it,
- * and the inserters reach a layer only through its role. A target may add
- * its own, such as `devices()` on arm64.
+ * Note: a target may add its own roles, such as `devices()` on arm64
  *
  *  Example:
  *
@@ -517,10 +517,9 @@ class Address_Accessor
 };
 
 /**
- * @brief The registers of a target available to locals and temporaries
- *
- * A signal register in the instruction state is taken in place of the next
- * available register.
+ * @brief The registers of a target available to locals and temporaries, where
+ * a signal register in the instruction state is taken in place of the next
+ * available register
  */
 template<Enum_T Register>
 struct Register_Accessor

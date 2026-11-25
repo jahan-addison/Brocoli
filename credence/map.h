@@ -90,8 +90,8 @@ class Ordered_Map
 
   public:
     /**
-     * @brief Equal entries in the same order, since the index follows from
-     * the entries
+     * @brief Check if two maps have equal entries in the same order, where the
+     * index follows from the entries and isn't compared
      */
     [[nodiscard]] friend bool operator==(Ordered_Map const& a,
         Ordered_Map const& b)

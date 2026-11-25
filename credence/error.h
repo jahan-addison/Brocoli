@@ -65,8 +65,8 @@
  *   }
  *
  * All errors include source location (file, line, column) for easy debugging.
- * An internal assertion is usable in a constant expression, and in a debug
- * build prints the backtrace of its caller.
+ * An internal assertion may be used in a constant expression, and in a debug
+ * build will print the backtrace of its caller.
  *
  *****************************************************************************/
 
@@ -184,10 +184,11 @@ inline void compile_error_impl(
 #ifdef CREDENCE_BACKTRACE
 
 /**
- * @brief Demangle the symbol in a frame of backtrace_symbols
+ * @brief Demangle the first `_Z` symbol in a frame of backtrace_symbols, where
+ * a frame without a mangled name is returned unchanged
  *
- * The symbol is the first `_Z` name, `main + 24` on macOS and
- * `credence(main+0x18)` on Linux. A frame with no mangled name is unchanged.
+ * Note: the symbol ends at a space, `+`, or `)`, since a frame is
+ * `main + 24` on macOS and `credence(main+0x18)` on Linux
  */
 inline std::string demangle_frame(std::string_view frame)
 {
@@ -212,10 +213,11 @@ inline std::string demangle_frame(std::string_view frame)
 #endif
 
 /**
- * @brief The call stack of an internal assertion, in debug builds
+ * @brief Get the call stack of an internal assertion in a debug build, without
+ * the frames of the assertion itself in credence::detail
  *
- * The frames of the assertion itself, in credence::detail, are left out.
- * Empty in a release build, or where execinfo.h is not available.
+ * Note: the backtrace is empty in a release build, or on a platform without
+ * execinfo.h
  */
 inline std::string get_backtrace()
 {
@@ -239,7 +241,8 @@ inline std::string get_backtrace()
 }
 
 /**
- * @brief Throw an internal assertion, with its location and message
+ * @brief Throw an internal assertion failure with its location, message, and
+ * backtrace
  */
 inline void assert_fail(std::source_location const& location,
     std::string_view message = "")
@@ -261,10 +264,9 @@ inline void assert_fail(std::source_location const& location,
 }
 
 /**
- * @brief An internal assertion, usable in a constant expression
- *
- * The failure is not a constant expression, so a failed assertion in a
- * constant evaluation is a compile error.
+ * @brief An internal assertion that may be used in a constant expression,
+ * where a failed assertion during constant evaluation is a compile error
+ * since the failure itself is not a constant expression
  */
 constexpr void assert_impl(std::source_location const& location,
     bool condition,

@@ -392,8 +392,8 @@ constexpr bool is_temporary(RValue_Reference rvalue)
 }
 
 /**
- * @brief Whether a name is an identifier, a letter or underscore followed by
- * letters, digits, or underscores
+ * @brief Check if a name is a valid identifier, a letter or underscore
+ * followed by any letters, digits, or underscores
  *
  *  Examples:
  *
@@ -416,10 +416,9 @@ constexpr bool is_valid_identifier(std::string_view id)
 }
 
 /**
- * @brief Split an lvalue into its object and the offset of its subscript
- *
- * The offset is empty when the lvalue has no subscript, or when the
- * subscript is not a single offset at its end.
+ * @brief Split an lvalue into its object and the offset of its subscript,
+ * where the offset is empty if there's no subscript or it isn't a single
+ * offset at the end
  *
  *  Examples:
  *
@@ -440,7 +439,7 @@ constexpr std::pair<std::string_view, std::string_view> get_subscript_sections(
 }
 
 /**
- * @brief Whether an offset is an integer or an identifier
+ * @brief Check if an offset is an integer or an identifier
  *
  *  Examples:
  *
@@ -456,9 +455,9 @@ constexpr bool is_valid_offset(std::string_view offset)
 }
 
 /**
- * @brief Whether an rvalue is an object and a tag, with an optional offset
- *
- * The object is a union, `value_t.text`, or a union variable, `v.text`.
+ * @brief Check if an rvalue is an object and its tag with an optional offset,
+ * where the object is a union like `value_t.text` or a union variable like
+ * `v.text`
  *
  *  Examples:
  *
@@ -480,7 +479,8 @@ constexpr bool is_dot_notation_object_identifier(std::string_view rvalue)
 }
 
 /**
- * @brief The object and the tag of a dot notation identifier
+ * @brief Get the object and the tag of a dot notation identifier, without its
+ * offset
  *
  *  Examples:
  *
@@ -498,7 +498,8 @@ get_union_identifier_sections(std::string_view identifier)
 }
 
 /**
- * @brief The offset of an element of a tuple tag, or empty for a scalar tag
+ * @brief Get the offset of an element of a tuple tag, or an empty offset for a
+ * scalar tag
  *
  *  Examples:
  *

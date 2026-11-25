@@ -119,7 +119,7 @@ Vector& Object_Table::set_vector_definition(Label const& label, Address size_of)
 }
 
 /**
- * @brief Set the value of a scalar tag
+ * @brief Set the typed rvalue of a scalar tag in the union
  */
 void Tagged_Union::set_tag_entry(Label const& label,
     credence::type::Typed_RValue const& entry)
@@ -128,7 +128,8 @@ void Tagged_Union::set_tag_entry(Label const& label,
 }
 
 /**
- * @brief Set the elements of a tuple tag, owned by the union
+ * @brief Set the Vector of the elements of a tuple tag, moved into and owned
+ * by the union
  */
 void Tagged_Union::set_tag_entry(Label const& label, Vector entry)
 {
@@ -136,9 +137,8 @@ void Tagged_Union::set_tag_entry(Label const& label, Vector entry)
 }
 
 /**
- * @brief The size in storage of the largest tag of the union, unpadded
- *
- * The storage of a union variable is its largest tag and its active tag.
+ * @brief Get the unpadded storage size of the largest tag in the union, which
+ * along with the active tag is the storage of each union variable
  */
 Size Tagged_Union::get_largest_tag_entry() const
 {
@@ -294,8 +294,9 @@ namespace {
 /**
  * @brief Resolve the size of a binary expression in a stack frame
  *
- * The size is of the first operand with a size, the left then the right,
- * as both are assumed the same size. Tracked by `mixed_operand_sizes`.
+ * Note: the size is from the first operand that has one, the left and then
+ * the right, since both sides are assumed to be the same size - see
+ * `mixed_operand_sizes` in docs/known_bugs.md
  */
 Size lvalue_size_at_temporary_binary_expression(RValue const& rvalue,
     Function& stack_frame)
@@ -303,7 +304,7 @@ Size lvalue_size_at_temporary_binary_expression(RValue const& rvalue,
     auto& locals = stack_frame.locals;
     if (type::is_binary_expression(rvalue)) {
         auto [left, right, op] = type::from_rvalue_binary_expression(rvalue);
-        // a literal operand, left then right
+        // a literal operand with a size, the left side and then the right
         if (type::is_typed_rvalue(left) and
             not type::is_typed_rvalue_word(left))
             return type::get_size_from_typed_rvalue(left);
@@ -311,7 +312,7 @@ Size lvalue_size_at_temporary_binary_expression(RValue const& rvalue,
             not type::is_typed_rvalue_word(right))
             return type::get_size_from_typed_rvalue(right);
 
-        // a local of the frame, left then right
+        // a local defined in the stack frame, the left side and then the right
         if (locals.is_defined(left) and not locals.is_pointer(left)) {
             auto typed_rvalue = locals.get_symbol_by_name(left);
             if (type::is_typed_rvalue_word(typed_rvalue))

@@ -75,7 +75,8 @@ using Stack = std::deque<type::semantic::RValue>;
 constexpr Size k_pointer_size{ 8 };
 
 /**
- * @brief The size of a typed rvalue in storage, where a string is a pointer
+ * @brief Get the storage size of a typed rvalue, where a string is the size of
+ * its pointer and not the length of its literal
  *
  *  Examples:
  *
@@ -129,9 +130,8 @@ class Vector
         offset.insert(index, address);
     }
     /**
-     * @brief The size of the data of the vector in storage, unpadded
-     *
-     * Alignment is the backend's.
+     * @brief Get the unpadded storage size of the vector data, since
+     * alignment is left to each backend
      */
     [[nodiscard]] constexpr Size size_of_data() const
     {
@@ -154,10 +154,8 @@ class Vector
 static_assert(std::equality_comparable<Vector>);
 
 /**
- * @brief A union definition, the value of each of its tags
- *
- * The value of a scalar tag is a typed rvalue, and the value of a tuple tag
- * is a Vector of its elements.
+ * @brief Tagged union definition with the value of each of its tags, a typed
+ * rvalue for a scalar tag or a Vector of the elements of a tuple tag
  */
 class Tagged_Union
 {
@@ -186,7 +184,7 @@ class Tagged_Union
     [[nodiscard]] Size get_largest_tag_entry() const;
 
     /**
-     * @brief Whether a tag is defined in the union
+     * @brief Check if a tag is defined in the union
      */
     [[nodiscard]] constexpr bool is_tag_entry(Label const& entry) const
     {
@@ -388,9 +386,9 @@ Type get_type_from_object_data_type(LValue const& lvalue,
 }
 
 /**
- * @brief Whether an rvalue is a tag of a union, `value_t.text`
- *
- * A tag of a union variable, `v.text`, is Object_Table::is_union_variable.
+ * @brief Check if an rvalue is the tag of a union type such as `value_t.text`,
+ * where the tag of a union variable like `v.text` is checked by
+ * Object_Table::is_union_variable instead
  */
 [[nodiscard]] constexpr bool is_union(RValue const& rvalue,
     Tagged_Unions const& unions)
@@ -486,7 +484,8 @@ class Object_Table
     }
 
     /**
-     * @brief The union of a variable, a local of the frame or a global
+     * @brief Get the union of a variable from the union table of the frame,
+     * and then from the union globals
      */
     [[nodiscard]] constexpr std::optional<std::reference_wrapper<Tagged_Union>>
     get_union_of_variable(LValue const& variable, Function const& frame)
@@ -499,7 +498,8 @@ class Object_Table
     }
 
     /**
-     * @brief Whether an lvalue is a tag of a union variable, `v.pair[0]`
+     * @brief Check if an lvalue is the tag of a union variable, such as
+     * `v.text` or `v.pair[0]`
      */
     [[nodiscard]] constexpr bool is_union_variable(LValue const& lvalue,
         Function const& frame)

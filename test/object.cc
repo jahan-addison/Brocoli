@@ -13,7 +13,7 @@ using credence::type::Typed_RValue;
 namespace {
 
 /**
- * @brief A tuple tag of the elements of a list of typed rvalues
+ * @brief Make a tuple tag from the elements of a list of typed rvalues
  */
 Vector make_tuple_tag(std::string const& label,
     std::initializer_list<Typed_RValue> elements)
@@ -26,7 +26,7 @@ Vector make_tuple_tag(std::string const& label,
 }
 
 /**
- * @brief The union of examples/unions.b, `value_t`
+ * @brief Set the tags of `value_t`, the union of examples/unions.b
  */
 void set_value_t(Tagged_Union& value_t)
 {
@@ -64,7 +64,7 @@ TEST_CASE("object.h: Vector::size_of_data")
                 Typed_RValue{ "0", "int", 4 }
     })
             .size_of_data() == 8);
-    // unpadded, since alignment is the backend's
+    // unpadded, since alignment is left to each backend
     CHECK(make_tuple_tag("mixed",
               {
                   Typed_RValue{ "0",     "int",    4 },
@@ -97,7 +97,7 @@ TEST_CASE("object.cc: Object_Table::set_union_definition")
     CHECK(table.unions.contains("value_t"));
     CHECK(&table.unions.at("value_t").get() == &value_t);
 
-    // each definition keeps its address as more are inserted
+    // each definition keeps its address as more definitions are inserted
     auto& option_t = table.set_union_definition("option_t");
     CHECK(&table.unions.at("value_t").get() == &value_t);
     CHECK(&table.unions.at("option_t").get() == &option_t);
@@ -135,7 +135,7 @@ TEST_CASE("object.cc: Tagged_Union::get_largest_tag_entry")
     scalar.set_tag_entry("large", Typed_RValue{ "0", "long", 8 });
     CHECK(scalar.get_largest_tag_entry() == 8);
 
-    // a string is its pointer, not its length
+    // a string is the size of its pointer and not the length of its literal
     Tagged_Union text{ "text_t" };
     text.set_tag_entry("text", Typed_RValue{ "\"\"", "string", 0 });
     CHECK(text.get_largest_tag_entry() == k_pointer_size);
