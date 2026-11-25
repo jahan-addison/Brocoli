@@ -356,7 +356,9 @@ class Memory_Accessor final : public X8664_Memory_Accessor
     }
 
   public:
-    // each layer by its role
+    /**
+     * @brief The roles of the aggregate, each one of its private layers
+     */
     detail::Instruction_State& state() { return state_; }
     detail::Table_Accessor& ir() { return table_accessor_; }
     detail::Flag_Accessor& flags() { return flag_accessor_; }
@@ -397,6 +399,8 @@ class Memory_Accessor final : public X8664_Memory_Accessor
         std::make_shared<detail::Instruction_Accessor>()
     };
 };
+
+static_assert(common::memory::Memory_Accessor_T<Memory_Accessor>);
 
 } // namespace memory
 

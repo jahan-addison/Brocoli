@@ -88,8 +88,31 @@ class Memory_Accessor
     std::unique_ptr<impl> pimpl;
 };
 
+/**
+ * @brief The roles of a target's Memory_Accessor
+ *
+ * Each role hands out one private layer of the aggregate, one step from it,
+ * and the inserters reach a layer only through its role. A target may add
+ * its own, such as `devices()` on arm64.
+ *
+ *  Example:
+ *
+ *    accessor_->buffers().insert_string_literal(rvalue, label);
+ */
 template<typename T>
-concept Memory_Accessor_T = std::derived_from<T, Memory_Accessor>;
+concept Memory_Accessor_T =
+    std::derived_from<T, Memory_Accessor> and requires(T& accessor) {
+        accessor.state();
+        accessor.ir();
+        accessor.flags();
+        accessor.registers();
+        accessor.accumulator();
+        accessor.vectors();
+        accessor.addresses();
+        accessor.buffers();
+        accessor.instructions();
+        accessor.stack();
+    };
 
 template<Memory_Accessor_T Accessor>
 using Memory_Access = std::shared_ptr<Accessor>;
