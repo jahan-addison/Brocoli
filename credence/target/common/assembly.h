@@ -284,7 +284,7 @@ constexpr OS_Type get_os_type()
 /**
  * @brief An immediate operand of a directive of an array in the data section
  */
-inline Immediate make_array_immediate(std::string_view address)
+constexpr Immediate make_array_immediate(std::string_view address)
 {
     return Immediate{ std::string{ address }, "string", 8UL };
 }
@@ -296,7 +296,7 @@ inline Immediate make_array_immediate(std::string_view address)
  *
  *    make_direct_immediate("[sp, #16]")   // [sp, #16]
  */
-inline Immediate make_direct_immediate(std::string_view str)
+constexpr Immediate make_direct_immediate(std::string_view str)
 {
     return Immediate{ std::string{ str }, "string", 8UL };
 }

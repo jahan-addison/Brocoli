@@ -7,6 +7,12 @@
 
 using Immediate = credence::target::common::Immediate;
 
+static_assert(
+    credence::target::common::assembly::make_direct_immediate("x").value ==
+    "x");
+static_assert(
+    credence::target::common::assembly::make_array_immediate("v").value == "v");
+
 namespace {
 
 /**

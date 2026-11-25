@@ -20,6 +20,7 @@
 #include <credence/util.h>                   // for STRINGIFY, range_contains
 #include <cstddef>                           // for size_t
 #include <deque>                             // for deque
+#include <fmt/compile.h>                     // for operator""_cf
 #include <fmt/format.h>                      // for format
 #include <initializer_list>                  // for initializer_list
 #include <matchit.h>                         // for pattern, PatternHelper
@@ -1544,10 +1545,11 @@ constexpr std::string tabwidth(unsigned int t)
  *    page_offset_upper_immediate("mess")   // mess@PAGE on Darwin
  *    page_offset_upper_immediate("mess")   // mess on Linux
  */
-inline Immediate page_offset_upper_immediate(std::string_view str)
+constexpr Immediate page_offset_upper_immediate(std::string_view str)
 {
+    using namespace fmt::literals;
 #if defined(__APPLE__) || defined(__bsdi__)
-    return Immediate{ fmt::format("{}@PAGE", str), "string", 8UL };
+    return Immediate{ fmt::format("{}@PAGE"_cf, str), "string", 8UL };
 #else
     return Immediate{ str, "string", 8UL };
 #endif
@@ -1645,15 +1647,16 @@ constexpr std::string literal_type_to_string(Literal_Type const& literal)
  *    make_argv_offset_immediate(1)   // [x19, #8] on Darwin
  *    make_argv_offset_immediate(1)   // [x19, #16] on Linux
  */
-inline Immediate make_argv_offset_immediate(std::size_t index)
+constexpr Immediate make_argv_offset_immediate(std::size_t index)
 {
+    using namespace fmt::literals;
 #if defined(__APPLE__) || defined(__bsdi__)
     auto offset = 8UL * index;
 #else
     auto offset = 8UL * (index + 1);
 #endif
     return common::assembly::make_direct_immediate(
-        fmt::format("[x19, #{}]", offset));
+        fmt::format("[x19, #{}]"_cf, offset));
 }
 
 /**
@@ -1750,7 +1753,8 @@ inline void inserter(assembly::Directives& to, assembly::Directives const& from)
 /**
  * @brief Construct an immediate of the label of a literal
  */
-inline arm64::assembly::Immediate make_asciz_immediate(std::string_view address)
+constexpr arm64::assembly::Immediate make_asciz_immediate(
+    std::string_view address)
 {
     return Immediate{ std::string(address), "string", 8UL };
 }

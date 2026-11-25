@@ -113,7 +113,7 @@ inline Data_Kind::LValue make_lvalue(std::string const& name)
 }
 
 template<typename T>
-inline Data_Kind::LValue make_lvalue(std::string name, T value)
+constexpr Data_Kind::LValue make_lvalue(std::string name, T value)
 {
     static_assert(std::is_constructible_v<literal::Literal, T>,
         "Error: Type T is not a valid alternative in "

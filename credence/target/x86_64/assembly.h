@@ -20,6 +20,7 @@
 #include <credence/util.h>                   // for contains, STRINGIFY
 #include <cstddef>                           // for size_t
 #include <deque>                             // for deque
+#include <fmt/compile.h>                     // for operator""_cf
 #include <fmt/format.h>                      // for format
 #include <initializer_list>                  // for initializer_list
 #include <map>                               // for map
@@ -866,10 +867,11 @@ inline void inserter(assembly::Directives& to, assembly::Directives const& from)
 /**
  * @brief Construct an immediate of the label of a literal
  */
-inline x86_64::assembly::Immediate make_asciz_immediate(
+constexpr x86_64::assembly::Immediate make_asciz_immediate(
     std::string_view address)
 {
-    return Immediate{ fmt::format("[rip + {}]", address), "string", 8UL };
+    using namespace fmt::literals;
+    return Immediate{ fmt::format("[rip + {}]"_cf, address), "string", 8UL };
 }
 
 /**

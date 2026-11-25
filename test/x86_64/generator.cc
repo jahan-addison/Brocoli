@@ -8,6 +8,10 @@
 #include <sstream>                            // for char_traits, basic_ost...
 #include <string>                             // for basic_string, allocator
 
+static_assert(
+    credence::target::x86_64::assembly::make_asciz_immediate("._L_str1__")
+        .value == "[rip + ._L_str1__]");
+
 using namespace credence;
 using namespace credence::target::x86_64;
 

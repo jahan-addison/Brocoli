@@ -12,6 +12,15 @@
 #include <sstream>
 #include <string>
 
+static_assert(
+    credence::target::arm64::assembly::make_asciz_immediate("._L_str1__")
+        .value == "._L_str1__");
+static_assert(credence::target::arm64::assembly::make_argv_offset_immediate(1)
+        .value.starts_with("[x19, #"));
+static_assert(
+    credence::target::arm64::assembly::page_offset_upper_immediate("._L_str1__")
+        .value.starts_with("._L_str1__"));
+
 using namespace credence;
 using namespace credence::target::arm64;
 
