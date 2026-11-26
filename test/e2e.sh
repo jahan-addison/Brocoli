@@ -75,12 +75,18 @@ CREDENCE_BINARY="$DIRECTORY/bin/credence"
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
-TIMEOUT=''
-if command -v timeout > /dev/null; then
-    TIMEOUT='timeout 10'
-elif command -v gtimeout > /dev/null; then
-    TIMEOUT='gtimeout 10'
-fi
+# run a test for at most 10 seconds, so a test that never ends, such as a
+# known failure that loops, fails instead of hanging the suite. perl's alarm
+# survives its exec, and is on every runner without coreutils, such as macOS
+run_with_timeout() {
+    if command -v timeout > /dev/null; then
+        timeout 10 "$@"
+    elif command -v gtimeout > /dev/null; then
+        gtimeout 10 "$@"
+    else
+        perl -e 'alarm shift; exec @ARGV' 10 "$@"
+    fi
+}
 
 if [[ ${#NAMES[@]} -eq 0 ]]; then
     for source in "$E2E"/*.b; do
@@ -117,7 +123,7 @@ run_test() {
     local stdin="/dev/null"
     [[ -f "$E2E/$name.stdin" ]] && stdin="$E2E/$name.stdin"
     # shellcheck disable=SC2086
-    $TIMEOUT "$binary" $args < "$stdin" > "$WORK/$name.actual" 2>&1
+    run_with_timeout "$binary" $args < "$stdin" > "$WORK/$name.actual" 2>&1
     local status=$?
     if [[ $status -ne 0 ]]; then
         echo "exit status $status, output:"
