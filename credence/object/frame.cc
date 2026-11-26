@@ -74,11 +74,14 @@ void Function::set_parameters_from_symbolic_label(Label const& label)
  * @brief Resolve the rvalue at a temporary storage address in the object table
  */
 RValue lvalue_at_temporary_object_address(LValue const& lvalue,
-    Function& stack_frame)
+    Function const& stack_frame)
 {
-    auto rvalue = type::is_temporary(lvalue) or util::contains(lvalue, "_p")
-                      ? stack_frame.temporary[lvalue]
-                      : lvalue;
+    auto is_temporary =
+        type::is_temporary(lvalue) or util::contains(lvalue, "_p");
+    auto rvalue = not is_temporary ? lvalue
+                  : stack_frame.temporary.contains(lvalue)
+                      ? stack_frame.temporary.at(lvalue)
+                      : RValue{};
     if (util::contains(rvalue, "_t") and util::contains(rvalue, " ")) {
         return rvalue;
     } else {
@@ -99,7 +102,7 @@ namespace {
  * `mixed_operand_sizes` in docs/known_bugs.md
  */
 Size lvalue_size_at_temporary_binary_expression(RValue const& rvalue,
-    Function& stack_frame)
+    Function const& stack_frame)
 {
     auto& locals = stack_frame.locals;
     if (type::is_binary_expression(rvalue)) {
@@ -146,7 +149,7 @@ Size lvalue_size_at_temporary_binary_expression(RValue const& rvalue,
  * lvalue_size_at_temporary_binary_expression
  */
 Size lvalue_size_at_temporary_object_address(LValue const& lvalue,
-    Function& stack_frame)
+    Function const& stack_frame)
 {
     auto rvalue = lvalue_at_temporary_object_address(lvalue, stack_frame);
     auto& locals = stack_frame.locals;
@@ -187,7 +190,7 @@ Size lvalue_size_at_temporary_object_address(LValue const& lvalue,
 }
 
 Size get_size_of_temporary_binary_rvalue(RValue const& rvalue,
-    Function& stack_frame)
+    Function const& stack_frame)
 {
     Size size = 0UL;
     auto temp_side = type::is_temporary_operand_binary_expression(rvalue);

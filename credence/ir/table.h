@@ -16,7 +16,7 @@
 #include <credence/ir/ita.h>             // for Quadruple, Instructions, ITA
 #include <credence/language/hir/table.h> // for Object_Table_PTR, Table
 #include <credence/map.h>                // for Ordered_Map
-#include <credence/object.h>             // for Object_Table, LValue, Label
+#include <credence/object/table.h>       // for Object_Table, LValue, Label
 #include <credence/symbol.h>             // for Symbol_Table
 #include <credence/types.h> // for Typed_RValue, Address, Parameters, RVal...
 #include <credence/util.h>  // for CREDENCE_PRIVATE_UNLESS_TESTED, AST_...

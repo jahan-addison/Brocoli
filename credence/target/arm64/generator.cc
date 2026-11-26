@@ -22,7 +22,7 @@
 #include <credence/error.h>                  // for credence_assert, creden...
 #include <credence/ir/ita.h>                 // for make_ita_instructions
 #include <credence/ir/table.h>               // for make_table, Table
-#include <credence/object.h>                 // for Function, Object, RValue
+#include <credence/object/table.h>           // for Function, Object, RValue
 #include <credence/symbol.h>                 // for Symbol_Table
 #include <credence/target/common/accessor.h> // for Buffer_Accessor
 #include <credence/target/common/assembly.h> // for direct_immediate, u32_i...
@@ -294,7 +294,8 @@ void Data_Emitter::set_data_globals()
             auto directive =
                 assembly::get_data_directive_from_rvalue_type(item.second);
             auto data = type::get_value_from_typed_rvalue(item.second);
-            vector.set_address_offset(item.first, address);
+            accessor_->vectors().set_address_offset(
+                global, item.first, address);
             auto type = type::get_type_from_typed_rvalue(item.second);
             address += assembly::get_size_from_operand_size(
                 assembly::get_operand_size_from_typed_rvalue(item.second));

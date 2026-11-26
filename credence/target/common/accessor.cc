@@ -16,7 +16,7 @@
 #include <credence/error.h>                     // for credence_assert, thr...
 #include <credence/ir/ita.h>                    // for Instruction
 #include <credence/language/literal.h>          // for is_integer_string
-#include <credence/object.h>                    // for Object, Function
+#include <credence/object/table.h>              // for Object, Function
 #include <credence/target/common/memory.h>      // for is_vector_offset
 #include <credence/target/common/stack_frame.h> // for Stack_Frame, Locals
 #include <credence/types.h>                     // for get_size_from_rvalue...
@@ -65,7 +65,7 @@ namespace credence::target::common::memory {
 
 struct Memory_Accessor::impl
 {
-    explicit impl(std::shared_ptr<object::Object_Table> obj)
+    explicit impl(std::shared_ptr<object::Object_Table const> obj)
         : objects(std::move(obj))
         , stack_frame(objects)
     {
@@ -75,11 +75,12 @@ struct Memory_Accessor::impl
         , stack_frame(other.objects)
     {
     }
-    std::shared_ptr<object::Object_Table> objects;
+    std::shared_ptr<object::Object_Table const> objects;
     Stack_Frame stack_frame;
 };
 
-Memory_Accessor::Memory_Accessor(std::shared_ptr<object::Object_Table> objects)
+Memory_Accessor::Memory_Accessor(
+    std::shared_ptr<object::Object_Table const> objects)
     : pimpl(std::make_unique<impl>(std::move(objects)))
 {
 }
@@ -440,7 +441,7 @@ bool Table_Accessor::is_ir_instruction_temporary()
  *    get_last_lvalue_assignment(2, frame)   // x
  */
 LValue Table_Accessor::get_last_lvalue_assignment(unsigned int index_,
-    object::Function& stack_frame)
+    object::Function const& stack_frame)
 {
     for (; index_ > 0; index_--) {
         auto ir_inst = pimpl->instructions_->at(index_);
@@ -552,7 +553,7 @@ auto Vector_Accessor<Entry>::get_offset_from_hoisted_symbols(
             fmt::format(
                 "Invalid out-of-range index '{}' on vector lvalue", key),
             vector);
-    return std::make_pair(table_->get_vector(vector).offset.at(key),
+    return std::make_pair(offsets_.at(vector).at(key),
         get_size_from_vector_offset(table_->get_vector(vector).data.at(key)));
 }
 
@@ -585,7 +586,7 @@ auto Vector_Accessor<Entry>::get_offset_from_integer_rvalue(
             fmt::format(
                 "Invalid out-of-range index '{}' on vector lvalue", offset),
             vector);
-    return std::make_pair(table_->get_vector(vector).offset.at(offset),
+    return std::make_pair(offsets_.at(vector).at(offset),
         get_size_from_vector_offset(
             table_->get_vector(vector).data.at(offset)));
 }

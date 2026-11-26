@@ -14,7 +14,7 @@
 #pragma once
 
 #include "assembly.h"                     // for Operand_Size, Immediate
-#include <credence/object.h>              // for LValue, Size, Vector (ptr ...
+#include <credence/object/table.h>        // for LValue, Size, Vector (ptr ...
 #include <credence/target/common/types.h> // for base_stack_pointer
 #include <memory>                         // for unique_ptr
 #include <string>                         // for string

@@ -17,7 +17,7 @@
 #include "stack.h"                              // for Stack
 #include <array>                                // for get, array
 #include <credence/error.h>                     // for credence_assert
-#include <credence/object.h>                    // for get_rvalue_at_lvalue...
+#include <credence/object/table.h>              // for get_rvalue_at_lvalue...
 #include <credence/target/common/assembly.h>    // for get_storage_as_string
 #include <credence/target/common/runtime.h>     // for library_list
 #include <credence/target/common/stack_frame.h> // for Locals

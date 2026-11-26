@@ -15,7 +15,7 @@
 #include "assembly.h"                     // for get_size_from_operand_size
 #include <algorithm>                      // for find_if, __find_if
 #include <credence/map.h>                 // for Ordered_Map
-#include <credence/object.h>              // for LValue, Vector, Size, Type
+#include <credence/object/table.h>        // for LValue, Vector, Size, Type
 #include <credence/target/common/types.h> // for Stack_Offset, base_stack_p...
 #include <credence/types.h>               // for Size
 #include <credence/util.h>                // for align_up_to_16, align_up_to_8

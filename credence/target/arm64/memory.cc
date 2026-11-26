@@ -20,7 +20,7 @@
 #include "flags.h"                           // for flags
 #include "stack.h"                           // for Stack
 #include <credence/error.h>                  // for credence_assert, creden...
-#include <credence/object.h>                 // for LValue, Object, get_rva...
+#include <credence/object/table.h>           // for LValue, Object, get_rva...
 #include <credence/symbol.h>                 // for Symbol_Table
 #include <credence/target/common/assembly.h> // for direct_immediate, make_...
 #include <credence/types.h>                  // for get_size_from_rvalue_da...
@@ -305,7 +305,6 @@ Address_Accessor::get_lvalue_address_and_from_unary_and_vectors(
     LValue const& lvalue,
     std::size_t instruction_index)
 {
-    auto vector_accessor = Vector_Accessor{ table_, stack_frame_ };
     auto lhs = type::from_lvalue_offset(lvalue);
     auto offset = type::from_decay_offset(lvalue);
     auto& inst = instructions.second;
@@ -315,7 +314,7 @@ Address_Accessor::get_lvalue_address_and_from_unary_and_vectors(
                 credence_assert(table_->vector_contains(lhs));
                 if (table_->globals().is_pointer(lhs)) {
                     auto offset_storage =
-                        vector_accessor.get_offset_address(lvalue, offset);
+                        vector_accessor_.get_offset_address(lvalue, offset);
                     auto global_offset =
                         assembly::page_offset_upper_immediate(lhs);
                     auto global_offset_page =

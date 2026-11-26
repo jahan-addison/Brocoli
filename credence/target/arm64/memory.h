@@ -16,7 +16,7 @@
 #include "assembly.h"                           // for Register, Operand_Size
 #include "stack.h"                              // for Stack
 #include <credence/map.h>                       // for Ordered_Map
-#include <credence/object.h>                    // for LValue, Size, RValue
+#include <credence/object/table.h>              // for LValue, Size, RValue
 #include <credence/target/common/accessor.h>    // for Accumulator_Accessor
 #include <credence/target/common/flags.h>       // for Flag_Accessor
 #include <credence/target/common/memory.h>      // for Operand_Type, is_imm...
@@ -167,7 +167,7 @@ const general_purpose available_word_argument = { Register::w0,
 using Memory_Access = std::shared_ptr<Memory_Accessor>;
 using Instruction_Pointer = std::shared_ptr<detail::Instruction_Accessor>;
 using Stack_Pointer = std::shared_ptr<assembly::Stack>;
-using Table_Pointer = std::shared_ptr<object::Object_Table>;
+using Table_Pointer = std::shared_ptr<object::Object_Table const>;
 using Stack_Frame = target::common::memory::Stack_Frame;
 
 Register get_second_register_for_binary_operand(assembly::Operand_Size size);
@@ -194,6 +194,7 @@ using ARM64_Memory_Accessor = common::memory::Memory_Accessor;
 namespace detail {
 
 class Device_Accessor;
+struct Vector_Accessor;
 
 using ARM64_Address_Accessor = common::memory::
     Address_Accessor<Register, assembly::Stack, assembly::Instruction_Pair>;
@@ -404,11 +405,13 @@ struct Address_Accessor : public ARM64_Address_Accessor
     explicit Address_Accessor(Table_Pointer& table,
         ARM64_Address_Accessor::Stack_Pointer_Type& stack,
         Flag_Accessor& flag_accessor,
+        Vector_Accessor& vector_accessor,
         Register_Accessor& register_accessor,
         Device_Accessor& device_accessor,
         Instruction_State& state,
         Stack_Frame& stack_frame)
         : ARM64_Address_Accessor(table, stack, flag_accessor, stack_frame)
+        , vector_accessor_(vector_accessor)
         , register_accessor_(register_accessor)
         , device_accessor_(device_accessor)
         , state_(state)
@@ -426,6 +429,7 @@ struct Address_Accessor : public ARM64_Address_Accessor
         std::size_t instruction_index);
 
   private:
+    Vector_Accessor& vector_accessor_;
     Register_Accessor& register_accessor_;
     Device_Accessor& device_accessor_;
     Instruction_State& state_;
@@ -527,6 +531,7 @@ class Memory_Accessor final : public ARM64_Memory_Accessor
     detail::Address_Accessor address_accessor_{ table_,
         stack_,
         flag_accessor_,
+        vector_accessor_,
         register_accessor_,
         device_accessor_,
         state_,

@@ -15,7 +15,7 @@
 
 #include "assembly.h"                           // for Register, Operand_Size
 #include "stack.h"                              // for Stack
-#include <credence/object.h>                    // for RValue, LValue, Object
+#include <credence/object/table.h>              // for RValue, LValue, Object
 #include <credence/target/common/accessor.h>    // for Accumulator_Accessor
 #include <credence/target/common/flags.h>       // for Flag_Accessor
 #include <credence/target/common/memory.h>      // for Operand_Type, is_imm...
@@ -136,7 +136,7 @@ const general_purpose available_dword_register = { Register::edi,
 using Memory_Access = std::shared_ptr<Memory_Accessor>;
 using Instruction_Pointer = std::shared_ptr<detail::Instruction_Accessor>;
 using Stack_Pointer = std::shared_ptr<assembly::Stack>;
-using Table_Pointer = std::shared_ptr<object::Object_Table>;
+using Table_Pointer = std::shared_ptr<object::Object_Table const>;
 using Stack_Frame = common::memory::Stack_Frame;
 
 using X8664_Memory_Accessor = common::memory::Memory_Accessor;
@@ -162,6 +162,8 @@ constexpr std::string storage_prefix_from_operand_size(
 }
 
 namespace detail {
+
+struct Vector_Accessor;
 
 using X8664_Address_Accessor =
     common::memory::Address_Accessor<assembly::Register,
@@ -243,8 +245,10 @@ struct Address_Accessor : public X8664_Address_Accessor
     explicit Address_Accessor(Table_Pointer& table,
         X8664_Address_Accessor::Stack_Pointer_Type& stack,
         Flag_Accessor& flag_accessor,
+        Vector_Accessor& vector_accessor,
         Stack_Frame& stack_frame)
         : X8664_Address_Accessor(table, stack, flag_accessor, stack_frame)
+        , vector_accessor_(vector_accessor)
     {
     }
     bool is_qword_storage_size(assembly::Storage const& storage) const;
@@ -253,6 +257,9 @@ struct Address_Accessor : public X8664_Address_Accessor
         LValue const& lvalue,
         std::size_t instruction_index,
         bool use_prefix = true);
+
+  private:
+    Vector_Accessor& vector_accessor_;
 };
 
 /**
@@ -392,6 +399,7 @@ class Memory_Accessor final : public X8664_Memory_Accessor
     detail::Address_Accessor address_accessor_{ table_,
         stack_,
         flag_accessor_,
+        vector_accessor_,
         get_frame_in_memory() };
     detail::Register_Accessor register_accessor_{ address_accessor_ };
     Instruction_Pointer instruction_accessor_{

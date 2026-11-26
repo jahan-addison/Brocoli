@@ -103,13 +103,13 @@ class Symbol_Table
         return table_.size() + addr_.size();
     }
 
-    inline Keys get_symbols()
+    inline Keys get_symbols() const
     {
         auto keys = std::views::keys(table_);
         return Keys{ keys.begin(), keys.end() };
     }
 
-    inline Keys get_pointers()
+    inline Keys get_pointers() const
     {
         auto keys = std::views::keys(addr_);
         return Keys{ keys.begin(), keys.end() };

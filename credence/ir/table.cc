@@ -13,22 +13,22 @@
 
 #include <credence/ir/table.h>
 
-#include <algorithm>         // for find_if
-#include <credence/error.h>  // for credence_assert
-#include <credence/ir/ita.h> // for Instruction, Quadruple, emit
-#include <credence/object.h> // for Object, Function, LValue
-#include <credence/symbol.h> // for Symbol_Table
-#include <credence/types.h>  // for get_typed_rvalue_from_string
-#include <credence/util.h>   // for contains, AST_Node, str_trim_ws
-#include <deque>             // for deque
-#include <easyjson.h>        // for JSON
-#include <fmt/format.h>      // for format
-#include <map>               // for operator!=
-#include <matchit.h>         // for pattern, PatternHelper, Patt...
-#include <string>            // for basic_string, char_traits
-#include <string_view>       // for basic_string_view, string_view
-#include <tuple>             // for get, tuple, operator==
-#include <utility>           // for pair, get
+#include <algorithm>               // for find_if
+#include <credence/error.h>        // for credence_assert
+#include <credence/ir/ita.h>       // for Instruction, Quadruple, emit
+#include <credence/object/table.h> // for Object, Function, LValue
+#include <credence/symbol.h>       // for Symbol_Table
+#include <credence/types.h>        // for get_typed_rvalue_from_string
+#include <credence/util.h>         // for contains, AST_Node, str_trim_ws
+#include <deque>                   // for deque
+#include <easyjson.h>              // for JSON
+#include <fmt/format.h>            // for format
+#include <map>                     // for operator!=
+#include <matchit.h>               // for pattern, PatternHelper, Patt...
+#include <string>                  // for basic_string, char_traits
+#include <string_view>             // for basic_string_view, string_view
+#include <tuple>                   // for get, tuple, operator==
+#include <utility>                 // for pair, get
 
 /****************************************************************************
  * Table

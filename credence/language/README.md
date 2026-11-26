@@ -1,4 +1,4 @@
-# Language Frontend
+#Language Frontend
 
 Initially, the source-to-AST step was an entirely separate, older Python project, [augur](https://github.com/jahan-addison/augur). It was built on [Lark](https://github.com/lark-parser/lark) and embedded into credence at runtime via pybind11. This folder is a native C++ replacement for that: a re2c-generated lexer and a hand-written recursive-descent parser. The parser started by producing the exact same JSON AST as augur's [`transformer.py`](https://github.com/jahan-addison/augur/blob/master/augur/transformer.py), so that the rest of the frontend did not need to change, and its AST has since grown with Brocoli - the program node and its declarations, unions, and `is` expressions.
 
@@ -57,7 +57,9 @@ An identifier is at most 16 characters. A longer identifier is its own token, an
 The original `grammar.lark` is a flat LALR(1) grammar with no real operator precedence at the parse-tree level. Lark's default parser resolves every `rvalue OP rvalue` the same way no matter which operator is involved, so the resulting tree is always right-associative:
 
 ```C
-main() { auto x, a, b, c; x = a * b + c; }
+main() {
+    auto x, a, b, c;
+    x = a * b + c; }
 ```
 
 parses as `a * (b + c)`, not `(a * b) + c` - the `*` ends up as the *outer* node simply because it was seen first, not because it binds tighter than `+`.
@@ -71,20 +73,29 @@ parses as `a * (b + c)`, not `(a * b) + c` - the `*` ends up as the *outer* node
 A ternary immediately following a binary operator binds *tighter* than that operator, nesting inside its right operand instead of wrapping it.
 
 ```C
-main() { auto x; x = 5 < 4 ? 10 : 1; }
+main() {
+    auto x;
+    x = 5 < 4 ? 10 : 1; }
 ```
 
 ```json
 {
-  "node": "relation_expression",
-  "root": ["<"],
-  "left": { "node": "integer_literal", "root": 5 },
-  "right": {
-    "node": "ternary_expression",
-    "root": { "node": "integer_literal", "root": 4 },
-    "left": { "node": "integer_literal", "root": 10 },
-    "right": { "node": "integer_literal", "root": 1 }
-  }
+    "node"
+        : "relation_expression"
+        , "root"
+        : ["<"]
+        , "left"
+        : { "node" : "integer_literal", "root" : 5 }
+        , "right":
+    {
+        "node"
+            : "ternary_expression"
+            , "root"
+            : { "node" : "integer_literal", "root" : 4 }
+            , "left"
+            : { "node" : "integer_literal", "root" : 10 }
+            , "right" : { "node" : "integer_literal", "root" : 1 }
+    }
 }
 ```
 
@@ -107,38 +118,43 @@ union value {
 };
 
 main() {
-  union value v;
+    union value v;
 }
 ```
 
 ```json
 {
-  "node": "union_definition",
-  "root": "value",
-  "left": [
-    {
-      "node": "tag",
-      "root": "real",
-      "left": [{ "node": "float_literal", "root": 0.0 }]
-    },
-    {
-      "node": "tag",
-      "root": "pair",
-      "left": [
-        { "node": "integer_literal", "root": 0 },
-        { "node": "integer_literal", "root": 0 }
-      ]
-    }
-  ]
+    "node"
+        : "union_definition"
+        , "root"
+        : "value"
+        , "left" : [
+            {
+                "node" : "tag",
+                "root" : "real",
+                "left" : [ { "node" : "float_literal", "root" : 0.0 } ]
+            },
+            {
+                "node" : "tag",
+                "root" : "pair",
+                "left" : [
+                    { "node" : "integer_literal", "root" : 0 },
+                    { "node" : "integer_literal", "root" : 0 }
+                ]
+            }
+        ]
 }
 ```
 
 ```json
 {
-  "node": "statement",
-  "root": "union",
-  "left": "value",
-  "right": [{ "node": "lvalue", "root": "v" }]
+    "node"
+        : "statement"
+        , "root"
+        : "union"
+        , "left"
+        : "value"
+        , "right" : [ { "node" : "lvalue", "root" : "v" } ]
 }
 ```
 
@@ -150,33 +166,40 @@ The right-hand-side of `is` is a `union_tag` node - the tag, and the locals its 
 
 ```C
 if (v is value.pair(a, b) && a > 0) {
-  ...
+    ...
 }
 ```
 
 ```json
 {
-  "node": "relation_expression",
-  "root": ["&&"],
-  "left": {
-    "node": "is_expression",
-    "root": ["is"],
-    "left": { "node": "lvalue", "root": "v" },
-    "right": {
-      "node": "union_tag",
-      "root": "value.pair",
-      "left": [
-        { "node": "lvalue", "root": "a" },
-        { "node": "lvalue", "root": "b" }
-      ]
+    "node"
+        : "relation_expression"
+        , "root"
+        : ["&&"]
+        , "left"
+        : {
+            "node" : "is_expression",
+            "root" : ["is"],
+            "left" : { "node" : "lvalue", "root" : "v" },
+            "right" : {
+                      "node" : "union_tag",
+                      "root" : "value.pair",
+                      "left" : [
+                    { "node" : "lvalue", "root" : "a" },
+                      { "node" : "lvalue", "root" : "b" }
+                ]
+            }
+    },
+          "right":
+    {
+        "node"
+            : "relation_expression"
+            , "root"
+            : [">"]
+            , "left"
+            : { "node" : "lvalue", "root" : "a" }
+            , "right" : { "node" : "integer_literal", "root" : 0 }
     }
-  },
-  "right": {
-    "node": "relation_expression",
-    "root": [">"],
-    "left": { "node": "lvalue", "root": "a" },
-    "right": { "node": "integer_literal", "root": 0 }
-  }
 }
 ```
 
@@ -230,14 +253,14 @@ An `is` expression is a `Relation` of `R_IS`. Its right-hand-side is the `LValue
 
 [`table.h`](/credence/language/hir/table.h)'s `Table` is a pass over each definition and statement of a program, before the IR is constructed. It lowers each expression into the HIR, and the [type checker](/credence/language/hir/checker.h) evaluates the storage and type of its value in its stack frame - a scalar, or a pointer and the type it points to. An assignment between storage or types that do not agree is a compile-time error, as are out-of-range vector offsets, null pointer dereferences, duplicate labels and functions, and return values of different types.
 
-The result is the definitions of the [object table](/credence/object.h) - vectors, functions, and their parameters - that `ir::Table` binds the IR onto.
+The result is the definitions of the [object table](/credence/object/table.h) - vectors, functions, and their parameters - that `ir::Table` binds the IR onto.
 
 ```C
 main() {
-  auto x, *p;
-  x = 5;
-  p = &x;
-  p = x;
+    auto x, *p;
+    x = 5;
+    p = &x;
+    p = x;
 }
 ```
 
@@ -263,43 +286,40 @@ error: invalid pointer assignment, right-hand-side 'x' is not a pointer
 
 ```C
 add(a, b) {
-  return(a + b);
+    return (a + b);
 }
 ```
 
 ```json
 {
-  "node": "program",
-  "root": "root",
-  "left": [
-    {
-      "node": "function_definition",
-      "root": "add",
-      "left": [
-        { "node": "lvalue", "root": "a" },
-        { "node": "lvalue", "root": "b" }
-      ],
-      "right": {
-        "node": "statement",
-        "root": "block",
-        "left": [
-          {
-            "node": "statement",
-            "root": "return",
-            "left": [
-              {
-                "node": "relation_expression",
-                "root": ["+"],
-                "left": { "node": "lvalue", "root": "a" },
-                "right": { "node": "lvalue", "root": "b" }
-              }
-            ]
-          }
-        ]
-      }
-    }
-  ],
-  "right": []
+    "node"
+        : "program"
+        , "root"
+        : "root"
+        , "left"
+        : [ {
+            "node" : "function_definition",
+            "root" : "add",
+            "left" : [
+                { "node" : "lvalue", "root" : "a" },
+                { "node" : "lvalue", "root" : "b" }
+            ],
+            "right" : {
+                "node" : "statement",
+                "root" : "block",
+                "left" : [ {
+                    "node" : "statement",
+                    "root" : "return",
+                    "left" : [ {
+                        "node" : "relation_expression",
+                        "root" : ["+"],
+                        "left" : { "node" : "lvalue", "root" : "a" },
+                        "right" : { "node" : "lvalue", "root" : "b" }
+                    } ]
+                } ]
+            }
+        } ],
+          "right" : []
 }
 ```
 

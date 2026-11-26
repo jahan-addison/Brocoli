@@ -13,21 +13,21 @@
 
 #pragma once
 
-#include <credence/error.h>  // for credence_assert
-#include <credence/frame.h>  // for Function, LValue, RValue, Label, Size
-#include <credence/map.h>    // for Ordered_Map
-#include <credence/symbol.h> // for Symbol_Table
-#include <credence/types.h>  // for Parameters, Address, Typed_RValue, Label
-#include <credence/util.h>   // for contains, AST_Node
-#include <cstddef>           // for size_t
-#include <deque>             // for deque
-#include <functional>        // for reference_wrapper
-#include <numeric>           // for accumulate
-#include <optional>          // for optional
-#include <source_location>   // for source_location
-#include <string>            // for basic_string, string
-#include <utility>           // for pair, move
-#include <variant>           // for variant
+#include <credence/error.h>        // for credence_assert
+#include <credence/map.h>          // for Ordered_Map
+#include <credence/object/frame.h> // for Function, LValue, RValue, Label, Size
+#include <credence/symbol.h>       // for Symbol_Table
+#include <credence/types.h> // for Parameters, Address, Typed_RValue, Label
+#include <credence/util.h>  // for contains, AST_Node
+#include <cstddef>          // for size_t
+#include <deque>            // for deque
+#include <functional>       // for reference_wrapper
+#include <numeric>          // for accumulate
+#include <optional>         // for optional
+#include <source_location>  // for source_location
+#include <string>           // for basic_string, string
+#include <utility>          // for pair, move
+#include <variant>          // for variant
 
 /****************************************************************************
  * Object Table
@@ -87,7 +87,6 @@ class Vector
     using Size = credence::type::semantic::Size;
     using Entry = std::pair<Label, credence::type::Typed_RValue>;
     using Storage = Ordered_Map<Label, credence::type::Typed_RValue>;
-    using Offset = Ordered_Map<Label, Address>;
 
     static constexpr std::size_t max_size{ 999 };
 
@@ -108,10 +107,6 @@ class Vector
     bool operator==(Vector const&) const = default;
 
   public:
-    constexpr void set_address_offset(Label const& index, Address address)
-    {
-        offset.insert(index, address);
-    }
     /**
      * @brief Get the unpadded storage size of the vector data, since
      * alignment is left to each backend
@@ -128,7 +123,6 @@ class Vector
 
   public:
     Storage data{};
-    Offset offset{};
     int decay_index{ 0 };
     Size size{ 0 };
     Label symbol{};
@@ -224,7 +218,7 @@ class Object_Table
     /**
      * @brief Whether a vector is defined in the object table
      */
-    [[nodiscard]] constexpr bool vector_contains(LValue const& lvalue)
+    [[nodiscard]] constexpr bool vector_contains(LValue const& lvalue) const
     {
         return vectors_.contains(lvalue);
     }
@@ -245,11 +239,21 @@ class Object_Table
         credence_assert(vectors_.contains(label));
         return vectors_.at(label);
     }
+    [[nodiscard]] Vector const& get_vector(Label const& label) const
+    {
+        credence_assert(vectors_.contains(label));
+        return vectors_.at(label);
+    }
 
     /**
      * @brief The stack frame of a function by its label
      */
     [[nodiscard]] constexpr Function& get_stack_frame(Label const& label)
+    {
+        credence_assert(functions_.contains(label));
+        return functions_.at(label);
+    }
+    [[nodiscard]] Function const& get_stack_frame(Label const& label) const
     {
         credence_assert(functions_.contains(label));
         return functions_.at(label);
@@ -276,7 +280,7 @@ class Object_Table
      * a stack frame
      */
     [[nodiscard]] bool is_vector_or_pointer(RValue const& rvalue,
-        Function& stack_frame) const
+        Function const& stack_frame) const
     {
         return is_vector(rvalue) or is_pointer(rvalue, stack_frame) or
                type::is_dereference_expression(rvalue);
@@ -292,17 +296,18 @@ class Object_Table
      * program.
      */
     type::Typed_RValue get_rvalue_at_lvalue_object_storage(LValue const& lvalue,
-        Function& stack_frame,
-        std::source_location const& location = std::source_location::current());
+        Function const& stack_frame,
+        std::source_location const& location =
+            std::source_location::current()) const;
     Type get_type_from_object_data_type(LValue const& lvalue,
-        Function& stack_frame);
+        Function const& stack_frame) const;
     void set_stack_frame_return_value(RValue const& rvalue,
         Function& frame,
         Stack const& stack);
 
   public:
     [[nodiscard]] constexpr std::optional<std::reference_wrapper<Tagged_Union>>
-    get_union_of_variable(LValue const& variable, Function const& frame)
+    get_union_of_variable(LValue const& variable, Function const& frame) const
     {
         if (frame.union_table.contains(variable))
             return unions_.at(frame.union_table.at(variable));
@@ -316,7 +321,7 @@ class Object_Table
      * `v.text` or `v.pair[0]`
      */
     [[nodiscard]] constexpr bool is_union_variable(LValue const& lvalue,
-        Function const& frame)
+        Function const& frame) const
     {
         if (not type::is_dot_notation_object_identifier(lvalue))
             return false;
@@ -337,7 +342,7 @@ class Object_Table
      * @brief Check if a vector is a global, a pointer in the globals of the
      * object table
      */
-    [[nodiscard]] bool is_global_vector(Label const& label)
+    [[nodiscard]] bool is_global_vector(Label const& label) const
     {
         return vector_contains(label) and globals_.is_pointer(label);
     }
@@ -394,9 +399,13 @@ class Object_Table
      * @brief Get the symbols and the data section of the program
      */
     util::AST_Node& hoisted_symbols() { return hoisted_symbols_; }
+    util::AST_Node const& hoisted_symbols() const { return hoisted_symbols_; }
     Symbol_Table<>& globals() { return globals_; }
+    Symbol_Table<> const& globals() const { return globals_; }
     Data_Section& data() { return data_; }
+    Data_Section const& data() const { return data_; }
     Labels& labels() { return labels_; }
+    Labels const& labels() const { return labels_; }
 
   private:
     util::AST_Node hoisted_symbols_;

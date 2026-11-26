@@ -13,18 +13,18 @@
 
 #pragma once
 
-#include "checker.h"         // for Frame, Value, Vectors
-#include "types.h"           // for Label, LValue
-#include <credence/object.h> // for Object_Table
-#include <credence/symbol.h> // for Symbol_Table
-#include <credence/util.h>   // for AST_Node, CREDENCE_PRIVATE_UNLESS_TESTED
-#include <cstddef>           // for size_t
-#include <map>               // for map
-#include <memory>            // for shared_ptr, make_shared
-#include <set>               // for set
-#include <source_location>   // for source_location
-#include <string_view>       // for string_view
-#include <vector>            // for vector
+#include "checker.h"               // for Frame, Value, Vectors
+#include "types.h"                 // for Label, LValue
+#include <credence/object/table.h> // for Object_Table
+#include <credence/symbol.h>       // for Symbol_Table
+#include <credence/util.h> // for AST_Node, CREDENCE_PRIVATE_UNLESS_TESTED
+#include <cstddef>         // for size_t
+#include <map>             // for map
+#include <memory>          // for shared_ptr, make_shared
+#include <set>             // for set
+#include <source_location> // for source_location
+#include <string_view>     // for string_view
+#include <vector>          // for vector
 
 /****************************************************************************
  * Table

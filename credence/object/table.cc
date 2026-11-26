@@ -11,7 +11,7 @@
  * for the full text of these licenses.
  ****************************************************************************/
 
-#include "object.h"
+#include "table.h"
 
 #include <algorithm>         // for max
 #include <array>             // for array
@@ -162,8 +162,8 @@ void Data_Section::insert(type::Typed_RValue const& rvalue)
 namespace detail {
 
 type::Typed_RValue get_rvalue_at_lvalue_object_storage(LValue const& lvalue,
-    Function& stack_frame,
-    Vectors& vectors,
+    Function const& stack_frame,
+    Vectors const& vectors,
     std::source_location const& location = std::source_location::current());
 
 /**
@@ -173,7 +173,7 @@ struct Vector_Offset
 {
   public:
     Vector_Offset() = delete;
-    explicit Vector_Offset(Function& stack_frame, Vectors& vectors)
+    explicit Vector_Offset(Function const& stack_frame, Vectors const& vectors)
         : stack_frame_(stack_frame)
         , vectors_(vectors)
     {
@@ -211,16 +211,16 @@ struct Vector_Offset
     }
 
   private:
-    Function& stack_frame_;
-    Vectors& vectors_;
+    Function const& stack_frame_;
+    Vectors const& vectors_;
 };
 
 /**
  * @brief Resolve the rvalue of an element of a vector in the object table
  */
 type::Typed_RValue get_rvalue_at_vector_object_storage(LValue const& lvalue,
-    Function& stack_frame,
-    Vectors& vectors,
+    Function const& stack_frame,
+    Vectors const& vectors,
     std::source_location const& location)
 {
     auto lvalue_reference = type::get_unary_rvalue_reference(lvalue);
@@ -251,8 +251,8 @@ type::Typed_RValue get_rvalue_at_vector_object_storage(LValue const& lvalue,
  * @brief Resolve the rvalue of a pointer in the table object and stack frame
  */
 type::Typed_RValue get_rvalue_at_lvalue_object_storage(LValue const& lvalue,
-    Function& stack_frame,
-    Vectors& vectors,
+    Function const& stack_frame,
+    Vectors const& vectors,
     std::source_location const& location)
 {
     auto& locals = stack_frame.locals;
@@ -285,8 +285,8 @@ type::Typed_RValue get_rvalue_at_lvalue_object_storage(LValue const& lvalue,
  * Pointer_Vector_Decay_Checker::is_boundary_out_of_range
  */
 Type get_type_from_object_data_type(LValue const& lvalue,
-    Function& stack_frame,
-    Vectors& vectors)
+    Function const& stack_frame,
+    Vectors const& vectors)
 {
     auto& locals = stack_frame.locals;
     if (is_vector_lvalue(lvalue)) {
@@ -303,7 +303,7 @@ Type get_type_from_object_data_type(LValue const& lvalue,
  */
 void set_stack_frame_return_value(RValue const& rvalue,
     Function& frame,
-    Vectors& vectors,
+    Vectors const& vectors,
     Stack const& stack)
 {
     auto local_contains = [&](LValue const& lvalue) {
@@ -367,8 +367,8 @@ void set_stack_frame_return_value(RValue const& rvalue,
  */
 type::Typed_RValue Object_Table::get_rvalue_at_lvalue_object_storage(
     LValue const& lvalue,
-    Function& stack_frame,
-    std::source_location const& location)
+    Function const& stack_frame,
+    std::source_location const& location) const
 {
     return detail::get_rvalue_at_lvalue_object_storage(
         lvalue, stack_frame, vectors_, location);
@@ -378,7 +378,7 @@ type::Typed_RValue Object_Table::get_rvalue_at_lvalue_object_storage(
  * @brief Get the type from a symbol in the stack frame or vector storage
  */
 Type Object_Table::get_type_from_object_data_type(LValue const& lvalue,
-    Function& stack_frame)
+    Function const& stack_frame) const
 {
     return detail::get_type_from_object_data_type(
         lvalue, stack_frame, vectors_);

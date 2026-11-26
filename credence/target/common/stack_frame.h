@@ -14,7 +14,7 @@
 #pragma once
 
 #include <credence/ir/table.h>
-#include <credence/object.h>
+#include <credence/object/table.h>
 #include <memory>
 #include <string>
 
@@ -72,7 +72,7 @@ using Locals = type::Stack;
  */
 struct Stack_Frame
 {
-    explicit Stack_Frame(ir::Object_Table_PTR objects)
+    explicit Stack_Frame(std::shared_ptr<object::Object_Table const> objects)
         : objects_(objects)
     {
     }
@@ -81,11 +81,11 @@ struct Stack_Frame
     using Label = std::string;
 
     inline void set_stack_frame(Label const& name) { symbol = name; }
-    inline Frame& get_stack_frame(Label const& name) const
+    inline Frame const& get_stack_frame(Label const& name) const
     {
         return objects_->get_stack_frame(name);
     }
-    inline Frame& get_stack_frame() const
+    inline Frame const& get_stack_frame() const
     {
         return objects_->get_stack_frame(symbol);
     }
@@ -100,7 +100,7 @@ struct Stack_Frame
     std::size_t size{};
 
   protected:
-    ir::Object_Table_PTR objects_;
+    std::shared_ptr<object::Object_Table const> objects_;
 };
 
 } // namespace target::common::memory

@@ -13,21 +13,21 @@
 
 #pragma once
 
-#include "stack_frame.h"     // for Locals
-#include "types.h"           // for RValue, LValue, Stack_Pointer, Table...
-#include <concepts>          // for derived_from
-#include <credence/object.h> // for Object, get_rvalue_at_lvalue_object_...
-#include <credence/symbol.h> // for Symbol_Table
-#include <credence/types.h>  // for from_lvalue_offset, get_rvalue_data_...
-#include <credence/util.h>   // for overload
-#include <cstddef>           // for size_t
-#include <deque>             // for deque
-#include <memory>            // for shared_ptr, unique_ptr
-#include <optional>          // for optional
-#include <string>            // for basic_string, char_traits, string
-#include <string_view>       // for basic_string_view, operator==, strin...
-#include <utility>           // for pair, exchange
-#include <variant>           // for monostate, visit
+#include "stack_frame.h" // for Locals
+#include "types.h"       // for RValue, LValue, Stack_Pointer, Table...
+#include <concepts>      // for derived_from
+#include <credence/object/table.h> // for Object, get_rvalue_at_lvalue_object_...
+#include <credence/symbol.h>       // for Symbol_Table
+#include <credence/types.h> // for from_lvalue_offset, get_rvalue_data_...
+#include <credence/util.h>  // for overload
+#include <cstddef>          // for size_t
+#include <deque>            // for deque
+#include <memory>           // for shared_ptr, unique_ptr
+#include <optional>         // for optional
+#include <string>           // for basic_string, char_traits, string
+#include <string_view>      // for basic_string_view, operator==, strin...
+#include <utility>          // for pair, exchange
+#include <variant>          // for monostate, visit
 
 namespace credence::target::common {
 struct Flag_Accessor;
@@ -75,7 +75,8 @@ namespace credence::target::common::memory {
 class Memory_Accessor
 {
   public:
-    explicit Memory_Accessor(std::shared_ptr<object::Object_Table> objects);
+    explicit Memory_Accessor(
+        std::shared_ptr<object::Object_Table const> objects);
     ~Memory_Accessor();
     Memory_Accessor(const Memory_Accessor&) = delete;
     Memory_Accessor& operator=(const Memory_Accessor&) = delete;
@@ -289,7 +290,7 @@ struct Table_Accessor
 
     void set_ir_iterator_index(unsigned int index_);
     LValue get_last_lvalue_assignment(unsigned int index_,
-        object::Function& stack_frame);
+        object::Function const& stack_frame);
     bool is_ir_instruction_temporary();
     LValue get_ir_instruction_lvalue();
     bool last_ir_instruction_is_assignment();
@@ -367,6 +368,7 @@ class Vector_Accessor
 
   public:
     using Entry_Pair = std::pair<object::Vector::Address, Entry>;
+    using Offsets = Ordered_Map<Label, object::Vector::Address>;
 
     Entry_Pair get_offset_address(LValue const& lvalue, RValue const& offset);
 
@@ -379,9 +381,24 @@ class Vector_Accessor
         RValue const& offset);
     Entry_Pair get_offset_from_trivial_vector(LValue const& vector);
 
+  public:
+    /**
+     * @brief Set the data section offset of an element of a global vector, as
+     * the data section is laid out by the emitter
+     */
+    void set_address_offset(Label const& vector,
+        Label const& index,
+        object::Vector::Address address)
+    {
+        offsets_[vector].insert(index, address);
+    }
+
   protected:
     Table_Pointer& table_;
     Stack_Frame& stack_frame_;
+
+  private:
+    Ordered_Map<Label, Offsets> offsets_{};
 };
 
 /**

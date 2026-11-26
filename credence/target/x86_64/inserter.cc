@@ -26,7 +26,7 @@
 #include "stack.h"                              // for Stack
 #include "syscall.h"                            // for syscall_arguments_t
 #include "visitor.h"                            // for IR_Instruction_Visitor
-#include <credence/object.h>                    // for RValue, Function
+#include <credence/object/table.h>              // for RValue, Function
 #include <credence/target/common/flags.h>       // for Instruction_Flag
 #include <credence/target/common/stack_frame.h> // for Stack_Frame, Locals
 #include <cstddef>                              // for size_t
@@ -105,7 +105,7 @@ namespace {
  *
  * A pointer, a pointer parameter, or a string is a qword
  */
-bool is_qword_return_value(object::Function& frame)
+bool is_qword_return_value(object::Function const& frame)
 {
     if (!frame.ret.has_value())
         return false;

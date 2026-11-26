@@ -102,30 +102,30 @@ class Function
     void set_parameters_from_symbolic_label(Label const& label);
 
   public:
-    constexpr bool is_pointer_parameter(RValue const& parameter)
+    constexpr bool is_pointer_parameter(RValue const& parameter) const
     {
         using namespace fmt::literals;
         return util::range_contains(
             fmt::format("*{}"_cf, parameter), parameters);
     }
-    constexpr bool is_scaler_parameter(RValue const& parameter)
+    constexpr bool is_scaler_parameter(RValue const& parameter) const
     {
         return util::range_contains(
             type::from_lvalue_offset(parameter), parameters);
     }
 
-    constexpr bool is_pointer_in_stack_frame(RValue const& rvalue)
+    constexpr bool is_pointer_in_stack_frame(RValue const& rvalue) const
     {
         return locals.is_pointer(rvalue) or is_pointer_parameter(rvalue);
     }
 
-    constexpr bool is_parameter(RValue const& parameter)
+    constexpr bool is_parameter(RValue const& parameter) const
     {
         return is_scaler_parameter(parameter) or
                is_pointer_parameter(parameter);
     }
 
-    constexpr int get_index_of_parameter(RValue const& parameter)
+    constexpr int get_index_of_parameter(RValue const& parameter) const
     {
         for (std::size_t i = 0; i < parameters.size(); i++) {
             if (type::get_unary_rvalue_reference(parameters[i]) ==
@@ -154,7 +154,7 @@ class Function
  * @brief Whether an lvalue is a local of a stack frame, and not a vector
  */
 [[nodiscard]] constexpr bool local_contains(LValue const& lvalue,
-    Function& stack_frame)
+    Function const& stack_frame)
 {
     return stack_frame.locals.is_defined(lvalue) and
            not is_vector_lvalue(lvalue);
@@ -164,7 +164,7 @@ class Function
  * @brief Whether an rvalue is a pointer, an address-of, or a string literal
  */
 [[nodiscard]] constexpr bool is_pointer(RValue const& rvalue,
-    Function& stack_frame)
+    Function const& stack_frame)
 {
     return stack_frame.locals.is_pointer(rvalue) or rvalue.starts_with("&") or
            type::is_typed_rvalue_string(rvalue);
@@ -174,10 +174,10 @@ class Function
  * @brief Resolve a temporary to the rvalue or size it holds in a stack frame
  */
 RValue lvalue_at_temporary_object_address(LValue const& lvalue,
-    Function& stack_frame);
+    Function const& stack_frame);
 Size lvalue_size_at_temporary_object_address(LValue const& lvalue,
-    Function& stack_frame);
+    Function const& stack_frame);
 Size get_size_of_temporary_binary_rvalue(RValue const& rvalue,
-    Function& stack_frame);
+    Function const& stack_frame);
 
 } // namespace credence::object

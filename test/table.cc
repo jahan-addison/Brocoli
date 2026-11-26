@@ -5,7 +5,7 @@
 #include <credence/ir/table.h> // for Table, emit
 #include <credence/language/hir/table.h> // for Table
 #include <credence/map.h>                // for Ordered_Map
-#include <credence/object.h>             // for Object, Function, Vector
+#include <credence/object/table.h>       // for Object, Function, Vector
 #include <credence/symbol.h>             // for Symbol_Table
 #include <credence/types.h> // for is_unary_expression, get_unary_operator
 #include <credence/util.h>  // for AST_Node, STRINGIFY, AST

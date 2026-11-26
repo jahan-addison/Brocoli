@@ -21,7 +21,7 @@
 #include "syscall.h"
 #include "types.h"
 
-#include <credence/object.h>
+#include <credence/object/table.h>
 #include <credence/types.h>
 #include <credence/util.h>
 #include <matchit.h>

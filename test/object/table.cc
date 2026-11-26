@@ -1,11 +1,11 @@
 #include <doctest/doctest.h> // for ResultBuilder, CHECK, TestCase, TEST_CASE
 
-#include <credence/error.h>  // for Credence_Exception
-#include <credence/object.h> // for Object_Table, Tagged_Union, Vector
-#include <credence/types.h>  // for Typed_RValue
-#include <initializer_list>  // for initializer_list
-#include <string>            // for basic_string, string, to_string
-#include <variant>           // for get
+#include <credence/error.h>        // for Credence_Exception
+#include <credence/object/table.h> // for Object_Table, Tagged_Union, Vector
+#include <credence/types.h>        // for Typed_RValue
+#include <initializer_list>        // for initializer_list
+#include <string>                  // for basic_string, string, to_string
+#include <variant>                 // for get
 
 using namespace credence::object;
 using credence::type::Typed_RValue;
@@ -43,7 +43,7 @@ void set_value_t(Tagged_Union& value_t)
 
 } // namespace
 
-TEST_CASE("object.h: get_storage_size")
+TEST_CASE("object/table.h: get_storage_size")
 {
     CHECK(get_storage_size(Typed_RValue{ "10", "int", 4 }) == 4);
     CHECK(get_storage_size(Typed_RValue{ "1.5", "double", 8 }) == 8);
@@ -54,7 +54,7 @@ TEST_CASE("object.h: get_storage_size")
           k_pointer_size);
 }
 
-TEST_CASE("object.h: Vector::size_of_data")
+TEST_CASE("object/table.h: Vector::size_of_data")
 {
     CHECK(Vector{ "empty", 0 }.size_of_data() == 0);
     CHECK(
@@ -74,7 +74,7 @@ TEST_CASE("object.h: Vector::size_of_data")
               .size_of_data() == 20);
 }
 
-TEST_CASE("object.h: Vector::operator==")
+TEST_CASE("object/table.h: Vector::operator==")
 {
     auto a = make_tuple_tag("pair",
         {
@@ -89,7 +89,7 @@ TEST_CASE("object.h: Vector::operator==")
     CHECK(a != b);
 }
 
-TEST_CASE("object.cc: Object_Table::set_union_definition")
+TEST_CASE("object/table.cc: Object_Table::set_union_definition")
 {
     Object_Table table{};
     auto& value_t = table.set_union_definition("value_t");
@@ -103,7 +103,7 @@ TEST_CASE("object.cc: Object_Table::set_union_definition")
     CHECK(&table.get_union("option_t") == &option_t);
 }
 
-TEST_CASE("object.cc: Tagged_Union::set_tag_entry")
+TEST_CASE("object/table.cc: Tagged_Union::set_tag_entry")
 {
     Tagged_Union value_t{ "value_t" };
     set_value_t(value_t);
@@ -116,7 +116,7 @@ TEST_CASE("object.cc: Tagged_Union::set_tag_entry")
     CHECK(std::get<Typed_RValue>(value_t.entries.at("integer")).type == "long");
 }
 
-TEST_CASE("object.h: Tagged_Union::is_tag_entry")
+TEST_CASE("object/table.h: Tagged_Union::is_tag_entry")
 {
     Tagged_Union value_t{ "value_t" };
     set_value_t(value_t);
@@ -125,7 +125,7 @@ TEST_CASE("object.h: Tagged_Union::is_tag_entry")
     CHECK(not value_t.is_tag_entry("list"));
 }
 
-TEST_CASE("object.cc: Tagged_Union::get_largest_tag_entry")
+TEST_CASE("object/table.cc: Tagged_Union::get_largest_tag_entry")
 {
     Tagged_Union empty{ "empty_t" };
     CHECK(empty.get_largest_tag_entry() == 0);
@@ -156,7 +156,7 @@ TEST_CASE("object.cc: Tagged_Union::get_largest_tag_entry")
     CHECK(triple.get_largest_tag_entry() == 12);
 }
 
-TEST_CASE("object.h: Tagged_Union::operator==")
+TEST_CASE("object/table.h: Tagged_Union::operator==")
 {
     Tagged_Union a{ "value_t" };
     Tagged_Union b{ "value_t" };
@@ -172,7 +172,7 @@ TEST_CASE("object.h: Tagged_Union::operator==")
     CHECK(a != c);
 }
 
-TEST_CASE("object.h: is_union")
+TEST_CASE("object/table.h: Object_Table::is_union")
 {
     Object_Table table{};
     set_value_t(table.set_union_definition("value_t"));
@@ -184,7 +184,7 @@ TEST_CASE("object.h: is_union")
     CHECK(not table.is_union("x"));
 }
 
-TEST_CASE("object.h: Object_Table::get_union_of_variable")
+TEST_CASE("object/table.h: Object_Table::get_union_of_variable")
 {
     Object_Table table{};
     auto& value_t = table.set_union_definition("value_t");
@@ -204,7 +204,7 @@ TEST_CASE("object.h: Object_Table::get_union_of_variable")
     CHECK(not table.get_union_of_variable("value_t", main).has_value());
 }
 
-TEST_CASE("object.h: Object_Table::is_union_variable")
+TEST_CASE("object/table.h: Object_Table::is_union_variable")
 {
     Object_Table table{};
     set_value_t(table.set_union_definition("value_t"));
@@ -226,7 +226,7 @@ TEST_CASE("object.h: Object_Table::is_union_variable")
     CHECK(not table.is_union_variable("x[0]", main));
 }
 
-TEST_CASE("object.h: Object_Table::get_stack_frame")
+TEST_CASE("object/table.h: Object_Table::get_stack_frame")
 {
     Object_Table table{};
     auto& main = table.set_function_definition("main");

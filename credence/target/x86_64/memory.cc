@@ -19,7 +19,7 @@
 #include "credence/target/common/types.h"    // for Stack_Offset
 #include "stack.h"                           // for Stack
 #include <credence/error.h>                  // for throw_compiletime_error
-#include <credence/object.h>                 // for Object, LValue, RValue
+#include <credence/object/table.h>           // for Object, LValue, RValue
 #include <credence/symbol.h>                 // for Symbol_Table
 #include <credence/target/common/assembly.h> // for make_direct_immediate
 #include <credence/types.h>                  // for from_decay_offset, from...
@@ -166,7 +166,6 @@ Address_Accessor::get_lvalue_address_and_insertion_instructions(
     std::size_t instruction_index,
     bool use_prefix)
 {
-    auto vector_accessor = Vector_Accessor{ table_, stack_frame_ };
     assembly::Instruction_Pair instructions{ Register::eax, {} };
     auto lhs = type::from_lvalue_offset(lvalue);
     auto offset = type::from_decay_offset(lvalue);
@@ -181,7 +180,7 @@ Address_Accessor::get_lvalue_address_and_insertion_instructions(
     } else if (is_global_vector(lhs)) {
         if (table_->globals().is_pointer(lhs)) {
             auto rip_storage =
-                vector_accessor.get_offset_address(lvalue, offset);
+                vector_accessor_.get_offset_address(lvalue, offset);
             auto prefix = storage_prefix_from_operand_size(rip_storage.second);
             auto rip_arithmetic =
                 rip_storage.first == 0UL
