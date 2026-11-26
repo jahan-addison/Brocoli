@@ -165,10 +165,9 @@ void Table::from_return_instruction(Quadruple const& instruction)
     auto& frame = get_stack_frame();
     // a returned literal, such as a string, is a literal of the data section
     if (is_single_typed_rvalue(return_rvalue))
-        objects_->data.insert(
+        objects_->data().insert(
             type::get_typed_rvalue_from_string(return_rvalue));
-    object::set_stack_frame_return_value(
-        return_rvalue, frame, objects_->vectors, stack);
+    objects_->set_stack_frame_return_value(return_rvalue, frame, stack);
 }
 
 /**
@@ -220,15 +219,13 @@ void Table::from_mov_ita_instruction(Quadruple const& instruction)
         from_temporary_reassignment(lhs, rhs);
         return;
     }
-    if (object::is_vector_or_pointer(
-            lhs, get_stack_frame(), objects_->vectors) or
-        object::is_vector_or_pointer(
-            rhs, get_stack_frame(), objects_->vectors) or
+    if (objects_->is_vector_or_pointer(lhs, get_stack_frame()) or
+        objects_->is_vector_or_pointer(rhs, get_stack_frame()) or
         rvalue.second == "&") {
         from_pointer_or_vector_assignment(lhs, rhs);
         return;
     }
-    if (objects_->hoisted_symbols.has_key(rhs)) {
+    if (objects_->hoisted_symbols().has_key(rhs)) {
         from_scaler_symbol_assignment(lhs, rhs);
         return;
     }
@@ -253,7 +250,7 @@ void Table::from_mov_ita_instruction(Quadruple const& instruction)
     frame.locals.set_symbol_by_name(lhs, rvalue_symbol);
     frame.allocation += rvalue_symbol.size;
 
-    objects_->data.insert(rvalue_symbol);
+    objects_->data().insert(rvalue_symbol);
 }
 
 /**
@@ -273,7 +270,6 @@ void Table::from_pointer_or_vector_assignment(LValue const& lvalue,
     RValue const& rvalue)
 {
     auto& locals = get_stack_frame().locals;
-    auto& vectors = objects_->vectors;
 
     // the right-hand-side is a vector offset, `m = v[2];` or `k = &v[2];`
     if (util::contains(rvalue, "[")) {
@@ -286,15 +282,15 @@ void Table::from_pointer_or_vector_assignment(LValue const& lvalue,
         auto offset = type::from_decay_offset(lvalue);
         if (type::is_typed_rvalue(rvalue)) {
             auto value = type::get_typed_rvalue_from_string(rvalue);
-            objects_->data.insert(value);
-            if (vectors.contains(lhs_lvalue))
-                vectors.at(lhs_lvalue).get().data[offset] = value;
+            objects_->data().insert(value);
+            if (objects_->vector_contains(lhs_lvalue))
+                objects_->get_vector(lhs_lvalue).data[offset] = value;
         }
         return;
     }
     // a literal assigned to a global, `ratio = 2.5;`, is in the data section
-    if (vectors.contains(lvalue) and type::is_typed_rvalue(rvalue))
-        objects_->data.insert(type::get_typed_rvalue_from_string(rvalue));
+    if (objects_->vector_contains(lvalue) and type::is_typed_rvalue(rvalue))
+        objects_->data().insert(type::get_typed_rvalue_from_string(rvalue));
     // the right-hand-side is an address-of rvalue, `k = &m;`
     if (rvalue.starts_with("&")) {
         locals.set_symbol_by_name(
@@ -326,8 +322,7 @@ void Table::bind_pointer_or_vector_lvalue(LValue const& lvalue,
         bind_dereference(lvalue, rvalue);
         return;
     }
-    if (object::is_vector(lvalue, objects_->vectors) or
-        object::is_vector(rvalue, objects_->vectors)) {
+    if (objects_->is_vector(lvalue) or objects_->is_vector(rvalue)) {
         bind_vector(lvalue, rvalue);
         return;
     }
@@ -349,8 +344,7 @@ void Table::bind_pointer(LValue const& lvalue, RValue const& rvalue)
     if (locals.is_pointer(rvalue)) {
         locals.set_symbol_by_name(lvalue,
             type::get_typed_rvalue_as_string(
-                object::get_rvalue_at_lvalue_object_storage(
-                    rvalue, frame, objects_->vectors)));
+                objects_->get_rvalue_at_lvalue_object_storage(rvalue, frame)));
         return;
     }
     // pointer to address-of lvalue
@@ -360,16 +354,16 @@ void Table::bind_pointer(LValue const& lvalue, RValue const& rvalue)
     }
     // pointer to string literal
     if (type::is_typed_rvalue_string(rvalue)) {
-        objects_->data.strings.insert(
+        objects_->data().strings.insert(
             type::get_value_from_typed_rvalue(rvalue));
         locals.set_symbol_by_name(lvalue, rvalue);
         return;
     }
     // pointer to string storage in a vector
-    if (object::is_vector(rvalue, objects_->vectors) and
+    if (objects_->is_vector(rvalue) and
         type::get_type_from_typed_rvalue(
-            object::get_rvalue_at_lvalue_object_storage(
-                rvalue, frame, objects_->vectors)) == "string")
+            objects_->get_rvalue_at_lvalue_object_storage(rvalue, frame)) ==
+            "string")
         locals.set_symbol_by_name(lvalue, rvalue);
 }
 
@@ -385,25 +379,24 @@ void Table::bind_trivial_vector(LValue const& lvalue, RValue const& rvalue)
         return object::local_contains(label, get_stack_frame());
     };
     auto& locals = get_stack_frame().locals;
-    auto& vectors = objects_->vectors;
     m::match(lvalue, rvalue)(
         m::pattern | m::ds(m::app(vector_contains, true),
                          m::app(vector_contains, true)) =
             [&] {
-                auto value = vectors.at(rvalue).get().data["0"];
-                vectors.at(lvalue).get().data["0"] = value;
+                auto value = objects_->get_vector(rvalue).data["0"];
+                objects_->get_vector(lvalue).data["0"] = value;
             },
         m::pattern |
             m::ds(m::app(vector_contains, true), m::app(local_contains, true)) =
             [&] {
-                vectors.at(lvalue).get().data["0"] =
+                objects_->get_vector(lvalue).data["0"] =
                     locals.get_symbol_by_name(rvalue);
             },
         m::pattern |
             m::ds(m::app(local_contains, true), m::app(vector_contains, true)) =
             [&] {
                 locals.set_symbol_by_name(
-                    lvalue, vectors.at(rvalue).get().data["0"]);
+                    lvalue, objects_->get_vector(rvalue).data["0"]);
             });
 }
 
@@ -445,16 +438,14 @@ void Table::bind_vector(LValue const& lvalue, RValue const& rvalue)
             [&] {
                 // copy first, the left-hand-side may insert into the same
                 // vector, e.g. `v[1] = v[0]`
-                auto value = objects_->vectors.at(rvalue_direct)
-                                 .get()
-                                 .data[rvalue_offset];
-                objects_->vectors.at(lvalue_direct).get().data[lvalue_offset] =
-                    value;
+                auto value =
+                    objects_->get_vector(rvalue_direct).data[rvalue_offset];
+                objects_->get_vector(lvalue_direct).data[lvalue_offset] = value;
             },
         m::pattern |
             m::ds(m::app(vector_contains, true), m::app(local_contains, true)) =
             [&] {
-                objects_->vectors.at(lvalue_direct).get().data[lvalue_offset] =
+                objects_->get_vector(lvalue_direct).data[lvalue_offset] =
                     locals.get_symbol_by_name(rvalue_direct);
             },
         m::pattern |
@@ -462,9 +453,9 @@ void Table::bind_vector(LValue const& lvalue, RValue const& rvalue)
             [&] {
                 if (locals.is_defined(rvalue_offset))
                     rvalue_offset = type::get_value_from_typed_rvalue(
-                        object::get_rvalue_at_lvalue_object_storage(
-                            rvalue_offset, frame, objects_->vectors));
-                auto& vector = objects_->vectors.at(rvalue_direct).get();
+                        objects_->get_rvalue_at_lvalue_object_storage(
+                            rvalue_offset, frame));
+                auto& vector = objects_->get_vector(rvalue_direct);
                 if (vector.data.empty())
                     return;
                 // an offset not known at compile time, e.g. `x[errno]`,
@@ -501,9 +492,10 @@ void Table::bind_dereference(LValue const& lvalue, RValue const& rvalue)
  */
 bool Table::is_trivial_vector_assignment(LValue const& lhs, LValue const& rhs)
 {
-    auto& vectors = objects_->vectors;
-    return (vectors.contains(lhs) and vectors.at(lhs).get().data.size() == 1) or
-           (vectors.contains(rhs) and vectors.at(rhs).get().data.size() == 1);
+    return (objects_->vector_contains(lhs) and
+               objects_->get_vector(lhs).data.size() == 1) or
+           (objects_->vector_contains(rhs) and
+               objects_->get_vector(rhs).data.size() == 1);
 }
 
 /**
@@ -601,8 +593,7 @@ void Table::from_temporary_reassignment(LValue const& lhs, LValue const& rhs)
     if (locals.is_pointer(lhs) and rvalue == "RET") {
         locals.set_symbol_by_name(lhs, "RET");
     }
-    if (object::is_vector_or_pointer(
-            rvalue, get_stack_frame(), objects_->vectors)) {
+    if (objects_->is_vector_or_pointer(rvalue, get_stack_frame())) {
         from_pointer_or_vector_assignment(lhs, rvalue);
         return;
     }
@@ -640,12 +631,12 @@ void Table::from_temporary_assignment(LValue const& lhs, LValue const& rhs)
     // each literal operand of a binary expression is a literal of the data
     // section
     if (is_single_typed_rvalue(rhs)) {
-        objects_->data.insert(type::get_typed_rvalue_from_string(rhs));
+        objects_->data().insert(type::get_typed_rvalue_from_string(rhs));
     } else if (type::is_binary_expression(rhs)) {
         auto [left, right, _] = type::from_rvalue_binary_expression(rhs);
         for (auto const& operand : { left, right })
             if (is_single_typed_rvalue(operand))
-                objects_->data.insert(
+                objects_->data().insert(
                     type::get_typed_rvalue_from_string(operand));
     }
 }
@@ -701,8 +692,7 @@ type::Typed_RValue Table::from_integral_unary_expression(RValue const& lvalue)
  */
 object::Function& Table::get_stack_frame()
 {
-    credence_assert(objects_->functions.contains(frame_symbol_));
-    return objects_->functions.at(frame_symbol_);
+    return objects_->get_stack_frame(frame_symbol_);
 }
 
 /**

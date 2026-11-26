@@ -118,18 +118,18 @@ TEST_CASE_FIXTURE(Table_Fixture, "build_vector_definitions_from_globals")
         "ir/table/vector_definitions_from_globals");
     auto table_pointer = make_table_with_global_symbols(ast, VECTOR_SYMBOLS);
     auto table = table_pointer.get_table_object();
-    auto& locals = table->functions.at("main").get().locals;
+    auto& locals = table->get_stack_frame("main").locals;
     locals.set_symbol_by_name("mess", credence::type::NULL_RVALUE_LITERAL);
     locals.set_symbol_by_name("putchar", credence::type::NULL_RVALUE_LITERAL);
     locals.set_symbol_by_name("unit", credence::type::NULL_RVALUE_LITERAL);
-    REQUIRE(table->vectors.size() == 4);
-    REQUIRE(table->vectors.at("mess").get().data.size() == 6);
-    REQUIRE(table->vectors.at("putchar").get().data.size() == 1);
-    REQUIRE(table->vectors.at("putchar").get().data["0"].value == "puts");
-    REQUIRE(table->vectors.at("unit").get().data["0"].value == "10");
-    REQUIRE(table->vectors.at("unit").get().data["0"].type == "int");
-    REQUIRE(table->vectors.at("mess").get().data["0"].value == "too bad");
-    REQUIRE(table->vectors.at("mess").get().data["1"].value == "tough luck");
+    REQUIRE(table->get_vectors().size() == 4);
+    REQUIRE(table->get_vector("mess").data.size() == 6);
+    REQUIRE(table->get_vector("putchar").data.size() == 1);
+    REQUIRE(table->get_vector("putchar").data["0"].value == "puts");
+    REQUIRE(table->get_vector("unit").data["0"].value == "10");
+    REQUIRE(table->get_vector("unit").data["0"].type == "int");
+    REQUIRE(table->get_vector("mess").data["0"].value == "too bad");
+    REQUIRE(table->get_vector("mess").data["1"].value == "tough luck");
 }
 
 TEST_CASE_FIXTURE(Table_Fixture, "from_label_ita_instruction")
@@ -165,7 +165,7 @@ TEST_CASE_FIXTURE(Table_Fixture, "from_mov_ita_instruction")
     frame.locals.set_symbol_by_name("z", credence::type::NULL_RVALUE_LITERAL);
     table_pointer.from_mov_ita_instruction(test1);
     table_pointer.from_mov_ita_instruction(test2);
-    table_pointer.objects_->hoisted_symbols["a"]["type"] = "lvalue";
+    table_pointer.objects_->hoisted_symbols()["a"]["type"] = "lvalue";
     table_pointer.from_mov_ita_instruction(test3);
     table_pointer.from_mov_ita_instruction(test4);
     REQUIRE(frame.temporary["_t1"] == "(5:int:4)");
@@ -209,8 +209,8 @@ TEST_CASE_FIXTURE(Table_Fixture, "from_func_start_ita_instruction")
     table->set_function_definition("convert");
     table_pointer.instruction_index = 10;
     table_pointer.from_func_start_ita_instruction("__convert(x,y,z)");
-    REQUIRE(&table_pointer.get_stack_frame() ==
-            &table->functions.at("convert").get());
+    REQUIRE(
+        &table_pointer.get_stack_frame() == &table->get_stack_frame("convert"));
     REQUIRE(table_pointer.address_table.addr_["__convert(x,y,z)"] == 9UL);
     REQUIRE(table_pointer.get_stack_frame().address_location[0] == 11);
 }
@@ -241,11 +241,11 @@ TEST_CASE_FIXTURE(Table_Fixture, "from_func_end_ita_instruction")
     auto& frame = table_pointer.get_stack_frame();
     auto& locals = table_pointer.get_stack_frame().locals;
     table_pointer.instruction_index = 10;
-    table->functions.at("main").get().locals.table_["x"] = { "10", "int", 4UL };
+    table->get_stack_frame("main").locals.table_["x"] = { "10", "int", 4UL };
     table_pointer.instruction_index = 10;
     frame.parameters.emplace_back("x");
     table_pointer.from_func_end_ita_instruction();
-    REQUIRE(table->functions.at("main").get().address_location[1] == 9);
+    REQUIRE(table->get_stack_frame("main").address_location[1] == 9);
     REQUIRE(locals.table_.contains("x"));
 }
 
@@ -272,8 +272,8 @@ TEST_CASE_FIXTURE(Table_Fixture, "from_push_instruction")
     auto push_instruction2 = credence::ir::Quadruple{
         credence::ir::Instruction::PUSH, "_p2", "", ""
     };
-    table->functions.at("main").get().temporary["_p1"] = "_p1";
-    table->functions.at("main").get().temporary["_p2"] = "_p2";
+    table->get_stack_frame("main").temporary["_p1"] = "_p1";
+    table->get_stack_frame("main").temporary["_p2"] = "_p2";
     table_pointer.from_push_instruction(push_instruction);
     REQUIRE(table_pointer.stack.size() == 1);
     REQUIRE(table_pointer.stack.back() == "_p1");
@@ -287,9 +287,9 @@ TEST_CASE_FIXTURE(Table_Fixture, "from_rvalue_unary_expression")
     using std::get;
     auto table_pointer = make_table_with_frame(make_node());
     auto table = table_pointer.get_table_object();
-    table->functions.at("main").get().locals.table_["a"] = { "5", "int", 4UL };
-    table->functions.at("main").get().locals.addr_["b"] = "a";
-    table->functions.at("main").get().locals.table_["c"] = { "5", "int", 4UL };
+    table->get_stack_frame("main").locals.table_["a"] = { "5", "int", 4UL };
+    table->get_stack_frame("main").locals.addr_["b"] = "a";
+    table->get_stack_frame("main").locals.table_["c"] = { "5", "int", 4UL };
     std::string test_rvalue = "~ 5";
     std::string test_pointer = "b";
     std::string test_pointer2 = "a";
@@ -355,7 +355,7 @@ TEST_CASE_FIXTURE(Table_Fixture, "from_temporary_reassignment")
     table_pointer.from_temporary_reassignment("_t2", "~ _t1");
     table_pointer.from_temporary_reassignment("_t3", "_t1");
     table_pointer.from_temporary_reassignment("_t4", "_t1 || _t2");
-    locals = table->functions.at("main").get().locals;
+    locals = table->get_stack_frame("main").locals;
     auto test = locals.get_symbol_by_name("_t1");
     auto test2 = locals.get_symbol_by_name("_t2");
     auto test3 = locals.get_symbol_by_name("_t4");

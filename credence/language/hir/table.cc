@@ -97,8 +97,8 @@ void Table::build_from_definitions(Node const& node)
             build_from_vector_definition(definition);
     if (node.has_key("right"))
         build_from_declarations(node["right"]);
-    objects_->hoisted_symbols = hoisted_symbols_;
-    objects_->globals = globals_;
+    objects_->hoisted_symbols() = hoisted_symbols_;
+    objects_->globals() = globals_;
     build_vector_definitions_from_symbols();
     build_vector_definitions_from_globals();
     for (auto& definition : definitions)
@@ -130,17 +130,16 @@ void Table::set_pointer_parameters_from_call_arguments()
     while (changed) {
         changed = false;
         for (auto const& call : call_arguments_) {
-            if (!objects_->functions.contains(call.callee) or
+            if (!objects_->function_contains(call.callee) or
                 not frames_.contains(call.callee))
                 continue;
-            auto& function = objects_->functions.at(call.callee).get();
+            auto& function = objects_->get_stack_frame(call.callee);
             if (call.index >= function.parameters.size())
                 continue;
             auto pointer = call.pointer;
             if (!call.parameter.empty() and
-                objects_->functions.contains(call.caller))
-                pointer = pointer or objects_->functions.at(call.caller)
-                                         .get()
+                objects_->function_contains(call.caller))
+                pointer = pointer or objects_->get_stack_frame(call.caller)
                                          .is_pointer_parameter(call.parameter);
             auto& parameter = function.parameters[call.index];
             auto& frame = frames_.at(call.callee);
@@ -272,7 +271,7 @@ void Table::build_from_function_definition(Node const& node)
     auto& frame = frames_[name];
     auto& function = objects_->set_function_definition(name);
     frame.symbol = name;
-    objects_->labels.emplace(name);
+    objects_->labels().emplace(name);
     symbols_.set_symbol_by_name(name, literal::WORD_LITERAL);
     set_union_tag_symbols();
 
@@ -394,8 +393,8 @@ void Table::set_unset_global_values()
             m::pattern | "string" = [] { return "(\"\":string:0)"; },
             m::pattern | m::_ = [] { return "(0:int:4)"; });
         auto value = credence::type::get_typed_rvalue_from_string(zero);
-        objects_->data.insert(value);
-        objects_->vectors.at(name).get().data["0"] = value;
+        objects_->data().insert(value);
+        objects_->get_vector(name).data["0"] = value;
     }
 }
 
@@ -431,7 +430,7 @@ void Table::build_vector_definitions_from_symbols()
         if (hoisted_symbols_[key]["type"].to_string() == "vector_lvalue") {
             auto size = static_cast<std::size_t>(
                 hoisted_symbols_[key]["size"].to_int());
-            if (!objects_->vectors.contains(key))
+            if (!objects_->vector_contains(key))
                 objects_->set_vector_definition(key, size);
         }
     }
@@ -453,7 +452,7 @@ void Table::build_vector_definitions_from_globals()
             auto key = std::to_string(index++);
             auto value = credence::type::get_typed_rvalue_from_string(
                 data_kind_to_string(item, false));
-            objects_->data.insert(value);
+            objects_->data().insert(value);
             vector.data[key] = value;
         }
     }

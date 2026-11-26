@@ -116,11 +116,11 @@ void IR_Instruction_Visitor::from_func_start_ita(Label const& name)
 {
     auto instruction_accessor = accessor_->instructions();
     auto& table = accessor_->ir().get_table();
-    credence_assert(table->functions.contains(name));
+    credence_assert(table->function_contains(name));
     accessor_->stack()->clear();
     stack_frame_.symbol = name;
     stack_frame_.set_stack_frame(name);
-    auto& frame = table->functions.at(name).get();
+    auto& frame = table->get_stack_frame(name);
     auto& inst = instruction_accessor->get_instructions();
     // function prologue
     x8664_add__asm(inst, push, rbp);
@@ -191,7 +191,7 @@ void IR_Instruction_Visitor::from_locl_ita(ir::Quadruple const& inst)
     auto& table = accessor_->ir().get_table();
     auto& stack = accessor_->stack();
     auto is_vector = [&](RValue const& rvalue) {
-        return table->vectors.contains(type::from_lvalue_offset(rvalue));
+        return table->vector_contains(type::from_lvalue_offset(rvalue));
     };
     m::match(locl_lvalue)(
         m::pattern | m::app(type::is_dereference_expression, true) =
@@ -202,15 +202,14 @@ void IR_Instruction_Visitor::from_locl_ita(ir::Quadruple const& inst)
             },
         m::pattern | m::app(is_vector, true) =
             [&] {
-                auto& vector = table->vectors.at(locl_lvalue).get();
+                auto& vector = table->get_vector(locl_lvalue);
                 auto size = stack->get_stack_size_from_table_vector(vector);
                 stack->set_address_from_size(locl_lvalue, size);
             },
         m::pattern | m::_ =
             [&] {
-                auto type = object::get_type_from_object_data_type(locl_lvalue,
-                    stack_frame_.get_stack_frame(),
-                    table->vectors);
+                auto type = table->get_type_from_object_data_type(
+                    locl_lvalue, stack_frame_.get_stack_frame());
                 stack->set_address_from_type(locl_lvalue, type);
             }
 
@@ -362,8 +361,7 @@ void IR_Instruction_Visitor::from_mov_ita(ir::Quadruple const& inst)
 
     auto is_global_vector = [&](RValue const& rvalue) {
         auto rvalue_reference = type::from_lvalue_offset(rvalue);
-        return table->vectors.contains(rvalue_reference) and
-               table->globals.is_pointer(rvalue_reference);
+        return table->is_global_vector(rvalue_reference);
     };
 
     m::match(lhs, rhs)(
@@ -561,7 +559,7 @@ void IR_Instruction_Visitor::from_return_ita(ir::Quadruple const& inst)
 {
     auto inserter = Expression_Inserter{ accessor_ };
     auto& frame =
-        accessor_->ir().get_table()->functions.at(stack_frame_.symbol).get();
+        accessor_->ir().get_table()->get_stack_frame(stack_frame_.symbol);
     if (!frame.ret.has_value())
         return;
     // each return statement returns its own rvalue

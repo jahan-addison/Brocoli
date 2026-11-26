@@ -69,9 +69,9 @@ class Table
     explicit Table(ITA::Node const& hoisted_symbols)
     {
         objects_ = std::make_shared<object::Object_Table>();
-        objects_->hoisted_symbols = hoisted_symbols;
+        objects_->hoisted_symbols() = hoisted_symbols;
         instructions_ = std::make_shared<ir::Instructions>();
-        objects_->globals = Symbol_Table<>{};
+        objects_->globals() = Symbol_Table<>{};
     }
 #endif
     explicit Table(Object_Table_PTR objects, Instructions& instructions)

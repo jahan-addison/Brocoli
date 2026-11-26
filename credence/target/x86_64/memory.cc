@@ -179,7 +179,7 @@ Address_Accessor::get_lvalue_address_and_insertion_instructions(
             common::flag::Indirect, instruction_index + 1);
         instructions.first = Register::rax;
     } else if (is_global_vector(lhs)) {
-        if (table_->globals.is_pointer(lhs)) {
+        if (table_->globals().is_pointer(lhs)) {
             auto rip_storage =
                 vector_accessor.get_offset_address(lvalue, offset);
             auto prefix = storage_prefix_from_operand_size(rip_storage.second);
@@ -195,8 +195,7 @@ Address_Accessor::get_lvalue_address_and_insertion_instructions(
                 common::assembly::make_array_immediate(rip_arithmetic);
         }
     } else if (is_vector_offset(lvalue)) {
-        credence_assert(table_->vectors.contains(lhs));
-        auto& vector = table_->vectors.at(lhs).get();
+        auto& vector = table_->get_vector(lhs);
         instructions.first = stack_->get_stack_offset_from_table_vector_index(
             lhs, offset, vector);
 

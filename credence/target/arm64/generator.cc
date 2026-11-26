@@ -222,7 +222,7 @@ void Data_Emitter::set_data_strings()
 {
     index_before_strings = instructions_.size();
     auto& table = accessor_->ir().get_table();
-    for (auto const& string : table->data.strings) {
+    for (auto const& string : table->data().strings) {
         auto data_instruction = assembly::asciz(
             accessor_->buffers().get_constant_size_index(), string);
         accessor_->buffers().insert_string_literal(
@@ -238,9 +238,9 @@ void Data_Emitter::set_data_strings()
 void Data_Emitter::set_data_floats()
 {
     auto& table = accessor_->ir().get_table();
-    if (!table->data.floats.empty())
+    if (!table->data().floats.empty())
         insert_arm64_alignment_directive(instructions_, 2);
-    for (auto const& floatz : table->data.floats) {
+    for (auto const& floatz : table->data().floats) {
         auto data_instruction = assembly::floatz(
             accessor_->buffers().get_constant_size_index(), floatz);
         accessor_->buffers().insert_float_literal(
@@ -256,9 +256,9 @@ void Data_Emitter::set_data_doubles()
 {
     auto& table = accessor_->ir().get_table();
 
-    if (!table->data.doubles.empty())
+    if (!table->data().doubles.empty())
         insert_arm64_alignment_directive(instructions_, 3);
-    for (auto const& doublez : table->data.doubles) {
+    for (auto const& doublez : table->data().doubles) {
         auto data_instruction = assembly::doublez(
             accessor_->buffers().get_constant_size_index(), doublez);
         accessor_->buffers().insert_double_literal(
@@ -278,9 +278,8 @@ void Data_Emitter::set_data_globals()
 {
     auto& table = accessor_->ir().get_table();
 
-    for (auto const& global : table->globals.get_pointers()) {
-        credence_assert(table->vectors.contains(global));
-        auto& vector = table->vectors.at(global).get();
+    for (auto const& global : table->globals().get_pointers()) {
+        auto& vector = table->get_vector(global);
         // trivial vectors: e.g. `num 1;`
         if (vector.size == 1) {
             auto align = get_alignment_size_from_typed_rvalue(
@@ -635,8 +634,8 @@ void Text_Emitter::emit_assembly_label(std::ostream& os,
 {
     auto& table = accessor_->ir().get_table();
     // function labels
-    if (table->hoisted_symbols.has_key(s) and
-        table->hoisted_symbols[s]["type"].to_string() ==
+    if (table->hoisted_symbols().has_key(s) and
+        table->hoisted_symbols()[s]["type"].to_string() ==
             "function_definition") {
         // callee saved registers are saved as "tokens" on the frame object
         if (!accessor_->get_frame_in_memory().get_stack_frame(s).tokens.empty())
@@ -647,13 +646,10 @@ void Text_Emitter::emit_assembly_label(std::ostream& os,
             accessor_->devices().set_current_frame_symbol(s);
         }
         frame_ = s;
-        address_pointer_index = table->functions.at(s).get().pointers.size();
+        address_pointer_index = table->get_stack_frame(s).pointers.size();
         if (set_label)
-            label_size_ = accessor_->ir()
-                              .get_table()
-                              ->functions.at(s)
-                              .get()
-                              .labels.size();
+            label_size_ =
+                accessor_->ir().get_table()->get_stack_frame(s).labels.size();
         if (s != "main")
             assembly::newline(os, 2);
         os << assembly::make_label(s) << ":";
@@ -665,7 +661,7 @@ void Text_Emitter::emit_assembly_label(std::ostream& os,
         branch_ = s;
         auto label = util::get_numbers_from_string(s);
         auto label_before_reserved =
-            table->functions.at(frame_).get().label_before_reserved;
+            table->get_stack_frame(frame_).label_before_reserved;
         if (set_label and s == "_L1") {
             // In the IR, labels are linear until _L1 and then branching starts.
             // So as soon as _L1 would be emitted, add a jump to _L1 instead

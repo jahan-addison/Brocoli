@@ -121,17 +121,17 @@ unit 10;
 )b",
         ast);
     auto objects = table.objects_;
-    REQUIRE(objects->functions.contains("main"));
-    REQUIRE(objects->functions.contains("add"));
-    REQUIRE(objects->labels.contains("add"));
-    auto& parameters = objects->functions.at("add").get().parameters;
+    REQUIRE(objects->function_contains("main"));
+    REQUIRE(objects->function_contains("add"));
+    REQUIRE(objects->labels().contains("add"));
+    auto& parameters = objects->get_stack_frame("add").parameters;
     REQUIRE(parameters.size() == 2);
     REQUIRE(parameters[0] == "a");
     REQUIRE(parameters[1] == "*b");
-    REQUIRE(objects->vectors.at("arr").get().size == 3);
-    REQUIRE(objects->vectors.at("unit").get().data["0"] ==
+    REQUIRE(objects->get_vector("arr").size == 3);
+    REQUIRE(objects->get_vector("unit").data["0"] ==
             credence::type::Typed_RValue{ "10", "int", 4UL });
-    REQUIRE(objects->globals.is_defined("unit"));
+    REQUIRE(objects->globals().is_defined("unit"));
 }
 
 TEST_CASE_FIXTURE(HIR_Table_Fixture, "build_from_vector_definition")
@@ -163,7 +163,7 @@ TEST_CASE_FIXTURE(HIR_Table_Fixture, "build_from_variable_declaration")
     auto table = make_table("main() { extrn unit; } unit 10;", ast);
     REQUIRE(table.vectors_.at("unit").size == 1);
     REQUIRE(table.vectors_.at("unit").data.at("0").type == "int");
-    REQUIRE(table.objects_->vectors.at("unit").get().size == 1);
+    REQUIRE(table.objects_->get_vector("unit").size == 1);
     // a global variable with no initial value is unset
     auto unset = make_table("main() { extrn unit; unit = 5; } unit;", ast);
     REQUIRE(unset.vectors_.at("unit").size == 1);
@@ -371,7 +371,7 @@ count(n) {
 }
 )b",
         ast);
-    auto& functions = table.objects_->functions;
+    auto& functions = table.objects_->get_functions();
     REQUIRE(functions.at("show").get().parameters.front() == "*s");
     REQUIRE(functions.at("print2").get().parameters.front() == "*t");
     REQUIRE(functions.at("count").get().parameters.front() == "n");

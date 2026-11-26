@@ -553,7 +553,7 @@ Operand_Size Unary_Operator_Inserter::get_operand_size_from_lvalue_reference(
     auto& device_accessor = accessor_->devices();
     auto& instructions = accessor_->instructions()->get_instructions();
     auto is_vector = [&](RValue const& rvalue) {
-        return accessor_->ir().get_table()->vectors.contains(
+        return accessor_->ir().get_table()->vector_contains(
             type::from_lvalue_offset(rvalue));
     };
     auto is_address = [&](RValue const& rvalue) {
@@ -617,7 +617,7 @@ Storage Unary_Operator_Inserter::insert_from_unary_operator_rvalue(
     auto op = type::get_unary_operator(expr);
     RValue rvalue = type::get_unary_rvalue_reference(expr);
     auto is_vector = [&](RValue const& rvalue) {
-        return accessor_->ir().get_table()->vectors.contains(
+        return accessor_->ir().get_table()->vector_contains(
             type::from_lvalue_offset(rvalue));
     };
     auto is_address = [&](RValue const& rvalue) {
@@ -836,8 +836,7 @@ void Expression_Inserter::insert_from_address_of_rvalue(RValue const& rvalue)
     auto lvalue = type::get_unary_rvalue_reference(rvalue);
     auto label = type::from_lvalue_offset(lvalue);
     // the address of a global vector element is from its page address
-    if (is_vector_offset(lvalue) and table->vectors.contains(label) and
-        table->globals.is_pointer(label)) {
+    if (is_vector_offset(lvalue) and table->is_global_vector(label)) {
         auto offset =
             accessor_->vectors()
                 .get_offset_address(lvalue, type::from_decay_offset(lvalue))
@@ -1000,8 +999,7 @@ void Expression_Inserter::insert_from_temporary_rvalue(RValue const& rvalue)
                 }
                 if (is_stdlib_function(stack_frame_.tail))
                     return;
-                credence_assert(table->functions.contains(stack_frame_.tail));
-                auto& frame = table->functions.at(stack_frame_.tail).get();
+                auto& frame = table->get_stack_frame(stack_frame_.tail);
                 credence_assert(frame.ret.has_value());
                 if (is_doubleword_return_value(frame)) {
                     arm64_add__asm(instructions, mov, x8, x0);
@@ -1092,8 +1090,7 @@ void Expression_Inserter::insert_from_global_vector_assignment(
     auto& instructions = instruction_accessor->get_instructions();
     auto& table = accessor_->ir().get_table();
     auto lhs_reference = type::from_lvalue_offset(lhs);
-    if (table->vectors.contains(lhs_reference) and
-        table->globals.is_pointer(lhs_reference)) {
+    if (table->is_global_vector(lhs_reference)) {
         insert_to_global_vector(lhs, rhs);
         return;
     }
@@ -1102,8 +1099,9 @@ void Expression_Inserter::insert_from_global_vector_assignment(
     auto& frame = accessor_->get_frame_in_memory().get_stack_frame();
     if (!type::is_unary_expression(lhs) and frame.locals.is_defined(lhs) and
         not accessor_->devices().is_lvalue_allocated_in_memory(lhs)) {
-        auto element = object::get_rvalue_at_lvalue_object_storage(
-            rhs, frame, accessor_->ir().get_table()->vectors);
+        auto element =
+            accessor_->ir().get_table()->get_rvalue_at_lvalue_object_storage(
+                rhs, frame);
         auto size = assembly::get_operand_size_from_typed_rvalue(element);
         accessor_->devices().insert_lvalue_to_device(
             lhs, size == Operand_Size::Empty ? Operand_Size::Doubleword : size);
@@ -1169,9 +1167,9 @@ void Expression_Inserter::insert_to_global_vector(LValue const& lhs,
         accessor_->addresses().get_arm64_lvalue_and_insertion_instructions(
             lhs, instructions.size());
     assembly::inserter(instructions, lhs_storage_inst);
-    auto element = object::get_rvalue_at_lvalue_object_storage(lhs,
-        accessor_->get_frame_in_memory().get_stack_frame(),
-        accessor_->ir().get_table()->vectors);
+    auto element =
+        accessor_->ir().get_table()->get_rvalue_at_lvalue_object_storage(
+            lhs, accessor_->get_frame_in_memory().get_stack_frame());
     auto size = assembly::get_operand_size_from_typed_rvalue(element);
     if (size == Operand_Size::Doubleword and
         not assembly::is_doubleword_register(value)) {
@@ -1335,7 +1333,7 @@ void Expression_Inserter::insert_lvalue_from_return_rvalue(LValue const& lvalue)
 #endif
     auto returns_word = common::runtime::is_returning_library_function(
         stack_frame_.tail, common::assembly::Arch_Type::ARM64);
-    if (!returns_word and not table->functions.contains(stack_frame_.tail))
+    if (!returns_word and not table->function_contains(stack_frame_.tail))
         return;
     auto [lhs_s, lhs_i] =
         accessor_->addresses().get_arm64_lvalue_and_insertion_instructions(
@@ -1350,7 +1348,7 @@ void Expression_Inserter::insert_lvalue_from_return_rvalue(LValue const& lvalue)
     if (returns_word)
         arm64_add__asm(instructions, mov, lhs_s, w0);
     else {
-        auto& frame = table->functions.at(stack_frame_.tail).get();
+        auto& frame = table->get_stack_frame(stack_frame_.tail);
         Storage return_s =
             is_doubleword_return_value(frame) ? Register::x0 : Register::w0;
         arm64_add__asm(instructions, mov, lhs_s, return_s);
@@ -1607,7 +1605,7 @@ void Operand_Inserter::insert_from_accumulator_to_lvalue(LValue const& lhs,
 inline Storage Operand_Inserter::get_operand_storage_from_return()
 {
     auto& tail_call =
-        accessor_->ir().get_table()->functions.at(stack_frame_.tail).get();
+        accessor_->ir().get_table()->get_stack_frame(stack_frame_.tail);
     if (tail_call.locals.is_pointer(tail_call.ret->first) or
         type::is_typed_rvalue_string(tail_call.ret->first))
         return Register::x0;
@@ -1897,8 +1895,8 @@ bool Operand_Inserter::is_local_vector_offset(RValue const& rvalue)
 {
     auto const& table = accessor_->ir().get_table();
     auto label = type::from_lvalue_offset(rvalue);
-    return is_vector_offset(rvalue) and table->vectors.contains(label) and
-           not table->globals.is_pointer(label) and
+    return is_vector_offset(rvalue) and table->vector_contains(label) and
+           not table->globals().is_pointer(label) and
            accessor_->stack()->is_allocated(label);
 }
 
@@ -1914,7 +1912,7 @@ Storage Operand_Inserter::get_operand_storage_from_local_vector_offset(
     auto& table = accessor_->ir().get_table();
     auto label = type::from_lvalue_offset(rvalue);
     auto offset = type::from_decay_offset(rvalue);
-    auto& vector = table->vectors.at(label).get();
+    auto& vector = table->get_vector(label);
     auto vector_s =
         accessor_->stack()->get_stack_offset_from_table_vector_index(
             label, offset, vector);
@@ -1956,8 +1954,7 @@ Size Operand_Inserter::get_pointee_size(LValue const& pointer)
     auto& table = accessor_->ir().get_table();
     if (!frame.locals.is_pointer(pointer))
         return 4UL;
-    auto data = object::get_rvalue_at_lvalue_object_storage(
-        pointer, frame, table->vectors);
+    auto data = table->get_rvalue_at_lvalue_object_storage(pointer, frame);
     return data.size == 8UL ? 8UL : 4UL;
 }
 
@@ -2010,8 +2007,7 @@ Invocation_Inserter::get_operands_storage_from_argument_stack()
             continue;
         }
         if (rvalue == "RET") {
-            credence_assert(table->functions.contains(stack_frame_.tail));
-            auto& tail_frame = table->functions.at(stack_frame_.tail).get();
+            auto& tail_frame = table->get_stack_frame(stack_frame_.tail);
             if (accessor_->addresses().is_lvalue_storage_type(
                     tail_frame.ret->first, "string") or
                 caller_frame.is_pointer_in_stack_frame(tail_frame.ret->first) or
@@ -2051,7 +2047,7 @@ Invocation_Inserter::get_operands_storage_from_argument_stack()
                 std::get<Register>(operand) == Register::x15) {
                 auto lhs = type::from_lvalue_offset(rvalue);
                 auto offset = type::from_decay_offset(rvalue);
-                auto& vector = table->vectors.at(lhs).get();
+                auto& vector = table->get_vector(lhs);
                 auto vector_s = accessor_->stack()
                                     ->get_stack_offset_from_table_vector_index(
                                         lhs, offset, vector);
@@ -2071,7 +2067,7 @@ bool Invocation_Inserter::is_global_argument(RValue const& rvalue)
 {
     auto const& table = accessor_->ir().get_table();
     auto label = type::from_lvalue_offset(rvalue);
-    return table->vectors.contains(label) and table->globals.is_pointer(label);
+    return table->is_global_vector(label);
 }
 
 /**
@@ -2105,8 +2101,8 @@ common::Stack_Offset Invocation_Inserter::insert_global_argument_to_stack(
     auto offset = accessor_->vectors().get_offset_address(rvalue, key).first;
     // a string element is the address of the string
     auto type = type::get_type_from_typed_rvalue(
-        object::get_rvalue_at_lvalue_object_storage(
-            rvalue, stack_frame_.get_stack_frame(), table->vectors));
+        table->get_rvalue_at_lvalue_object_storage(
+            rvalue, stack_frame_.get_stack_frame()));
     auto size = type == "string" or type == "long" or type == "double"
                     ? Operand_Size::Doubleword
                     : Operand_Size::Word;

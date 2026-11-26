@@ -94,13 +94,13 @@ TEST_CASE("object.cc: Object_Table::set_union_definition")
     Object_Table table{};
     auto& value_t = table.set_union_definition("value_t");
     CHECK(value_t.symbol == "value_t");
-    CHECK(table.unions.contains("value_t"));
-    CHECK(&table.unions.at("value_t").get() == &value_t);
+    CHECK(table.union_contains("value_t"));
+    CHECK(&table.get_union("value_t") == &value_t);
 
     // each definition keeps its address as more definitions are inserted
     auto& option_t = table.set_union_definition("option_t");
-    CHECK(&table.unions.at("value_t").get() == &value_t);
-    CHECK(&table.unions.at("option_t").get() == &option_t);
+    CHECK(&table.get_union("value_t") == &value_t);
+    CHECK(&table.get_union("option_t") == &option_t);
 }
 
 TEST_CASE("object.cc: Tagged_Union::set_tag_entry")
@@ -176,12 +176,12 @@ TEST_CASE("object.h: is_union")
 {
     Object_Table table{};
     set_value_t(table.set_union_definition("value_t"));
-    CHECK(is_union("value_t.text", table.unions));
-    CHECK(is_union("value_t.pair", table.unions));
-    CHECK(not is_union("value_t.list", table.unions));
-    CHECK(not is_union("option_t.text", table.unions));
-    CHECK(not is_union("value_t", table.unions));
-    CHECK(not is_union("x", table.unions));
+    CHECK(table.is_union("value_t.text"));
+    CHECK(table.is_union("value_t.pair"));
+    CHECK(not table.is_union("value_t.list"));
+    CHECK(not table.is_union("option_t.text"));
+    CHECK(not table.is_union("value_t"));
+    CHECK(not table.is_union("x"));
 }
 
 TEST_CASE("object.h: Object_Table::get_union_of_variable")
@@ -190,7 +190,7 @@ TEST_CASE("object.h: Object_Table::get_union_of_variable")
     auto& value_t = table.set_union_definition("value_t");
     auto& main = table.set_function_definition("main");
     main.union_table.insert("v", "value_t");
-    table.union_globals.insert("last", "value_t");
+    table.set_union_global("last", "value_t");
 
     auto local = table.get_union_of_variable("v", main);
     REQUIRE(local.has_value());
@@ -211,7 +211,7 @@ TEST_CASE("object.h: Object_Table::is_union_variable")
     auto& main = table.set_function_definition("main");
     auto& other = table.set_function_definition("other");
     main.union_table.insert("v", "value_t");
-    table.union_globals.insert("last", "value_t");
+    table.set_union_global("last", "value_t");
 
     CHECK(table.is_union_variable("v.text", main));
     CHECK(table.is_union_variable("v.pair[0]", main));

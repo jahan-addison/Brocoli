@@ -83,11 +83,11 @@ struct Stack_Frame
     inline void set_stack_frame(Label const& name) { symbol = name; }
     inline Frame& get_stack_frame(Label const& name) const
     {
-        return objects_->functions.at(name).get();
+        return objects_->get_stack_frame(name);
     }
     inline Frame& get_stack_frame() const
     {
-        return objects_->functions.at(symbol).get();
+        return objects_->get_stack_frame(symbol);
     }
 
     Locals argument_stack{};

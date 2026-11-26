@@ -94,7 +94,7 @@ void Function::set_parameters_from_symbolic_label(Label const& label)
 Function& Object_Table::set_function_definition(Label const& label)
 {
     auto& function = function_storage_.emplace_back(label);
-    functions.insert(label, std::ref(function));
+    functions_.insert(label, std::ref(function));
     return function;
 }
 
@@ -104,7 +104,7 @@ Function& Object_Table::set_function_definition(Label const& label)
 Tagged_Union& Object_Table::set_union_definition(Label const& label)
 {
     auto& tagged_union = union_storage_.emplace_back(label);
-    unions.insert(label, std::ref(tagged_union));
+    unions_.insert(label, std::ref(tagged_union));
     return tagged_union;
 }
 
@@ -114,7 +114,7 @@ Tagged_Union& Object_Table::set_union_definition(Label const& label)
 Vector& Object_Table::set_vector_definition(Label const& label, Address size_of)
 {
     auto& vector = vector_storage_.emplace_back(label, size_of);
-    vectors.insert(label, std::ref(vector));
+    vectors_.insert(label, std::ref(vector));
     return vector;
 }
 
@@ -181,93 +181,6 @@ void Data_Section::insert(type::Typed_RValue const& rvalue)
         doubles.insert(type::get_value_from_typed_rvalue(rvalue));
     if (type == "string")
         strings.insert(type::get_value_from_typed_rvalue(rvalue));
-}
-
-/**
- * @brief Get the type from a symbol in the stack frame or vector storage
- *
- * Note: vector boundaries are not checked here, see
- * Pointer_Vector_Decay_Checker::is_boundary_out_of_range
- */
-Type get_type_from_object_data_type(LValue const& lvalue,
-    Function& stack_frame,
-    Vectors& vectors)
-{
-    auto& locals = stack_frame.locals;
-    if (is_vector_lvalue(lvalue)) {
-        auto address = type::from_lvalue_offset(lvalue);
-        auto offset = type::from_decay_offset(lvalue);
-        credence_assert(vectors.contains(address));
-        return vectors.at(address).get().data[offset].type;
-    }
-    return locals.get_symbol_by_name(lvalue).type;
-}
-
-namespace {
-
-/**
- * @brief Resolve the rvalue of an element of a vector in the object table
- */
-type::Typed_RValue get_rvalue_at_vector_object_storage(LValue const& lvalue,
-    Function& stack_frame,
-    Vectors& vectors,
-    std::source_location const& location)
-{
-    auto lvalue_reference = type::get_unary_rvalue_reference(lvalue);
-    auto vector_offset = detail::Vector_Offset{ stack_frame, vectors };
-    auto address = type::from_lvalue_offset(lvalue_reference);
-    // a global with no index, `counter`, is its first element
-    auto offset = util::contains(lvalue_reference, "[")
-                      ? type::from_decay_offset(lvalue_reference)
-                      : std::string{ "0" };
-    auto offset_rvalue = vector_offset.get_rvalue_offset_of_vector(offset);
-    if (stack_frame.is_parameter(offset)) {
-        return type::Typed_RValue{ lvalue, "word", 8UL };
-    }
-    if (!vector_offset.is_valid_vector_address_offset(lvalue))
-        throw_compiletime_error(
-            fmt::format("lvalue '{}' is not a vector with offset '{}' with "
-                        "and storage of '{}'",
-                address,
-                offset,
-                offset_rvalue),
-            lvalue,
-            location);
-
-    return vectors.at(address).get().data[offset_rvalue];
-}
-
-} // namespace
-
-/**
- * @brief Resolve the rvalue of a pointer in the table object and stack frame
- */
-type::Typed_RValue get_rvalue_at_lvalue_object_storage(LValue const& lvalue,
-    Function& stack_frame,
-    Vectors& vectors,
-    std::source_location const& location)
-{
-    auto& locals = stack_frame.locals;
-    auto lvalue_reference = type::get_unary_rvalue_reference(lvalue);
-
-    if (lvalue_reference == "RET")
-        return type::NULL_RVALUE_LITERAL;
-    if (locals.is_pointer(lvalue_reference)) {
-        auto address_at =
-            locals.get_pointer_by_name(lvalue_reference, location);
-        if (address_at == "NULL")
-            return type::NULL_RVALUE_LITERAL;
-        return get_rvalue_at_lvalue_object_storage(
-            address_at, stack_frame, vectors, location);
-    }
-    if (vectors.contains(type::from_lvalue_offset(lvalue_reference)))
-        return get_rvalue_at_vector_object_storage(
-            lvalue, stack_frame, vectors, location);
-
-    if (type::is_typed_rvalue(lvalue))
-        return type::get_typed_rvalue_from_string(lvalue);
-
-    return locals.get_symbol_by_name(lvalue_reference, location);
 }
 
 /**
@@ -409,6 +322,145 @@ Size get_size_of_temporary_binary_rvalue(RValue const& rvalue,
     return size;
 }
 
+namespace detail {
+
+type::Typed_RValue get_rvalue_at_lvalue_object_storage(LValue const& lvalue,
+    Function& stack_frame,
+    Vectors& vectors,
+    std::source_location const& location = std::source_location::current());
+
+/**
+ * @brief Vector offset rvalue resolution in the stack frame and global symbols
+ */
+struct Vector_Offset
+{
+  public:
+    Vector_Offset() = delete;
+    explicit Vector_Offset(Function& stack_frame, Vectors& vectors)
+        : stack_frame_(stack_frame)
+        , vectors_(vectors)
+    {
+    }
+
+  public:
+    /**
+     * @brief Check that the offset rvalue is a valid address in the vector
+     */
+    [[nodiscard]] bool is_valid_vector_address_offset(LValue const& lvalue)
+    {
+        auto lvalue_reference = type::get_unary_rvalue_reference(lvalue);
+        auto address = type::from_lvalue_offset(lvalue_reference);
+        // a global with no index, `counter`, is its first element
+        auto offset = util::contains(lvalue_reference, "[")
+                          ? type::from_decay_offset(lvalue_reference)
+                          : std::string{ "0" };
+        if (stack_frame_.is_parameter(offset)) {
+            return true;
+        }
+        return vectors_.at(address).get().data.contains(
+            get_rvalue_offset_of_vector(offset));
+    }
+
+    /**
+     * @brief Get the rvalue at the address of an offset in memory
+     */
+    RValue get_rvalue_offset_of_vector(RValue const& offset)
+    {
+        return stack_frame_.locals.is_defined(offset)
+                   ? type::get_value_from_typed_rvalue(
+                         get_rvalue_at_lvalue_object_storage(
+                             offset, stack_frame_, vectors_))
+                   : offset;
+    }
+
+  private:
+    Function& stack_frame_;
+    Vectors& vectors_;
+};
+
+/**
+ * @brief Resolve the rvalue of an element of a vector in the object table
+ */
+type::Typed_RValue get_rvalue_at_vector_object_storage(LValue const& lvalue,
+    Function& stack_frame,
+    Vectors& vectors,
+    std::source_location const& location)
+{
+    auto lvalue_reference = type::get_unary_rvalue_reference(lvalue);
+    auto vector_offset = Vector_Offset{ stack_frame, vectors };
+    auto address = type::from_lvalue_offset(lvalue_reference);
+    // a global with no index, `counter`, is its first element
+    auto offset = util::contains(lvalue_reference, "[")
+                      ? type::from_decay_offset(lvalue_reference)
+                      : std::string{ "0" };
+    auto offset_rvalue = vector_offset.get_rvalue_offset_of_vector(offset);
+    if (stack_frame.is_parameter(offset)) {
+        return type::Typed_RValue{ lvalue, "word", 8UL };
+    }
+    if (!vector_offset.is_valid_vector_address_offset(lvalue))
+        throw_compiletime_error(
+            fmt::format("lvalue '{}' is not a vector with offset '{}' with "
+                        "and storage of '{}'",
+                address,
+                offset,
+                offset_rvalue),
+            lvalue,
+            location);
+
+    return vectors.at(address).get().data[offset_rvalue];
+}
+
+/**
+ * @brief Resolve the rvalue of a pointer in the table object and stack frame
+ */
+type::Typed_RValue get_rvalue_at_lvalue_object_storage(LValue const& lvalue,
+    Function& stack_frame,
+    Vectors& vectors,
+    std::source_location const& location)
+{
+    auto& locals = stack_frame.locals;
+    auto lvalue_reference = type::get_unary_rvalue_reference(lvalue);
+
+    if (lvalue_reference == "RET")
+        return type::NULL_RVALUE_LITERAL;
+    if (locals.is_pointer(lvalue_reference)) {
+        auto address_at =
+            locals.get_pointer_by_name(lvalue_reference, location);
+        if (address_at == "NULL")
+            return type::NULL_RVALUE_LITERAL;
+        return get_rvalue_at_lvalue_object_storage(
+            address_at, stack_frame, vectors, location);
+    }
+    if (vectors.contains(type::from_lvalue_offset(lvalue_reference)))
+        return get_rvalue_at_vector_object_storage(
+            lvalue, stack_frame, vectors, location);
+
+    if (type::is_typed_rvalue(lvalue))
+        return type::get_typed_rvalue_from_string(lvalue);
+
+    return locals.get_symbol_by_name(lvalue_reference, location);
+}
+
+/**
+ * @brief Get the type from a symbol in the stack frame or vector storage
+ *
+ * Note: vector boundaries are not checked here, see
+ * Pointer_Vector_Decay_Checker::is_boundary_out_of_range
+ */
+Type get_type_from_object_data_type(LValue const& lvalue,
+    Function& stack_frame,
+    Vectors& vectors)
+{
+    auto& locals = stack_frame.locals;
+    if (is_vector_lvalue(lvalue)) {
+        auto address = type::from_lvalue_offset(lvalue);
+        auto offset = type::from_decay_offset(lvalue);
+        credence_assert(vectors.contains(address));
+        return vectors.at(address).get().data[offset].type;
+    }
+    return locals.get_symbol_by_name(lvalue).type;
+}
+
 /**
  * @brief Set the stack frame return value in the table
  */
@@ -468,6 +520,41 @@ void set_stack_frame_return_value(RValue const& rvalue,
                 frame.ret = std::make_pair(frame.temporary.at(rvalue), rvalue);
             },
         m::pattern | m::_ = [&] { credence_error("unreachable"); });
+}
+
+} // namespace detail
+
+/**
+ * @brief Resolve the rvalue of a pointer, a vector element, or a local in a
+ * stack frame
+ */
+type::Typed_RValue Object_Table::get_rvalue_at_lvalue_object_storage(
+    LValue const& lvalue,
+    Function& stack_frame,
+    std::source_location const& location)
+{
+    return detail::get_rvalue_at_lvalue_object_storage(
+        lvalue, stack_frame, vectors_, location);
+}
+
+/**
+ * @brief Get the type from a symbol in the stack frame or vector storage
+ */
+Type Object_Table::get_type_from_object_data_type(LValue const& lvalue,
+    Function& stack_frame)
+{
+    return detail::get_type_from_object_data_type(
+        lvalue, stack_frame, vectors_);
+}
+
+/**
+ * @brief Set the stack frame return value in the table
+ */
+void Object_Table::set_stack_frame_return_value(RValue const& rvalue,
+    Function& frame,
+    Stack const& stack)
+{
+    detail::set_stack_frame_return_value(rvalue, frame, vectors_, stack);
 }
 
 } // namespace credence::object

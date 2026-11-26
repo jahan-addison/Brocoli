@@ -490,8 +490,8 @@ class Address_Accessor
             auto& frame = stack_frame_.get_stack_frame();
             return type::get_type_from_typed_rvalue(
                        type::get_typed_rvalue_as_string(
-                           object::get_rvalue_at_lvalue_object_storage(
-                               lvalue, frame, table_->vectors))) == type_check;
+                           table_->get_rvalue_at_lvalue_object_storage(
+                               lvalue, frame))) == type_check;
         } catch (...) {
             return false;
         }
@@ -501,12 +501,11 @@ class Address_Accessor
     // a vector is local or global, and a global vector is a pointer in the
     // globals of the object table
     Operand_Lambda is_vector = [&](RValue const& rvalue) {
-        return table_->vectors.contains(type::from_lvalue_offset(rvalue));
+        return table_->vector_contains(type::from_lvalue_offset(rvalue));
     };
     Operand_Lambda is_global_vector = [&](RValue const& rvalue) {
         auto rvalue_reference = type::from_lvalue_offset(rvalue);
-        return table_->vectors.contains(rvalue_reference) and
-               table_->globals.is_pointer(rvalue_reference);
+        return table_->is_global_vector(rvalue_reference);
     };
 
   protected:

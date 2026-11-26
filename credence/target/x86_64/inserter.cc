@@ -265,8 +265,7 @@ Invocation_Inserter::get_operands_storage_from_argument_stack()
             continue;
         }
         if (rvalue == "RET") {
-            credence_assert(table->functions.contains(stack_frame_.tail));
-            auto& tail_frame = table->functions.at(stack_frame_.tail).get();
+            auto& tail_frame = table->get_stack_frame(stack_frame_.tail);
             if (accessor_->addresses().is_lvalue_storage_type(
                     tail_frame.ret->first, "string") or
                 caller_frame.is_pointer_in_stack_frame(tail_frame.ret->first) or
@@ -295,7 +294,7 @@ bool Invocation_Inserter::is_global_argument(RValue const& rvalue)
 {
     auto const& table = accessor_->ir().get_table();
     auto label = type::from_lvalue_offset(rvalue);
-    return table->vectors.contains(label) and table->globals.is_pointer(label);
+    return table->is_global_vector(label);
 }
 
 /**
@@ -497,7 +496,7 @@ inline Storage Operand_Inserter::get_operand_storage_from_stack(
 inline Storage Operand_Inserter::get_operand_storage_from_return()
 {
     auto& tail_call =
-        accessor_->ir().get_table()->functions.at(stack_frame_.tail).get();
+        accessor_->ir().get_table()->get_stack_frame(stack_frame_.tail);
     if (tail_call.locals.is_pointer(tail_call.ret->first) or
         type::is_typed_rvalue_string(tail_call.ret->first))
         return Register::rax;
@@ -737,8 +736,7 @@ Size Operand_Inserter::get_pointee_size(LValue const& pointer)
     auto& table = accessor_->ir().get_table();
     if (!frame.locals.is_pointer(pointer))
         return 4UL;
-    auto data = object::get_rvalue_at_lvalue_object_storage(
-        pointer, frame, table->vectors);
+    auto data = table->get_rvalue_at_lvalue_object_storage(pointer, frame);
     return data.size == 8UL ? 8UL : 4UL;
 }
 
@@ -1167,7 +1165,7 @@ Storage Unary_Operator_Inserter::insert_from_unary_operator_rvalue(
     auto op = type::get_unary_operator(expr);
     RValue rvalue = type::get_unary_rvalue_reference(expr);
     auto is_vector = [&](RValue const& rvalue) {
-        return table_accessor.get_table()->vectors.contains(
+        return table_accessor.get_table()->vector_contains(
             type::from_lvalue_offset(rvalue));
     };
 
@@ -1745,8 +1743,7 @@ void Expression_Inserter::insert_from_rvalue(RValue const& rvalue)
                 }
                 if (is_stdlib_function(stack_frame_.tail))
                     return;
-                credence_assert(table->functions.contains(stack_frame_.tail));
-                auto& frame = table->functions.at(stack_frame_.tail).get();
+                auto& frame = table->get_stack_frame(stack_frame_.tail);
                 credence_assert(frame.ret.has_value());
                 if (is_qword_return_value(frame)) {
                     accessor_->flags().set_instruction_flag(
@@ -1830,7 +1827,7 @@ std::optional<Register> Expression_Inserter::insert_from_address_of_value(
     auto label = type::from_lvalue_offset(lvalue);
     auto is_argument = index + 1 < ir_instructions.size() and
                        is_parameter(std::get<1>(ir_instructions.at(index + 1)));
-    if ((is_vector_offset(lvalue) and table->vectors.contains(label)) or
+    if ((is_vector_offset(lvalue) and table->vector_contains(label)) or
         (is_argument and accessor_->stack()->is_allocated(lvalue))) {
         auto [address, address_inst] =
             accessor_->addresses()

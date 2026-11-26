@@ -284,76 +284,6 @@ using Vectors = Ordered_Map<std::string, std::reference_wrapper<Vector>>;
 using Tagged_Unions =
     Ordered_Map<std::string, std::reference_wrapper<Tagged_Union>>;
 
-credence::type::Typed_RValue get_rvalue_at_lvalue_object_storage(
-    LValue const& lvalue,
-    Function& stack_frame,
-    Vectors& vectors,
-    std::source_location const& location = std::source_location::current());
-
-namespace detail {
-/**
- * @brief Vector offset rvalue resolution in the stack frame and global symbols
- */
-struct Vector_Offset
-{
-  public:
-    Vector_Offset() = delete;
-    explicit Vector_Offset(Function& stack_frame, Vectors& vectors)
-        : stack_frame_(stack_frame)
-        , vectors_(vectors)
-    {
-    }
-
-  public:
-    /**
-     * @brief Check that the offset rvalue is a valid address in the vector
-     */
-    [[nodiscard]] constexpr bool is_valid_vector_address_offset(
-        LValue const& lvalue)
-    {
-        auto lvalue_reference = type::get_unary_rvalue_reference(lvalue);
-        auto address = type::from_lvalue_offset(lvalue_reference);
-        // a global with no index, `counter`, is its first element
-        auto offset = util::contains(lvalue_reference, "[")
-                          ? type::from_decay_offset(lvalue_reference)
-                          : std::string{ "0" };
-        if (stack_frame_.is_parameter(offset)) {
-            return true;
-        }
-        return vectors_.at(address).get().data.contains(
-            get_rvalue_offset_of_vector(offset));
-    }
-    /**
-     * @brief Get the rvalue at the address of an offset in memory
-     */
-    inline RValue get_rvalue_offset_of_vector(RValue const& offset)
-    {
-        // clang-format off
-        return stack_frame_.locals.is_defined(offset)
-        ? type::get_value_from_typed_rvalue(
-            get_rvalue_at_lvalue_object_storage(offset, stack_frame_, vectors_))
-        : offset;
-        // clang-format on
-    }
-
-  private:
-    Function& stack_frame_;
-    Vectors& vectors_;
-};
-
-} // namespace detail
-
-/**
- * @brief Query the storage of an rvalue in a stack frame
- *
- * Each query resolves an lvalue or rvalue against a stack frame, and the
- * vectors of the program where an element may be resolved, so the frame
- * under translation is an argument of the stage that walks the program.
- */
-Type get_type_from_object_data_type(LValue const& lvalue,
-    Function& stack_frame,
-    Vectors& vectors);
-
 /**
  * @brief Whether an lvalue is a local of a stack frame, and not a vector
  */
@@ -365,17 +295,6 @@ Type get_type_from_object_data_type(LValue const& lvalue,
 }
 
 /**
- * @brief Whether an rvalue, or the vector of an element, is a vector
- */
-[[nodiscard]] constexpr bool is_vector(RValue const& rvalue,
-    Vectors const& vectors)
-{
-    auto label =
-        util::contains(rvalue, "[") ? type::from_lvalue_offset(rvalue) : rvalue;
-    return vectors.contains(label);
-}
-
-/**
  * @brief Whether an rvalue is a pointer, an address-of, or a string literal
  */
 [[nodiscard]] constexpr bool is_pointer(RValue const& rvalue,
@@ -383,34 +302,6 @@ Type get_type_from_object_data_type(LValue const& lvalue,
 {
     return stack_frame.locals.is_pointer(rvalue) or rvalue.starts_with("&") or
            type::is_typed_rvalue_string(rvalue);
-}
-
-/**
- * @brief Check if an rvalue is the tag of a union type such as `value_t.text`,
- * where the tag of a union variable like `v.text` is checked by
- * Object_Table::is_union_variable instead
- */
-[[nodiscard]] constexpr bool is_union(RValue const& rvalue,
-    Tagged_Unions const& unions)
-{
-    if (not type::is_dot_notation_object_identifier(rvalue))
-        return false;
-    auto union_data = type::get_union_identifier_sections(rvalue);
-    return unions.contains(std::string{ union_data.first }) and
-           unions.at(union_data.first)
-               .get()
-               .is_tag_entry(std::string{ union_data.second });
-}
-
-/**
- * @brief Whether an rvalue is a vector, a pointer, or a dereference
- */
-[[nodiscard]] constexpr bool is_vector_or_pointer(RValue const& rvalue,
-    Function& stack_frame,
-    Vectors const& vectors)
-{
-    return is_vector(rvalue, vectors) or is_pointer(rvalue, stack_frame) or
-           type::is_dereference_expression(rvalue);
 }
 
 /**
@@ -440,7 +331,8 @@ struct Data_Section
 };
 
 /**
- * @brief The functions, vectors, symbols, and data section of a program
+ * @brief The functions, vectors, unions, symbols, and data section of a
+ * program, where each is private and read through the queries of the table
  */
 class Object_Table
 {
@@ -462,7 +354,24 @@ class Object_Table
      */
     [[nodiscard]] constexpr bool vector_contains(LValue const& lvalue)
     {
-        return vectors.contains(lvalue);
+        return vectors_.contains(lvalue);
+    }
+
+    /**
+     * @brief Check if a function is defined in the object table
+     */
+    [[nodiscard]] bool function_contains(Label const& label) const
+    {
+        return functions_.contains(label);
+    }
+
+    /**
+     * @brief Get the vector definition of a label in the object table
+     */
+    [[nodiscard]] Vector& get_vector(Label const& label)
+    {
+        credence_assert(vectors_.contains(label));
+        return vectors_.at(label);
     }
 
     /**
@@ -470,7 +379,7 @@ class Object_Table
      */
     constexpr void reset_frame_calls()
     {
-        for (auto& function : functions) {
+        for (auto& function : functions_) {
             function.second.get().reset_calls();
         }
     }
@@ -479,21 +388,63 @@ class Object_Table
      */
     [[nodiscard]] constexpr Function& get_stack_frame(Label const& label)
     {
-        credence_assert(functions.contains(label));
-        return functions.at(label);
+        credence_assert(functions_.contains(label));
+        return functions_.at(label);
     }
 
     /**
      * @brief Get the union of a variable from the union table of the frame,
      * and then from the union globals
      */
+    /**
+     * @brief Check if an rvalue, or the vector of an element such as `v[2]`,
+     * is a vector of the program
+     */
+    [[nodiscard]] bool is_vector(RValue const& rvalue) const
+    {
+        auto label = util::contains(rvalue, "[")
+                         ? type::from_lvalue_offset(rvalue)
+                         : rvalue;
+        return vectors_.contains(label);
+    }
+
+    /**
+     * @brief Check if an rvalue is a vector, a pointer, or a dereference in a
+     * stack frame
+     */
+    [[nodiscard]] bool is_vector_or_pointer(RValue const& rvalue,
+        Function& stack_frame) const
+    {
+        return is_vector(rvalue) or is_pointer(rvalue, stack_frame) or
+               type::is_dereference_expression(rvalue);
+    }
+
+  public:
+    /**
+     * @brief Query the storage of an rvalue in a stack frame
+     *
+     * Each query resolves an lvalue or rvalue against the stack frame under
+     * translation and the vectors of the program, where an element may be
+     * resolved, so the frame is an argument of the stage that walks the
+     * program.
+     */
+    type::Typed_RValue get_rvalue_at_lvalue_object_storage(LValue const& lvalue,
+        Function& stack_frame,
+        std::source_location const& location = std::source_location::current());
+    Type get_type_from_object_data_type(LValue const& lvalue,
+        Function& stack_frame);
+    void set_stack_frame_return_value(RValue const& rvalue,
+        Function& frame,
+        Stack const& stack);
+
+  public:
     [[nodiscard]] constexpr std::optional<std::reference_wrapper<Tagged_Union>>
     get_union_of_variable(LValue const& variable, Function const& frame)
     {
         if (frame.union_table.contains(variable))
-            return unions.at(frame.union_table.at(variable));
-        if (union_globals.contains(variable))
-            return unions.at(union_globals.at(variable));
+            return unions_.at(frame.union_table.at(variable));
+        if (union_globals_.contains(variable))
+            return unions_.at(union_globals_.at(variable));
         return std::nullopt;
     }
 
@@ -519,19 +470,79 @@ class Object_Table
     std::deque<Tagged_Union> union_storage_{};
 
   public:
-    util::AST_Node hoisted_symbols;
-    Symbol_Table<> globals{};
-    Ordered_Map<LValue, Label> union_globals{};
-    Functions functions{};
-    Vectors vectors{};
-    Tagged_Unions unions{};
-    Data_Section data{};
-    Labels labels{};
-};
+    /**
+     * @brief Check if a vector is a global, a pointer in the globals of the
+     * object table
+     */
+    [[nodiscard]] bool is_global_vector(Label const& label)
+    {
+        return vector_contains(label) and globals_.is_pointer(label);
+    }
 
-void set_stack_frame_return_value(RValue const& rvalue,
-    Function& frame,
-    Vectors& vectors,
-    Stack const& stack);
+    /**
+     * @brief Check if a union is defined in the object table
+     */
+    [[nodiscard]] bool union_contains(Label const& label) const
+    {
+        return unions_.contains(label);
+    }
+
+    /**
+     * @brief Get the union definition of a label in the object table
+     */
+    [[nodiscard]] Tagged_Union& get_union(Label const& label)
+    {
+        credence_assert(unions_.contains(label));
+        return unions_.at(label);
+    }
+
+    /**
+     * @brief Set the union of a global variable, such as `union value_t last;`
+     */
+    void set_union_global(LValue const& variable, Label const& label)
+    {
+        union_globals_.insert(variable, label);
+    }
+
+    /**
+     * @brief Check if an rvalue is the tag of a union type such as
+     * `value_t.text`, where the tag of a union variable like `v.text` is
+     * checked by is_union_variable instead
+     */
+    [[nodiscard]] bool is_union(RValue const& rvalue) const
+    {
+        if (not type::is_dot_notation_object_identifier(rvalue))
+            return false;
+        auto [label, tag] = type::get_union_identifier_sections(rvalue);
+        return unions_.contains(std::string{ label }) and
+               unions_.at(label).get().is_tag_entry(std::string{ tag });
+    }
+
+  public:
+    /**
+     * @brief Get the functions and the vectors of the program, read-only and in
+     * insertion order
+     */
+    [[nodiscard]] Functions const& get_functions() const { return functions_; }
+    [[nodiscard]] Vectors const& get_vectors() const { return vectors_; }
+
+    /**
+     * @brief Get the symbols and the data section of the program
+     */
+    util::AST_Node& hoisted_symbols() { return hoisted_symbols_; }
+    Symbol_Table<>& globals() { return globals_; }
+    Data_Section& data() { return data_; }
+    Labels& labels() { return labels_; }
+
+  private:
+    util::AST_Node hoisted_symbols_;
+    Symbol_Table<> globals_{};
+    Ordered_Map<LValue, Label> union_globals_{};
+    Functions functions_{};
+    Vectors vectors_{};
+    Tagged_Unions unions_{};
+    Data_Section data_{};
+    Labels labels_{};
+};
 
 } // namespace credence::object

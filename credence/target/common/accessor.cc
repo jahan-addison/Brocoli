@@ -156,15 +156,14 @@ Table_Accessor::~Table_Accessor() = default;
 Size Buffer_Accessor::get_size_of_return_string(Stack_Frame const& stack_frame)
 {
     auto& table_ = pimpl->table;
-    credence_assert(table_->functions.contains(stack_frame.tail));
-    auto& tail_frame = table_->functions.at(stack_frame.tail).get();
+    auto& tail_frame = table_->get_stack_frame(stack_frame.tail);
     auto return_rvalue = tail_frame.ret->second;
 
     if (tail_frame.is_parameter(return_rvalue)) {
         credence_assert(
-            table_->functions.contains(stack_frame.call_stack.back()));
+            table_->function_contains(stack_frame.call_stack.back()));
         auto& last_stack_frame =
-            table_->functions.at(stack_frame.call_stack.back()).get();
+            table_->get_stack_frame(stack_frame.call_stack.back());
         if (last_stack_frame.locals.is_pointer(tail_frame.ret->first)) {
             return type::get_size_from_typed_rvalue(
                 type::get_typed_rvalue_from_string(
@@ -199,16 +198,15 @@ Size Buffer_Accessor::get_size_in_local_address(LValue const& lvalue,
                 locals.get_pointer_by_name(lvalue)));
     }
     if (locals.is_pointer(lvalue)) {
-        auto rvalue_address = object::get_rvalue_at_lvalue_object_storage(
-            lvalue, frame, pimpl->table->vectors);
+        auto rvalue_address =
+            pimpl->table->get_rvalue_at_lvalue_object_storage(lvalue, frame);
         return type::get_size_from_typed_rvalue(rvalue_address);
     }
     auto local_symbol = locals.get_symbol_by_name(lvalue);
     auto local_rvalue = type::get_value_from_typed_rvalue(local_symbol);
 
     if (local_rvalue == "RET") {
-        credence_assert(pimpl->table->functions.contains(stack_frame.tail));
-        auto& tail_frame = pimpl->table->functions.at(stack_frame.tail).get();
+        auto& tail_frame = pimpl->table->get_stack_frame(stack_frame.tail);
         return type::get_size_from_typed_rvalue(
             type::get_typed_rvalue_from_string(tail_frame.ret->first));
     }
@@ -238,14 +236,12 @@ Size Buffer_Accessor::get_size_of_string_lvalue_buffer_address(
 {
     auto lhs = type::from_lvalue_offset(lvalue);
     auto offset = type::from_decay_offset(lvalue);
-    auto& vectors = pimpl->table->vectors;
     auto& frame = stack_frame.get_stack_frame();
 
     Operand_Lambda is_global_vector = [&](RValue const& rvalue) {
         auto& table = pimpl->table;
         auto rvalue_reference = type::from_lvalue_offset(rvalue);
-        return table->vectors.contains(rvalue_reference) and
-               table->globals.is_pointer(rvalue_reference);
+        return table->is_global_vector(rvalue_reference);
     };
 
     if (lvalue == "RET")
@@ -256,18 +252,18 @@ Size Buffer_Accessor::get_size_of_string_lvalue_buffer_address(
 
     if (type::is_dereference_expression(lvalue)) {
         return type::get_size_from_typed_rvalue(
-            object::get_rvalue_at_lvalue_object_storage(
-                type::get_unary_rvalue_reference(lvalue), frame, vectors));
+            pimpl->table->get_rvalue_at_lvalue_object_storage(
+                type::get_unary_rvalue_reference(lvalue), frame));
     }
 
     if (is_global_vector(lhs)) {
         std::string key{};
-        auto& vector = pimpl->table->vectors.at(lhs).get();
+        auto& vector = pimpl->table->get_vector(lhs);
         if (util::is_numeric(offset)) {
             key = offset;
         } else {
-            auto index = object::get_rvalue_at_lvalue_object_storage(
-                offset, frame, vectors);
+            auto index = pimpl->table->get_rvalue_at_lvalue_object_storage(
+                offset, frame);
             key = std::string{ type::get_value_from_typed_rvalue(index) };
         }
         return type::get_size_from_typed_rvalue(vector.data.at(key));
@@ -275,12 +271,12 @@ Size Buffer_Accessor::get_size_of_string_lvalue_buffer_address(
 
     if (is_vector_offset(lvalue)) {
         std::string key{};
-        auto& vector = pimpl->table->vectors.at(lhs).get();
+        auto& vector = pimpl->table->get_vector(lhs);
         if (util::is_numeric(offset)) {
             key = offset;
         } else {
-            auto index = object::get_rvalue_at_lvalue_object_storage(
-                offset, frame, vectors);
+            auto index = pimpl->table->get_rvalue_at_lvalue_object_storage(
+                offset, frame);
             key = std::string{ type::get_value_from_typed_rvalue(index) };
         }
         return type::get_size_from_typed_rvalue(vector.data.at(key));
@@ -291,8 +287,7 @@ Size Buffer_Accessor::get_size_of_string_lvalue_buffer_address(
             type::get_typed_rvalue_from_string(lvalue));
     else
         return type::get_size_from_typed_rvalue(
-            object::get_rvalue_at_lvalue_object_storage(
-                lvalue, frame, vectors));
+            pimpl->table->get_rvalue_at_lvalue_object_storage(lvalue, frame));
 }
 
 /**
@@ -550,17 +545,15 @@ auto Vector_Accessor<Entry>::get_offset_from_hoisted_symbols(
     RValue const& offset) -> Entry_Pair
 {
     auto& frame = stack_frame_.get_stack_frame();
-    auto& vectors = table_->vectors;
-    auto index =
-        object::get_rvalue_at_lvalue_object_storage(offset, frame, vectors);
+    auto index = table_->get_rvalue_at_lvalue_object_storage(offset, frame);
     auto key = std::string{ type::get_value_from_typed_rvalue(index) };
-    if (!vectors.at(vector).get().data.contains(key))
+    if (!table_->get_vector(vector).data.contains(key))
         throw_compiletime_error(
             fmt::format(
                 "Invalid out-of-range index '{}' on vector lvalue", key),
             vector);
-    return std::make_pair(vectors.at(vector).get().offset.at(key),
-        get_size_from_vector_offset(vectors.at(vector).get().data.at(key)));
+    return std::make_pair(table_->get_vector(vector).offset.at(key),
+        get_size_from_vector_offset(table_->get_vector(vector).data.at(key)));
 }
 
 /**
@@ -573,7 +566,7 @@ void Vector_Accessor<Entry>::type_check_invalid_vector_symbol(
     LValue const& vector,
     RValue const& offset)
 {
-    if (!table_->hoisted_symbols.has_key(offset) and
+    if (!table_->hoisted_symbols().has_key(offset) and
         not language::literal::is_integer_string(offset))
         throw_compiletime_error(
             fmt::format("Invalid index '{}' on vector lvalue", offset), vector);
@@ -587,14 +580,14 @@ auto Vector_Accessor<Entry>::get_offset_from_integer_rvalue(
     LValue const& vector,
     RValue const& offset) -> Entry_Pair
 {
-    auto& vectors = table_->vectors;
-    if (!vectors.at(vector).get().data.contains(offset))
+    if (!table_->get_vector(vector).data.contains(offset))
         throw_compiletime_error(
             fmt::format(
                 "Invalid out-of-range index '{}' on vector lvalue", offset),
             vector);
-    return std::make_pair(vectors.at(vector).get().offset.at(offset),
-        get_size_from_vector_offset(vectors.at(vector).get().data.at(offset)));
+    return std::make_pair(table_->get_vector(vector).offset.at(offset),
+        get_size_from_vector_offset(
+            table_->get_vector(vector).data.at(offset)));
 }
 
 /**
@@ -605,8 +598,7 @@ auto Vector_Accessor<Entry>::get_offset_from_trivial_vector(
     LValue const& vector) -> Entry_Pair
 {
     return std::make_pair(0UL,
-        get_size_from_vector_offset(
-            table_->vectors.at(vector).get().data.at("0")));
+        get_size_from_vector_offset(table_->get_vector(vector).data.at("0")));
 }
 
 /**
@@ -625,7 +617,6 @@ template<typename Entry>
 auto Vector_Accessor<Entry>::get_offset_address(LValue const& lvalue,
     RValue const& offset) -> Entry_Pair
 {
-    auto& vectors = table_->vectors;
     auto vector = type::from_lvalue_offset(lvalue);
 
     type_check_invalid_vector_symbol(vector, offset);
@@ -633,14 +624,14 @@ auto Vector_Accessor<Entry>::get_offset_address(LValue const& lvalue,
     if (!is_vector_offset(lvalue))
         return get_offset_from_trivial_vector(vector);
 
-    if (table_->hoisted_symbols.has_key(offset))
+    if (table_->hoisted_symbols().has_key(offset))
         return get_offset_from_hoisted_symbols(vector, offset);
 
     if (language::literal::is_integer_string(offset))
         return get_offset_from_integer_rvalue(vector, offset);
 
     return std::make_pair(0UL,
-        get_size_from_vector_offset(vectors.at(vector).get().data.at("0")));
+        get_size_from_vector_offset(table_->get_vector(vector).data.at("0")));
 }
 
 template class Vector_Accessor<Size>;
