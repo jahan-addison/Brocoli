@@ -15,6 +15,7 @@
 
 #include <credence/ir/ita.h>             // for Quadruple, Instructions, ITA
 #include <credence/language/hir/table.h> // for Object_Table_PTR, Table
+#include <credence/map.h>                // for Ordered_Map
 #include <credence/object.h>             // for Object_Table, LValue, Label
 #include <credence/symbol.h>             // for Symbol_Table
 #include <credence/types.h> // for Typed_RValue, Address, Parameters, RVal...
@@ -60,6 +61,8 @@ void emit(std::ostream& os,
 
 class Table
 {
+  public:
+    using Address_Table = Symbol_Table<Label, type::semantic::Address>;
 
   public:
     Table() = delete;
@@ -132,7 +135,11 @@ class Table
     Label frame_symbol_{};
     // the arguments of the next call, pushed by PUSH
     object::Stack stack{};
-    object::Function::Address_Table address_table{};
+    // the address of each function, and of the labels of each function
+    Address_Table address_table{};
+    Ordered_Map<Label, Address_Table> label_addresses{};
+    // the size of the locals assigned in each function
+    Ordered_Map<Label, type::semantic::Size> allocations{};
 };
 // clang-format on
 

@@ -490,7 +490,6 @@ void Storage_Emitter::apply_stack_alignment(Storage& operand,
         return [target_source](
                    auto argument) { return argument == target_source; };
     };
-    auto& frame = accessor_->ir().get_table()->get_stack_frame(frame_name_);
     if (is_alignment_mnemonic(mnemonic)) {
         m::match(flags, source)(
 
@@ -523,13 +522,14 @@ void Storage_Emitter::apply_stack_alignment(Storage& operand,
                                    true),
                              m::app(operand_source_is(Source::s_1), true)) =
                 [&] {
-                    auto offset_index = frame.pointers.size() >= 1 ? 1 : 0;
+                    auto offset_index =
+                        stack->get_pointer_count(frame_name_) >= 1 ? 1 : 0;
                     if (*address_pointer_index > 0UL) {
                         auto offset =
                             stack->get_stack_frame_allocation_size(
                                 frame_name_) -
-                            ((frame.pointers.size() - *address_pointer_index +
-                                 offset_index) *
+                            ((stack->get_pointer_count(frame_name_) -
+                                 *address_pointer_index + offset_index) *
                                 8);
                         operand =
                             direct_immediate(fmt::format("[sp, #{}]", offset));
@@ -553,7 +553,9 @@ void Storage_Emitter::apply_stack_alignment(Storage& operand,
                 [&] {
                     auto offset =
                         stack->get_stack_frame_allocation_size(frame_name_) -
-                        ((frame.pointers.size() - *address_pointer_index) * 8);
+                        ((stack->get_pointer_count(frame_name_) -
+                             *address_pointer_index) *
+                            8);
                     operand = direct_immediate(fmt::format("#{}", offset));
                 });
     }
@@ -637,16 +639,13 @@ void Text_Emitter::emit_assembly_label(std::ostream& os,
     if (table->hoisted_symbols().has_key(s) and
         table->hoisted_symbols()[s]["type"].to_string() ==
             "function_definition") {
-        // callee saved registers are saved as "tokens" on the frame object
-        if (!accessor_->get_frame_in_memory().get_stack_frame(s).tokens.empty())
-            accessor_->stack()->allocate(16);
         // this is a new frame, emit the last frame function epilogue
         if (frame_ != s) {
             emit_function_epilogue(os);
             accessor_->devices().set_current_frame_symbol(s);
         }
         frame_ = s;
-        address_pointer_index = table->get_stack_frame(s).pointers.size();
+        address_pointer_index = accessor_->stack()->get_pointer_count(s);
         if (set_label)
             label_size_ =
                 accessor_->ir().get_table()->get_stack_frame(s).labels.size();
@@ -660,8 +659,6 @@ void Text_Emitter::emit_assembly_label(std::ostream& os,
     if (set_label and label_size_ > 1) {
         branch_ = s;
         auto label = util::get_numbers_from_string(s);
-        auto label_before_reserved =
-            table->get_stack_frame(frame_).label_before_reserved;
         if (set_label and s == "_L1") {
             // In the IR, labels are linear until _L1 and then branching starts.
             // So as soon as _L1 would be emitted, add a jump to _L1 instead

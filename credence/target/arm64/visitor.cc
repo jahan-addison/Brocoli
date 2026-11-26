@@ -127,7 +127,6 @@ void IR_Instruction_Visitor::from_func_start_ita(Label const& name)
     // the frame pointer and link register are saved at the bottom of the
     // frame
     accessor_->stack()->allocate(16);
-    table->reset_frame_calls();
     set_alignment_flag(Align_SP);
     arm64_add__asm(instructions, stp, x29, x30, alignment__integer());
     // x19 is callee saved, and is saved in the slot above the frame record

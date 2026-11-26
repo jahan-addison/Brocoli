@@ -245,9 +245,22 @@ class Stack::Stack_IMPL
     }
 
     /**
-     * @brief Allocate a doubleword slot for an address
+     * @brief Allocate a doubleword slot for an address taken in a frame, and
+     * count it as a pointer slot of the frame
      */
-    constexpr void allocate_pointer_on_stack() { allocate(8); }
+    void allocate_pointer_on_stack(Label const& frame)
+    {
+        pointer_table[frame] += 1;
+        allocate(8);
+    }
+
+    /**
+     * @brief Get the number of pointer slots allocated in a frame
+     */
+    Size get_pointer_count(Label const& frame) const
+    {
+        return pointer_table.contains(frame) ? pointer_table.at(frame) : 0;
+    }
 
     /**
      * @brief Allocate a slot of an operand size for an lvalue
@@ -291,6 +304,7 @@ class Stack::Stack_IMPL
 
   private:
     Ordered_Map<Label, Offset> allocation_table{};
+    Ordered_Map<Label, Size> pointer_table{};
     Offset size{ 0 };
     Size vectors{ 0 };
     Local stack_address{};
@@ -371,9 +385,13 @@ Size Stack::get_stack_size_from_table_vector(object::Vector const& vector)
 {
     return pimpl->get_stack_size_from_table_vector(vector);
 }
-void Stack::allocate_pointer_on_stack()
+void Stack::allocate_pointer_on_stack(Label const& frame)
 {
-    pimpl->allocate_pointer_on_stack();
+    pimpl->allocate_pointer_on_stack(frame);
+}
+Size Stack::get_pointer_count(Label const& frame) const
+{
+    return pimpl->get_pointer_count(frame);
 }
 void Stack::set_address_from_size(LValue const& lvalue,
     Offset offset_address,

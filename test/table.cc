@@ -143,7 +143,8 @@ TEST_CASE_FIXTURE(Table_Fixture, "from_label_ita_instruction")
     };
     REQUIRE_NOTHROW(table_pointer.from_label_ita_instruction(test1));
     REQUIRE(frame.labels.contains("_L1"));
-    REQUIRE(frame.label_address.addr_["_L1"] == 5UL);
+    REQUIRE(table_pointer.label_addresses.at(table_pointer.frame_symbol_)
+                .addr_["_L1"] == 5UL);
 }
 
 TEST_CASE_FIXTURE(Table_Fixture, "from_mov_ita_instruction")
@@ -173,7 +174,7 @@ TEST_CASE_FIXTURE(Table_Fixture, "from_mov_ita_instruction")
             credence::type::Typed_RValue{ "10", "int", 4UL });
     REQUIRE(frame.locals.get_symbol_by_name("z") ==
             credence::type::Typed_RValue{ "10", "int", 4UL });
-    REQUIRE(frame.allocation == 8);
+    REQUIRE(table_pointer.allocations.at(table_pointer.frame_symbol_) == 8);
 }
 
 TEST_CASE_FIXTURE(Table_Fixture, "bind_vector")

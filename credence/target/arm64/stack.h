@@ -108,7 +108,8 @@ class Stack : public common::detail::base_stack_pointer
     void set_address_from_size(LValue const& lvalue,
         Operand_Size operand = Operand_Size::Word);
 
-    void allocate_pointer_on_stack();
+    void allocate_pointer_on_stack(Label const& frame);
+    Size get_pointer_count(Label const& frame) const;
     void add_address_location_to_stack(LValue const& lvalue);
 
     std::string get_lvalue_from_offset(Offset offset) const;

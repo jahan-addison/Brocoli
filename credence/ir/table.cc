@@ -189,7 +189,8 @@ void Table::from_label_ita_instruction(Quadruple const& instruction)
     if (is_stack_frame()) {
         auto& frame = get_stack_frame();
         frame.labels.emplace(label);
-        frame.label_address.set_symbol_by_name(label, instruction_index);
+        label_addresses[frame_symbol_].set_symbol_by_name(
+            label, instruction_index);
     }
 }
 
@@ -248,7 +249,7 @@ void Table::from_mov_ita_instruction(Quadruple const& instruction)
     credence_assert(rvalue_symbol != type::NULL_RVALUE_LITERAL);
 
     frame.locals.set_symbol_by_name(lhs, rvalue_symbol);
-    frame.allocation += rvalue_symbol.size;
+    allocations[frame_symbol_] += rvalue_symbol.size;
 
     objects_->data().insert(rvalue_symbol);
 }

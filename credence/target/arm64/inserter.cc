@@ -226,9 +226,8 @@ common::Stack_Offset Unary_Operator_Inserter::from_lvalue_address_of_expression(
     RValue rvalue = type::get_unary_rvalue_reference(expr);
     auto offset = accessor_->devices().get_device_by_lvalue_reference(rvalue);
     accessor_->state().set_address_assignment();
-    accessor_->stack()->allocate_pointer_on_stack();
-    accessor_->get_frame_in_memory().get_stack_frame().pointers.emplace_back(
-        rvalue);
+    accessor_->stack()->allocate_pointer_on_stack(
+        accessor_->get_frame_in_memory().symbol);
 
     accessor_->stack()->add_address_location_to_stack(rvalue);
 
@@ -878,10 +877,8 @@ void Expression_Inserter::insert_from_address_of_rvalue(RValue const& rvalue)
             accessor_->ir().get_index() + 1));
         auto lhs_s = accessor_->devices().get_device_by_lvalue(assignment);
         accessor_->state().set_address_assignment();
-        accessor_->stack()->allocate_pointer_on_stack();
-        accessor_->get_frame_in_memory()
-            .get_stack_frame()
-            .pointers.emplace_back(rvalue);
+        accessor_->stack()->allocate_pointer_on_stack(
+            accessor_->get_frame_in_memory().symbol);
         accessor_->stack()->add_address_location_to_stack(rvalue);
         if (is_variant(common::Stack_Offset, lhs_s)) {
             lhs_s = u32_int_immediate(std::get<common::Stack_Offset>(lhs_s));

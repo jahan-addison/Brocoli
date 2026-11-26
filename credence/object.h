@@ -199,13 +199,18 @@ class Tagged_Union
 static_assert(std::equality_comparable<Tagged_Union>);
 
 /**
- * @brief Function and function frame storage data for the object table
+ * @brief The record of a function frame in the object table, defined by the
+ * HIR and then bound by the IR for the backends to read
+ *
+ * Note: the state a stage keeps for itself is in a side table of that stage
+ * keyed by the function, such as the label addresses of ir::Table or the
+ * pointer slots of each backend's stack, so the record only holds what more
+ * than one stage reads
  */
 class Function
 {
   public:
     using Return_RValue = std::optional<std::pair<RValue, RValue>>;
-    using Address_Table = Symbol_Table<Label, Address>;
     using Union_Table = Ordered_Map<LValue, Label>;
 
   public:
@@ -260,23 +265,18 @@ class Function
     }
 
   public:
-    constexpr void reset_calls() { calls = 0; }
-
-  public:
-    Return_RValue ret{};
-    Label label_before_reserved{};
-    Parameters parameters{};
-    Ordered_Map<LValue, RValue> temporary{};
-    Address_Table label_address{};
-    Union_Table union_table{};
-    std::array<Address, 2> address_location{};
+    // defined by the HIR, where the IR binds the value of each local
     Label symbol{};
+    Parameters parameters{};
     Labels labels{};
     Locals locals{};
-    RValues tokens{};
-    Pointers pointers{};
-    unsigned int calls{ 0 };
-    unsigned int allocation{ 0 };
+    Union_Table union_table{};
+
+  public:
+    // bound by the IR, and read by the backends
+    Ordered_Map<LValue, RValue> temporary{};
+    Return_RValue ret{};
+    std::array<Address, 2> address_location{};
 };
 
 using Functions = Ordered_Map<std::string, std::reference_wrapper<Function>>;
@@ -374,15 +374,6 @@ class Object_Table
         return vectors_.at(label);
     }
 
-    /**
-     * @brief Reset the number of calls of each function
-     */
-    constexpr void reset_frame_calls()
-    {
-        for (auto& function : functions_) {
-            function.second.get().reset_calls();
-        }
-    }
     /**
      * @brief The stack frame of a function by its label
      */

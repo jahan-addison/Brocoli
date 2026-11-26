@@ -553,8 +553,6 @@ void Text_Emitter::emit_assembly_label(std::ostream& os,
     if (set_label and label_size_ > 1) {
         branch_ = s;
         auto label = util::get_numbers_from_string(s);
-        auto label_before_reserved =
-            table->get_stack_frame(frame_).label_before_reserved;
         if (set_label and s == "_L1") {
             // In the IR, labels are linear until _L1 and then branching starts.
             // So as soon as _L1 would be emitted, add a jump to _L1 instead
