@@ -85,7 +85,7 @@ endif()
 # Dependencies
 # ##############################################################################
 
-cpmaddpackage("gh:doctest/doctest@2.4.12")
+cpmaddpackage("gh:doctest/doctest@2.5.3")
 
 cpmaddpackage(
   NAME
