@@ -39,7 +39,8 @@
  * The vectors, unions, functions, and stack frames of a program, as
  * queryable lvalues and rvalues. hir::Table defines each function, vector,
  * union, and label, ir::Table binds the IR onto their frames and storage,
- * and each backend allocates and addresses memory from it.
+ * and each backend allocates and addresses memory from it, where the record of
+ * each function's frame is in frame.h.
  *
  *   union value_t { integer 0, pair (0, 0) };
  *
@@ -62,31 +63,6 @@
  ****************************************************************************/
 
 namespace credence::object {
-
-/**
- * @brief Parse ITA function parameters into locals on the frame stack
- *
- * e.g. `__convert(s,v,*k) = (s,v,*k)`
- */
-void Function::set_parameters_from_symbolic_label(Label const& label)
-{
-    auto search =
-        std::string_view{ label.begin() + label.find_first_of("(") + 1,
-            label.begin() + label.find_first_of(")") };
-
-    if (!search.empty()) {
-        std::string parameter;
-        for (auto it = search.begin(); it <= search.end(); it++) {
-            auto slice = *it;
-            if (slice != ',' and it != search.end())
-                parameter += slice;
-            else {
-                parameters.emplace_back(parameter);
-                parameter = "";
-            }
-        }
-    }
-}
 
 /**
  * @brief Insert a function definition owned by the object table
@@ -181,145 +157,6 @@ void Data_Section::insert(type::Typed_RValue const& rvalue)
         doubles.insert(type::get_value_from_typed_rvalue(rvalue));
     if (type == "string")
         strings.insert(type::get_value_from_typed_rvalue(rvalue));
-}
-
-/**
- * @brief Resolve the rvalue at a temporary storage address in the object table
- */
-RValue lvalue_at_temporary_object_address(LValue const& lvalue,
-    Function& stack_frame)
-{
-    auto rvalue = type::is_temporary(lvalue) or util::contains(lvalue, "_p")
-                      ? stack_frame.temporary[lvalue]
-                      : lvalue;
-    if (util::contains(rvalue, "_t") and util::contains(rvalue, " ")) {
-        return rvalue;
-    } else {
-        if (util::contains(rvalue, "_t") or util::contains(lvalue, "_p"))
-            return lvalue_at_temporary_object_address(rvalue, stack_frame);
-        else
-            return rvalue;
-    }
-}
-
-namespace {
-
-/**
- * @brief Resolve the size of a binary expression in a stack frame
- *
- * Note: the size is from the first operand that has one, the left and then
- * the right, since both sides are assumed to be the same size - see
- * `mixed_operand_sizes` in docs/known_bugs.md
- */
-Size lvalue_size_at_temporary_binary_expression(RValue const& rvalue,
-    Function& stack_frame)
-{
-    auto& locals = stack_frame.locals;
-    if (type::is_binary_expression(rvalue)) {
-        auto [left, right, op] = type::from_rvalue_binary_expression(rvalue);
-        // a literal operand with a size, the left side and then the right
-        if (type::is_typed_rvalue(left) and
-            not type::is_typed_rvalue_word(left))
-            return type::get_size_from_typed_rvalue(left);
-        if (type::is_typed_rvalue(right) and
-            not type::is_typed_rvalue_word(right))
-            return type::get_size_from_typed_rvalue(right);
-
-        // a local defined in the stack frame, the left side and then the right
-        if (locals.is_defined(left) and not locals.is_pointer(left)) {
-            auto typed_rvalue = locals.get_symbol_by_name(left);
-            if (type::is_typed_rvalue_word(typed_rvalue))
-                return lvalue_size_at_temporary_object_address(
-                    type::get_value_from_typed_rvalue(typed_rvalue),
-                    stack_frame);
-            else
-                return type::get_size_from_typed_rvalue(
-                    locals.get_symbol_by_name(left));
-        }
-        if (locals.is_defined(right) and not locals.is_pointer(right)) {
-            auto typed_rvalue = locals.get_symbol_by_name(right);
-            if (type::is_typed_rvalue_word(typed_rvalue))
-                return lvalue_size_at_temporary_object_address(
-                    type::get_value_from_typed_rvalue(typed_rvalue),
-                    stack_frame);
-            else
-                return type::get_size_from_typed_rvalue(
-                    locals.get_symbol_by_name(right));
-        }
-    }
-    return 0UL;
-}
-
-} // namespace
-
-/**
- * @brief Resolve the size at a temporary storage address in the object table
- *
- * Note: a binary expression is sized by one of its operands, see
- * lvalue_size_at_temporary_binary_expression
- */
-Size lvalue_size_at_temporary_object_address(LValue const& lvalue,
-    Function& stack_frame)
-{
-    auto rvalue = lvalue_at_temporary_object_address(lvalue, stack_frame);
-    auto& locals = stack_frame.locals;
-
-    if (type::is_typed_rvalue(rvalue) and
-        not type::is_typed_rvalue_word(rvalue))
-        return type::get_size_from_typed_rvalue(rvalue);
-    if (type::is_unary_expression(rvalue))
-        return lvalue_size_at_temporary_object_address(
-            type::get_unary_rvalue_reference(rvalue), stack_frame);
-
-    if (auto binary_expression_size =
-            lvalue_size_at_temporary_binary_expression(rvalue, stack_frame))
-        return binary_expression_size;
-
-    // A temporary binary expression, e.g. `_t5 * 102`
-    if (type::is_temporary_typed_rvalue_binary_expression(rvalue)) {
-        auto [left, right, op] = type::from_rvalue_binary_expression(rvalue);
-        return lvalue_size_at_temporary_object_address(left, stack_frame);
-    }
-
-    if (locals.is_defined(rvalue)) {
-        auto typed_rvalue = locals.get_symbol_by_name(rvalue);
-        if (type::is_typed_rvalue_word(typed_rvalue))
-            return lvalue_size_at_temporary_object_address(
-                type::get_value_from_typed_rvalue(typed_rvalue), stack_frame);
-        else
-            return type::get_size_from_typed_rvalue(
-                locals.get_symbol_by_name(rvalue));
-    }
-
-    if (rvalue == "RET")
-        return 8UL;
-
-    credence_error(fmt::format("undefined object: {}", rvalue));
-
-    return 0UL;
-}
-
-Size get_size_of_temporary_binary_rvalue(RValue const& rvalue,
-    Function& stack_frame)
-{
-    Size size = 0UL;
-    auto temp_side = type::is_temporary_operand_binary_expression(rvalue);
-    auto [left, right, _] = type::from_rvalue_binary_expression(rvalue);
-    if (type::is_temporary(left) and type::is_temporary(right))
-        return lvalue_size_at_temporary_object_address(left, stack_frame);
-    if (temp_side == "left")
-        if (!type::is_typed_rvalue(right))
-            size = lvalue_size_at_temporary_object_address(right, stack_frame);
-        else
-            size = type::get_size_from_typed_rvalue(right);
-    else {
-        if (!type::is_typed_rvalue(left))
-            size = lvalue_size_at_temporary_object_address(left, stack_frame);
-        else
-            size = type::get_size_from_typed_rvalue(left);
-    }
-    credence_assert_nequal(size, 0UL);
-    return size;
 }
 
 namespace detail {
