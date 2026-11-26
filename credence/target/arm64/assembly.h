@@ -1551,7 +1551,7 @@ constexpr Immediate page_offset_upper_immediate(std::string_view str)
 #if defined(__APPLE__) || defined(__bsdi__)
     return Immediate{ fmt::format("{}@PAGE"_cf, str), "string", 8UL };
 #else
-    return Immediate{ str, "string", 8UL };
+    return Immediate{ std::string{ str }, "string", 8UL };
 #endif
 }
 
