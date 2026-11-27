@@ -27,7 +27,7 @@
 #include <vector>          // for vector
 
 /****************************************************************************
- * Table
+ * Analyzer
  *
  * Semantic analysis on the HIR. A pass over each definition and statement
  * of a program that lowers its expressions into the HIR and type checks
@@ -60,18 +60,18 @@ using Object_Table_PTR = std::shared_ptr<object::Object_Table>;
 /**
  * @brief Semantic analysis and object table definitions from the HIR
  */
-class Table
+class Analyzer
 {
   public:
-    Table() = delete;
-    Table(Table const&) = delete;
-    Table& operator=(Table const&) = delete;
+    Analyzer() = delete;
+    Analyzer(Analyzer const&) = delete;
+    Analyzer& operator=(Analyzer const&) = delete;
     // the move of the easyjson node of the hoisted symbols may throw
     // NOLINTBEGIN(performance-noexcept-move-constructor,bugprone-exception-escape)
-    Table(Table&&) = default;
-    Table& operator=(Table&&) = default;
+    Analyzer(Analyzer&&) = default;
+    Analyzer& operator=(Analyzer&&) = default;
     // NOLINTEND(performance-noexcept-move-constructor,bugprone-exception-escape)
-    explicit Table(util::AST_Node const& hoisted_symbols)
+    explicit Analyzer(util::AST_Node const& hoisted_symbols)
         : hoisted_symbols_(hoisted_symbols)
         , objects_(std::make_shared<object::Object_Table>())
     {
@@ -88,9 +88,9 @@ class Table
     static inline Object_Table_PTR build(Node const& hoisted_symbols,
         Node const& program)
     {
-        auto table = Table{ hoisted_symbols };
-        table.build_from_definitions(program);
-        return table.objects_;
+        auto analyzer = Analyzer{ hoisted_symbols };
+        analyzer.build_from_definitions(program);
+        return analyzer.objects_;
     }
 
   public:

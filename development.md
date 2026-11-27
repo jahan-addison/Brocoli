@@ -95,3 +95,13 @@ cmake --build build --target regenerate_lexer
 The `#line` directives in `lexer.cc` are relative to the source directory, and the output is formatted with clang-format.
 
 **Note**: Commit `lexer.cc` with the `lexer.re` change.
+
+## Terms
+
+* **Pass** - one walk over the program, which reads one representation and produces the next
+* **Lowering** - a pass to a simpler representation, closer to the machine, such as an expression into the HIR, or the AST into the IR
+* **HIR** - the tree of one expression, with typed values at its leaves
+* **IR** - the ITA, the quadruples of the whole program
+* **Semantic analysis** - the checks of what a program means, such as that each name is defined and in scope
+* **Type checking** - the part of semantic analysis that gives each expression a storage and a type
+* **Binding** - recording what the IR computes onto the object table

@@ -12,7 +12,7 @@
  ****************************************************************************/
 
 #include <credence/error.h>                   // for Credence_Exception
-#include <credence/ir/table.h>                // for emit
+#include <credence/ir/binder.h>               // for emit
 #include <credence/ir/temporary.h>            // for queue_dump_stream
 #include <credence/language/parser.h>         // for Parser
 #include <credence/language/symbol_builder.h> // for Symbol_Builder

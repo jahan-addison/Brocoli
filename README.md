@@ -118,7 +118,7 @@ The following differ from B:
 
 ### Type System
 
-The original B has no types, but Brocoli is strongly typed by type inference. A [semantic pass](/credence/language/hir/table.h) over the HIR gives each variable a storage - a scalar, or a pointer and the type it points to - and a type from its first assignment, such as `int`, `long`, `float`, `double`, `char`, or `string`. Every assignment after it is checked at compile time.
+The original B has no types, but Brocoli is strongly typed by type inference. A [semantic pass](/credence/language/hir/analyzer.h) over the HIR gives each variable a storage - a scalar, or a pointer and the type it points to - and a type from its first assignment, such as `int`, `long`, `float`, `double`, `char`, or `string`. Every assignment after it is checked at compile time.
 
 * Uninitialized variables are an internal `null` type until their first assignment
 * A `word` is a machine word, such as a parameter, a call result, or a binary expression, and is compatible with every type
@@ -209,34 +209,52 @@ flowchart LR
         direction LR
         A[Brocoli source] --> B(Lexer)
         B --> C(Parser)
-        C --> H(HIR)
-        H --> I(Semantic analysis)
+        C --> S(Symbol_Builder)
+        C --> AN(hir::Analyzer)
+        S --> AN
     end
     subgraph Middle [" "]
         direction LR
-        D(IR / ITA)
-        E(Table)
+        D(ITA)
+        O(Object table)
+        BI(ir::Binder)
     end
     subgraph Backend [" "]
         direction LR
         F(x86-64)
         G(ARM64)
     end
-    I --> D --> E
-    I --> E
-    E --> F
-    E --> G
+    C --> D
+    S --> D
+    AN --> O
+    D --> BI
+    O --> BI
+    BI --> F
+    BI --> G
 
     style A fill:#2d2d2d,stroke:#888,color:#fff
     style B fill:#2d2d2d,stroke:#888,color:#fff
     style C fill:#2d2d2d,stroke:#888,color:#fff
+    style S fill:#2d2d2d,stroke:#888,color:#fff
+    style AN fill:#2d2d2d,stroke:#888,color:#fff
     style D fill:#2d2d2d,stroke:#888,color:#fff
-    style E fill:#2d2d2d,stroke:#888,color:#fff
+    style O fill:#2d2d2d,stroke:#888,color:#fff
+    style BI fill:#2d2d2d,stroke:#888,color:#fff
     style F fill:#2d2d2d,stroke:#888,color:#fff
     style G fill:#2d2d2d,stroke:#888,color:#fff
-    style H fill:#2d2d2d,stroke:#888,color:#fff
-    style I fill:#2d2d2d,stroke:#888,color:#fff
 ```
+
+### Passes
+
+| Pass | Reads | Produces |
+| --- | --- | --- |
+| [Lexer](/credence/language/lexer.re) | Source | Tokens |
+| [Parser](/credence/language/parser.h) | Tokens | AST |
+| [`Symbol_Builder`](/credence/language/symbol_builder.h) | AST | Symbols |
+| [`hir::Analyzer`](/credence/language/hir/analyzer.h) | AST, symbols | [Object table](/credence/object/README.md) |
+| [ITA](/credence/ir/ita.h) | AST, symbols | IR |
+| [`ir::Binder`](/credence/ir/binder.h) | IR, object table | Bound object table |
+| Backends | IR, object table | Assembly |
 
 ### Targets
 

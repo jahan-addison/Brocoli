@@ -13,7 +13,7 @@
 
 #pragma once
 
-#include <credence/ir/table.h>
+#include <credence/ir/binder.h>
 #include <credence/object/table.h>
 #include <memory>
 #include <string>

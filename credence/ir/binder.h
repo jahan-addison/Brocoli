@@ -13,11 +13,11 @@
 
 #pragma once
 
-#include <credence/ir/ita.h>             // for Quadruple, Instructions, ITA
-#include <credence/language/hir/table.h> // for Object_Table_PTR, Table
-#include <credence/map.h>                // for Ordered_Map
-#include <credence/object/table.h>       // for Object_Table, LValue, Label
-#include <credence/symbol.h>             // for Symbol_Table
+#include <credence/ir/ita.h>                // for Quadruple, Instructions, ITA
+#include <credence/language/hir/analyzer.h> // for Object_Table_PTR, Analyzer
+#include <credence/map.h>                   // for Ordered_Map
+#include <credence/object/table.h>          // for Object_Table, LValue, Label
+#include <credence/symbol.h>                // for Symbol_Table
 #include <credence/types.h> // for Typed_RValue, Address, Parameters, RVal...
 #include <credence/util.h>  // for CREDENCE_PRIVATE_UNLESS_TESTED, AST_...
 #include <easyjson.h>       // for JSON
@@ -27,10 +27,10 @@
 #include <utility>          // for move
 
 /****************************************************************************
- * Table
+ * Binder
  *
  * Binds the ITA instructions of a program onto the object table built by
- * the semantic analysis pass in hir/table.h. A visitor pattern on ITA
+ * the semantic analysis pass in hir/analyzer.h. A visitor pattern on ITA
  * instructions that stores function frame addresses, label addresses,
  * temporaries, call parameters, and the storage of each local for backend
  * passes. Type checking is done on the HIR, before the IR is constructed.
@@ -59,17 +59,17 @@ void emit(std::ostream& os,
     util::AST_Node const& symbols,
     util::AST_Node const& ast);
 
-class Table
+class Binder
 {
   public:
     using Address_Table = Symbol_Table<Label, type::semantic::Address>;
 
   public:
-    Table() = delete;
-    ~Table() = default;
+    Binder() = delete;
+    ~Binder() = default;
 
 #ifdef CREDENCE_TEST
-    explicit Table(ITA::Node const& hoisted_symbols)
+    explicit Binder(ITA::Node const& hoisted_symbols)
     {
         objects_ = std::make_shared<object::Object_Table>();
         objects_->hoisted_symbols() = hoisted_symbols;
@@ -77,7 +77,7 @@ class Table
         objects_->globals() = Symbol_Table<>{};
     }
 #endif
-    explicit Table(Object_Table_PTR objects, Instructions& instructions)
+    explicit Binder(Object_Table_PTR objects, Instructions& instructions)
         : instructions_(
               std::make_shared<ir::Instructions>(std::move(instructions)))
         , objects_(std::move(objects))
@@ -85,11 +85,11 @@ class Table
     }
 
   public:
-    Object_Table_PTR& get_table_object() { return objects_; }
-    Instructions_PTR& get_table_instructions() { return instructions_; }
+    Object_Table_PTR& get_objects() { return objects_; }
+    Instructions_PTR& get_instructions() { return instructions_; }
 
   public:
-    void build_from_ir_instructions();
+    void bind();
 
   public:
     constexpr bool is_stack_frame() const { return not frame_symbol_.empty(); }
@@ -147,19 +147,19 @@ bool stack_frame_contains_call_instruction(object::Function const& frame,
     Instructions const& instructions);
 
 /**
- * @brief Table factory from the symbols and definitions of a program
+ * @brief Binder factory from the symbols and definitions of a program
  *
  * Runs semantic analysis on the HIR, constructs the ITA instructions, then
  * binds the instructions onto the object table
  */
-inline std::shared_ptr<Table> make_table(util::AST_Node const& symbols,
+inline std::shared_ptr<Binder> make_binder(util::AST_Node const& symbols,
     util::AST_Node const& ast)
 {
-    auto objects = language::hir::Table::build(symbols, ast);
+    auto objects = language::hir::Analyzer::build(symbols, ast);
     auto instructions = ITA::make_ita_instructions(symbols, ast);
-    auto table = std::make_shared<Table>(objects, instructions);
-    table->build_from_ir_instructions();
-    return table;
+    auto binder = std::make_shared<Binder>(objects, instructions);
+    binder->bind();
+    return binder;
 }
 
 } // namespace credence::ir

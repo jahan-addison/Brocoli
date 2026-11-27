@@ -37,10 +37,10 @@
  * Object Table
  *
  * The vectors, unions, functions, and stack frames of a program, as
- * queryable lvalues and rvalues. hir::Table defines each function, vector,
- * union, and label, ir::Table binds the IR onto their frames and storage,
- * and each backend allocates and addresses memory from it, where the record of
- * each function's frame is in frame.h.
+ * queryable lvalues and rvalues. hir::Analyzer defines each function,
+ * vector, and global, ir::Binder defines the labels and locals of each frame
+ * and binds the IR onto them, and each backend allocates and addresses memory
+ * from it, where the record of each function's frame is in frame.h.
  *
  *   union value_t { integer 0, pair (0, 0) };
  *

@@ -1,4 +1,4 @@
-#Language Frontend
+# Language Frontend
 
 Initially, the source-to-AST step was an entirely separate, older Python project, [augur](https://github.com/jahan-addison/augur). It was built on [Lark](https://github.com/lark-parser/lark) and embedded into credence at runtime via pybind11. This folder is a native C++ replacement for that: a re2c-generated lexer and a hand-written recursive-descent parser. The parser started by producing the exact same JSON AST as augur's [`transformer.py`](https://github.com/jahan-addison/augur/blob/master/augur/transformer.py), so that the rest of the frontend did not need to change, and its AST has since grown with Brocoli - the program node and its declarations, unions, and `is` expressions.
 
@@ -9,14 +9,14 @@ flowchart LR
     A[Brocoli source] -->|lexer.re| B(Tokens)
     B -->|parser.cc| C(AST_Node)
     C -->|symbol_builder.cc| H(Symbol_Builder)
-    C -->|hir/table.cc| S(Semantic analysis)
+    C -->|hir/analyzer.cc| S(Semantic analysis)
     H --> S
     S -.->|rvalue| E
-    S -->|Object_Table| T(ir::Table)
-    C -->|ir/temporary.cc| D(IR walk)
+    S -->|Object_Table| T(ir::Binder)
+    C -->|ir/ita.cc| D(ITA)
     H --> D
     D --> G(IR instruction)
-    D -.->|rvalue| E(AST_Lowering)
+    D -.->|ir/temporary.cc| E(AST_Lowering)
     E -.->|HIR| F(Shunting_Yard)
     F -.->|queue| G
 
@@ -32,7 +32,7 @@ flowchart LR
     style T fill:#2d2d2d,stroke:#888,color:#fff
 ```
 
-`AST_Lowering` and the `Shunting_Yard` virtual stack machine only ever see rvalue expressions. The IR (`ir/temporary.cc`) is what walks the full `AST_Node` tree, statement by statement. When it reaches one holding an expression (such as `rvalue_statement`, a `return`, an `if` condition, etc), it hands that subtree to `AST_Lowering` then `Shunting_Yard` and gets a queue back. Everything else such as `auto`, function statements, and so on the IR takes care of on its own. Before the IR, [semantic analysis](#semantic-analysis) walks the same tree to type check each expression in the HIR.
+`AST_Lowering` and the `Shunting_Yard` virtual stack machine only ever see rvalue expressions. The ITA in [`ir/ita.cc`](/credence/ir/ita.cc) walks the full `AST_Node` tree, statement by statement, and hands each expression to `AST_Lowering` then `Shunting_Yard` to get a queue back. Before the IR, [semantic analysis](#semantic-analysis) walks the same tree.
 
 
 In hindsight, the AST_Lowering <-> Shunting_Yard pair is a replacement for Pratt Parsing.
@@ -251,9 +251,11 @@ An `is` expression is a `Relation` of `R_IS`. Its right-hand-side is the `LValue
 
 ## Semantic Analysis
 
-[`table.h`](/credence/language/hir/table.h)'s `Table` is a pass over each definition and statement of a program, before the IR is constructed. It lowers each expression into the HIR, and the [type checker](/credence/language/hir/checker.h) evaluates the storage and type of its value in its stack frame - a scalar, or a pointer and the type it points to. An assignment between storage or types that do not agree is a compile-time error, as are out-of-range vector offsets, null pointer dereferences, duplicate labels and functions, and return values of different types.
+[`analyzer.h`](/credence/language/hir/analyzer.h)'s `Analyzer` walks each definition and statement, defines the [object table](/credence/object/README.md), and reports definition and scope errors. It lowers each expression into the HIR for the [`Type_Checker`](/credence/language/hir/checker.h), which gives the expression a storage and a type in its stack frame.
 
-The result is the definitions of the [object table](/credence/object/table.h) - vectors, functions, and their parameters - that `ir::Table` binds the IR onto.
+An expression is lowered twice - by the `Analyzer` to type check it, and by the ITA to build its quadruples.
+
+The `Type_Checker` on an assignment of a scalar to a pointer:
 
 ```C
 main() {
@@ -269,6 +271,8 @@ x  -> scalar int
 p  -> pointer to int
 error: invalid pointer assignment, right-hand-side 'x' is not a pointer
 ```
+
+Its rules:
 
 * A `word` is a machine word with no narrower type, such as a parameter, a call result, or a binary expression, and is compatible with every type
 * Once a scalar has a type, it may not be assigned another type, e.g. `x = 10; x = 3.14;` is an error

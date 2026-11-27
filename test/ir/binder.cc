@@ -1,12 +1,12 @@
 #include <doctest/doctest.h> // for ResultBuilder, REQUIRE, TestCase
 
-#include <array>               // for array
-#include <credence/ir/ita.h>   // for Instruction, Quadruple, emit_to, emit
-#include <credence/ir/table.h> // for Table, emit
-#include <credence/language/hir/table.h> // for Table
-#include <credence/map.h>                // for Ordered_Map
-#include <credence/object/table.h>       // for Object, Function, Vector
-#include <credence/symbol.h>             // for Symbol_Table
+#include <array>                // for array
+#include <credence/ir/binder.h> // for Binder, emit
+#include <credence/ir/ita.h>    // for Instruction, Quadruple, emit_to, emit
+#include <credence/language/hir/analyzer.h> // for Analyzer
+#include <credence/map.h>                   // for Ordered_Map
+#include <credence/object/table.h>          // for Object, Function, Vector
+#include <credence/symbol.h>                // for Symbol_Table
 #include <credence/types.h> // for is_unary_expression, get_unary_operator
 #include <credence/util.h>  // for AST_Node, STRINGIFY, AST
 #include <cstddef>          // for size_t
@@ -51,73 +51,74 @@ inline std::filesystem::path get_root_path()
         REQUIRE(test.str() == (expected));                                   \
     } while (0)
 
-struct Table_Fixture
+struct Binder_Fixture
 {
     using NULL_symbols = std::deque<std::string>;
     using Node = credence::util::AST_Node;
     const Node VECTOR_SYMBOLS =
-        credence::test::load_json_fixture("ir/table/vector_symbols");
+        credence::test::load_json_fixture("ir/binder/vector_symbols");
     inline auto make_node() { return credence::util::AST::object(); }
-    static inline credence::ir::Table make_table(Node const& symbols)
+    static inline credence::ir::Binder make_binder(Node const& symbols)
     {
-        return credence::ir::Table{ symbols };
+        return credence::ir::Binder{ symbols };
     }
-    static inline credence::ir::Table make_table_with_global_symbols(
+    static inline credence::ir::Binder make_binder_with_global_symbols(
         Node const& node,
         Node const& symbols)
     {
         using namespace credence::ir;
 
-        auto objects = credence::language::hir::Table::build(symbols, node);
+        auto objects = credence::language::hir::Analyzer::build(symbols, node);
         auto instructions = ITA::make_ita_instructions(symbols, node);
-        auto table = Table{ objects, instructions };
-        table.build_from_ir_instructions();
-        return table;
+        auto binder = Binder{ objects, instructions };
+        binder.bind();
+        return binder;
     }
-    static inline credence::ir::Table make_table_with_frame(Node const& symbols)
+    static inline credence::ir::Binder make_binder_with_frame(
+        Node const& symbols)
     {
-        auto table = credence::ir::Table{ symbols };
+        auto binder = credence::ir::Binder{ symbols };
 
-        table.get_table_object()->set_function_definition("main");
-        table.instruction_index = 1;
-        table.from_func_start_ita_instruction("__main()");
-        return table;
+        binder.get_objects()->set_function_definition("main");
+        binder.instruction_index = 1;
+        binder.from_func_start_ita_instruction("__main()");
+        return binder;
     };
 };
 
-TEST_CASE_FIXTURE(Table_Fixture, "from_globl_ita_instruction")
+TEST_CASE_FIXTURE(Binder_Fixture, "from_globl_ita_instruction")
 {
-    auto table_pointer = make_table_with_frame(VECTOR_SYMBOLS);
-    auto table = table_pointer.get_table_object();
+    auto binder = make_binder_with_frame(VECTOR_SYMBOLS);
+    auto table = binder.get_objects();
 
     table->set_vector_definition("mess", 10);
-    REQUIRE_NOTHROW(table_pointer.from_globl_ita_instruction("mess"));
-    REQUIRE(table_pointer.get_stack_frame().locals.is_defined("mess"));
+    REQUIRE_NOTHROW(binder.from_globl_ita_instruction("mess"));
+    REQUIRE(binder.get_stack_frame().locals.is_defined("mess"));
 }
 
-TEST_CASE_FIXTURE(Table_Fixture, "from_locl_ita_instruction")
+TEST_CASE_FIXTURE(Binder_Fixture, "from_locl_ita_instruction")
 {
-    auto table_pointer = make_table_with_frame(VECTOR_SYMBOLS);
-    auto table = table_pointer.get_table_object();
-    auto& locals = table_pointer.get_stack_frame().locals;
+    auto binder = make_binder_with_frame(VECTOR_SYMBOLS);
+    auto table = binder.get_objects();
+    auto& locals = binder.get_stack_frame().locals;
     auto test1 = credence::ir::Quadruple{
         credence::ir::Instruction::LOCL, "snide", "", ""
     };
     auto test2 = credence::ir::Quadruple{
         credence::ir::Instruction::LOCL, "*ptr", "", ""
     };
-    REQUIRE_NOTHROW(table_pointer.from_locl_ita_instruction(test1));
-    REQUIRE_NOTHROW(table_pointer.from_locl_ita_instruction(test2));
+    REQUIRE_NOTHROW(binder.from_locl_ita_instruction(test1));
+    REQUIRE_NOTHROW(binder.from_locl_ita_instruction(test2));
     REQUIRE(locals.table_.contains("snide"));
     REQUIRE(locals.addr_.contains("ptr"));
 }
 
-TEST_CASE_FIXTURE(Table_Fixture, "build_vector_definitions_from_globals")
+TEST_CASE_FIXTURE(Binder_Fixture, "build_vector_definitions_from_globals")
 {
     auto ast = credence::test::load_json_fixture(
-        "ir/table/vector_definitions_from_globals");
-    auto table_pointer = make_table_with_global_symbols(ast, VECTOR_SYMBOLS);
-    auto table = table_pointer.get_table_object();
+        "ir/binder/vector_definitions_from_globals");
+    auto binder = make_binder_with_global_symbols(ast, VECTOR_SYMBOLS);
+    auto table = binder.get_objects();
     auto& locals = table->get_stack_frame("main").locals;
     locals.set_symbol_by_name("mess", credence::type::NULL_RVALUE_LITERAL);
     locals.set_symbol_by_name("putchar", credence::type::NULL_RVALUE_LITERAL);
@@ -132,26 +133,26 @@ TEST_CASE_FIXTURE(Table_Fixture, "build_vector_definitions_from_globals")
     REQUIRE(table->get_vector("mess").data["1"].value == "tough luck");
 }
 
-TEST_CASE_FIXTURE(Table_Fixture, "from_label_ita_instruction")
+TEST_CASE_FIXTURE(Binder_Fixture, "from_label_ita_instruction")
 {
-    auto table_pointer = make_table_with_frame(make_node());
-    auto table = table_pointer.get_table_object();
-    auto& frame = table_pointer.get_stack_frame();
-    table_pointer.instruction_index = 5;
+    auto binder = make_binder_with_frame(make_node());
+    auto table = binder.get_objects();
+    auto& frame = binder.get_stack_frame();
+    binder.instruction_index = 5;
     auto test1 = credence::ir::Quadruple{
         credence::ir::Instruction::LABEL, "_L1", "", ""
     };
-    REQUIRE_NOTHROW(table_pointer.from_label_ita_instruction(test1));
+    REQUIRE_NOTHROW(binder.from_label_ita_instruction(test1));
     REQUIRE(frame.labels.contains("_L1"));
-    REQUIRE(table_pointer.label_addresses.at(table_pointer.frame_symbol_)
-                .addr_["_L1"] == 5UL);
+    REQUIRE(
+        binder.label_addresses.at(binder.frame_symbol_).addr_["_L1"] == 5UL);
 }
 
-TEST_CASE_FIXTURE(Table_Fixture, "from_mov_ita_instruction")
+TEST_CASE_FIXTURE(Binder_Fixture, "from_mov_ita_instruction")
 {
-    auto table_pointer = make_table_with_frame(VECTOR_SYMBOLS);
-    auto table = table_pointer.get_table_object();
-    auto& frame = table_pointer.get_stack_frame();
+    auto binder = make_binder_with_frame(VECTOR_SYMBOLS);
+    auto table = binder.get_objects();
+    auto& frame = binder.get_stack_frame();
     auto test1 = credence::ir::Quadruple{
         credence::ir::Instruction::MOV, "_t1", "(5:int:4)", ""
     };
@@ -164,97 +165,82 @@ TEST_CASE_FIXTURE(Table_Fixture, "from_mov_ita_instruction")
         credence::ir::Instruction::MOV, "z", "--", "z"
     };
     frame.locals.set_symbol_by_name("z", credence::type::NULL_RVALUE_LITERAL);
-    table_pointer.from_mov_ita_instruction(test1);
-    table_pointer.from_mov_ita_instruction(test2);
-    table_pointer.objects_->hoisted_symbols()["a"]["type"] = "lvalue";
-    table_pointer.from_mov_ita_instruction(test3);
-    table_pointer.from_mov_ita_instruction(test4);
+    binder.from_mov_ita_instruction(test1);
+    binder.from_mov_ita_instruction(test2);
+    binder.objects_->hoisted_symbols()["a"]["type"] = "lvalue";
+    binder.from_mov_ita_instruction(test3);
+    binder.from_mov_ita_instruction(test4);
     REQUIRE(frame.temporary["_t1"] == "(5:int:4)");
     REQUIRE(frame.locals.get_symbol_by_name("a") ==
             credence::type::Typed_RValue{ "10", "int", 4UL });
     REQUIRE(frame.locals.get_symbol_by_name("z") ==
             credence::type::Typed_RValue{ "10", "int", 4UL });
-    REQUIRE(table_pointer.allocations.at(table_pointer.frame_symbol_) == 8);
+    REQUIRE(binder.allocations.at(binder.frame_symbol_) == 8);
 }
 
-TEST_CASE_FIXTURE(Table_Fixture, "bind_vector")
+TEST_CASE_FIXTURE(Binder_Fixture, "bind_vector")
 {
-    auto table_pointer = make_table_with_frame(make_node());
-    auto table = table_pointer.get_table_object();
+    auto binder = make_binder_with_frame(make_node());
+    auto table = binder.get_objects();
     auto& vector = table->set_vector_definition("v", 3);
     vector.data["0"] = { "4", "int", 4UL };
     // the left-hand-side inserts into the vector it copies from
-    REQUIRE_NOTHROW(table_pointer.bind_vector("v[1]", "v[0]"));
+    REQUIRE_NOTHROW(binder.bind_vector("v[1]", "v[0]"));
     REQUIRE(
         vector.data["1"] == credence::type::Typed_RValue{ "4", "int", 4UL });
 }
 
-TEST_CASE_FIXTURE(Table_Fixture, "from_decay_offset")
+TEST_CASE_FIXTURE(Binder_Fixture, "from_func_start_ita_instruction")
 {
-    auto table = make_table(make_node());
-    REQUIRE(credence::type::from_decay_offset("sidno[errno]") == "errno");
-    REQUIRE(credence::type::from_decay_offset("y[39]") == "39");
-}
-
-TEST_CASE_FIXTURE(Table_Fixture, "from_lvalue_offset")
-{
-    auto table = make_table(make_node());
-    REQUIRE(credence::type::from_lvalue_offset("sidno[errno]") == "sidno");
-    REQUIRE(credence::type::from_lvalue_offset("y[39]") == "y");
-}
-
-TEST_CASE_FIXTURE(Table_Fixture, "from_func_start_ita_instruction")
-{
-    auto table_pointer = make_table_with_frame(make_node());
-    auto table = table_pointer.get_table_object();
+    auto binder = make_binder_with_frame(make_node());
+    auto table = binder.get_objects();
     table->set_function_definition("convert");
-    table_pointer.instruction_index = 10;
-    table_pointer.from_func_start_ita_instruction("__convert(x,y,z)");
-    REQUIRE(
-        &table_pointer.get_stack_frame() == &table->get_stack_frame("convert"));
-    REQUIRE(table_pointer.address_table.addr_["__convert(x,y,z)"] == 9UL);
-    REQUIRE(table_pointer.get_stack_frame().address_location[0] == 11);
+    binder.instruction_index = 10;
+    binder.from_func_start_ita_instruction("__convert(x,y,z)");
+    REQUIRE(&binder.get_stack_frame() == &table->get_stack_frame("convert"));
+    REQUIRE(binder.address_table.addr_["__convert(x,y,z)"] == 9UL);
+    REQUIRE(binder.get_stack_frame().address_location[0] == 11);
 }
 
-TEST_CASE_FIXTURE(Table_Fixture, "from_return_instruction")
+TEST_CASE_FIXTURE(Binder_Fixture, "from_return_instruction")
 {
-    auto table_pointer = make_table_with_frame(make_node());
-    auto table = table_pointer.get_table_object();
-    auto& frame = table_pointer.get_stack_frame();
+    auto binder = make_binder_with_frame(make_node());
+    auto table = binder.get_objects();
+    auto& frame = binder.get_stack_frame();
     auto test1 = credence::ir::Quadruple{
         credence::ir::Instruction::RETURN, "(1:int:4)", "", ""
     };
     auto test2 = credence::ir::Quadruple{
         credence::ir::Instruction::RETURN, "(2:int:4)", "", ""
     };
-    table_pointer.from_return_instruction(test1);
+    binder.from_return_instruction(test1);
     REQUIRE(frame.ret.value().second == "(1:int:4)");
     // the last return statement is the return value for callers
-    REQUIRE_NOTHROW(table_pointer.from_return_instruction(test2));
+    REQUIRE_NOTHROW(binder.from_return_instruction(test2));
     REQUIRE(frame.ret.value().first == "2");
     REQUIRE(frame.ret.value().second == "(2:int:4)");
 }
 
-TEST_CASE_FIXTURE(Table_Fixture, "from_func_end_ita_instruction")
+TEST_CASE_FIXTURE(Binder_Fixture, "from_func_end_ita_instruction")
 {
-    auto table_pointer = make_table_with_frame(make_node());
-    auto table = table_pointer.get_table_object();
-    auto& frame = table_pointer.get_stack_frame();
-    auto& locals = table_pointer.get_stack_frame().locals;
-    table_pointer.instruction_index = 10;
+    auto binder = make_binder_with_frame(make_node());
+    auto table = binder.get_objects();
+    auto& frame = binder.get_stack_frame();
+    auto& locals = binder.get_stack_frame().locals;
+    binder.instruction_index = 10;
     table->get_stack_frame("main").locals.table_["x"] = { "10", "int", 4UL };
-    table_pointer.instruction_index = 10;
+    binder.instruction_index = 10;
     frame.parameters.emplace_back("x");
-    table_pointer.from_func_end_ita_instruction();
+    binder.from_func_end_ita_instruction();
     REQUIRE(table->get_stack_frame("main").address_location[1] == 9);
     REQUIRE(locals.table_.contains("x"));
 }
 
-TEST_CASE_FIXTURE(Table_Fixture, "set_parameters_from_symbolic_label")
+TEST_CASE_FIXTURE(Binder_Fixture, "set_parameters_from_symbolic_label")
 {
-    auto table_pointer = make_table_with_frame(make_node());
-    auto table = table_pointer.get_table_object();
-    auto& frame = table_pointer.get_stack_frame();
+    auto binder = make_binder_with_frame(make_node());
+    auto table = binder.get_objects();
+    auto& frame = binder.get_stack_frame();
     frame.set_parameters_from_symbolic_label("__main(x,y,z,j)");
     REQUIRE(frame.parameters.size() == 4);
     REQUIRE(frame.parameters[0] == "x");
@@ -263,10 +249,10 @@ TEST_CASE_FIXTURE(Table_Fixture, "set_parameters_from_symbolic_label")
     REQUIRE(frame.parameters[3] == "j");
 }
 
-TEST_CASE_FIXTURE(Table_Fixture, "from_push_instruction")
+TEST_CASE_FIXTURE(Binder_Fixture, "from_push_instruction")
 {
-    auto table_pointer = make_table_with_frame(make_node());
-    auto table = table_pointer.get_table_object();
+    auto binder = make_binder_with_frame(make_node());
+    auto table = binder.get_objects();
     auto push_instruction = credence::ir::Quadruple{
         credence::ir::Instruction::PUSH, "_p1", "", ""
     };
@@ -275,37 +261,32 @@ TEST_CASE_FIXTURE(Table_Fixture, "from_push_instruction")
     };
     table->get_stack_frame("main").temporary["_p1"] = "_p1";
     table->get_stack_frame("main").temporary["_p2"] = "_p2";
-    table_pointer.from_push_instruction(push_instruction);
-    REQUIRE(table_pointer.stack.size() == 1);
-    REQUIRE(table_pointer.stack.back() == "_p1");
-    table_pointer.from_push_instruction(push_instruction2);
-    REQUIRE(table_pointer.stack.size() == 2);
-    REQUIRE(table_pointer.stack.back() == "_p2");
+    binder.from_push_instruction(push_instruction);
+    REQUIRE(binder.stack.size() == 1);
+    REQUIRE(binder.stack.back() == "_p1");
+    binder.from_push_instruction(push_instruction2);
+    REQUIRE(binder.stack.size() == 2);
+    REQUIRE(binder.stack.back() == "_p2");
 }
 
-TEST_CASE_FIXTURE(Table_Fixture, "from_rvalue_unary_expression")
+TEST_CASE_FIXTURE(Binder_Fixture, "from_rvalue_unary_expression")
 {
     using std::get;
-    auto table_pointer = make_table_with_frame(make_node());
-    auto table = table_pointer.get_table_object();
+    auto binder = make_binder_with_frame(make_node());
+    auto table = binder.get_objects();
     table->get_stack_frame("main").locals.table_["a"] = { "5", "int", 4UL };
     table->get_stack_frame("main").locals.addr_["b"] = "a";
     table->get_stack_frame("main").locals.table_["c"] = { "5", "int", 4UL };
     std::string test_rvalue = "~ 5";
     std::string test_pointer2 = "a";
     std::string test_pointer3 = "*b";
-    REQUIRE_NOTHROW(
-        table_pointer.from_rvalue_unary_expression("c", test_rvalue, "~"));
-    auto test =
-        table_pointer.from_rvalue_unary_expression("--a", test_rvalue, "--");
-    auto test2 =
-        table_pointer.from_rvalue_unary_expression("a++", test_rvalue, "++");
-    auto test3 =
-        table_pointer.from_rvalue_unary_expression("+a", test_rvalue, "+");
-    auto test4 =
-        table_pointer.from_rvalue_unary_expression("b", test_pointer2, "&");
-    auto test5 = table_pointer.from_rvalue_unary_expression(
-        "a", test_pointer3, test_pointer3);
+    REQUIRE_NOTHROW(binder.from_rvalue_unary_expression("c", test_rvalue, "~"));
+    auto test = binder.from_rvalue_unary_expression("--a", test_rvalue, "--");
+    auto test2 = binder.from_rvalue_unary_expression("a++", test_rvalue, "++");
+    auto test3 = binder.from_rvalue_unary_expression("+a", test_rvalue, "+");
+    auto test4 = binder.from_rvalue_unary_expression("b", test_pointer2, "&");
+    auto test5 =
+        binder.from_rvalue_unary_expression("a", test_pointer3, test_pointer3);
     REQUIRE(test.value == "5");
     REQUIRE(test2.value == "5");
     REQUIRE(test3.value == "5");
@@ -313,9 +294,9 @@ TEST_CASE_FIXTURE(Table_Fixture, "from_rvalue_unary_expression")
     REQUIRE(test5.value == "5");
 }
 
-TEST_CASE_FIXTURE(Table_Fixture, "from_rvalue_binary_expression")
+TEST_CASE_FIXTURE(Binder_Fixture, "from_rvalue_binary_expression")
 {
-    auto table = make_table_with_frame(make_node());
+    auto table = make_binder_with_frame(make_node());
     auto test1 = credence::type::from_rvalue_binary_expression("5 || 10");
     auto test2 = credence::type::from_rvalue_binary_expression("_t1 && _t2");
     auto test3 = credence::type::from_rvalue_binary_expression("~_t1 + *_t2");
@@ -324,17 +305,17 @@ TEST_CASE_FIXTURE(Table_Fixture, "from_rvalue_binary_expression")
     REQUIRE(test3 == credence::type::Binary_Expression{ "~_t1", "*_t2", "+" });
 }
 
-TEST_CASE_FIXTURE(Table_Fixture, "lvalue_at_temporary_object_address")
+TEST_CASE_FIXTURE(Binder_Fixture, "lvalue_at_temporary_object_address")
 {
-    auto table_pointer = make_table_with_frame(make_node());
-    auto table = table_pointer.get_table_object();
-    auto& frame = table_pointer.get_stack_frame();
-    table_pointer.get_stack_frame().temporary["_t1"] = "100";
-    table_pointer.get_stack_frame().temporary["_t2"] = "5";
-    table_pointer.get_stack_frame().temporary["_t3"] = "_t2";
-    table_pointer.get_stack_frame().temporary["_t4"] = "_t3";
-    table_pointer.get_stack_frame().temporary["_t5"] = "10";
-    table_pointer.get_stack_frame().temporary["_t6"] = "_t4 || _t5";
+    auto binder = make_binder_with_frame(make_node());
+    auto table = binder.get_objects();
+    auto& frame = binder.get_stack_frame();
+    binder.get_stack_frame().temporary["_t1"] = "100";
+    binder.get_stack_frame().temporary["_t2"] = "5";
+    binder.get_stack_frame().temporary["_t3"] = "_t2";
+    binder.get_stack_frame().temporary["_t4"] = "_t3";
+    binder.get_stack_frame().temporary["_t5"] = "10";
+    binder.get_stack_frame().temporary["_t6"] = "_t4 || _t5";
     REQUIRE(credence::object::lvalue_at_temporary_object_address(
                 "_t1", frame) == "100");
     REQUIRE(credence::object::lvalue_at_temporary_object_address(
@@ -343,18 +324,18 @@ TEST_CASE_FIXTURE(Table_Fixture, "lvalue_at_temporary_object_address")
                 "_t6", frame) == "_t4 || _t5");
 }
 
-TEST_CASE_FIXTURE(Table_Fixture, "from_temporary_reassignment")
+TEST_CASE_FIXTURE(Binder_Fixture, "from_temporary_reassignment")
 {
-    auto table_pointer = make_table_with_frame(make_node());
-    auto table = table_pointer.get_table_object();
-    auto& locals = table_pointer.get_stack_frame().locals;
-    REQUIRE_NOTHROW(table_pointer.from_temporary_reassignment("_t1", "~ _t2"));
-    table_pointer.get_stack_frame().temporary["_t1"] = "100";
-    table_pointer.get_stack_frame().temporary["_t2"] = "5";
-    table_pointer.from_temporary_reassignment("_t1", "50");
-    table_pointer.from_temporary_reassignment("_t2", "~ _t1");
-    table_pointer.from_temporary_reassignment("_t3", "_t1");
-    table_pointer.from_temporary_reassignment("_t4", "_t1 || _t2");
+    auto binder = make_binder_with_frame(make_node());
+    auto table = binder.get_objects();
+    auto& locals = binder.get_stack_frame().locals;
+    REQUIRE_NOTHROW(binder.from_temporary_reassignment("_t1", "~ _t2"));
+    binder.get_stack_frame().temporary["_t1"] = "100";
+    binder.get_stack_frame().temporary["_t2"] = "5";
+    binder.from_temporary_reassignment("_t1", "50");
+    binder.from_temporary_reassignment("_t2", "~ _t1");
+    binder.from_temporary_reassignment("_t3", "_t1");
+    binder.from_temporary_reassignment("_t4", "_t1 || _t2");
     locals = table->get_stack_frame("main").locals;
     auto test = locals.get_symbol_by_name("_t1");
     auto test2 = locals.get_symbol_by_name("_t2");
@@ -364,39 +345,39 @@ TEST_CASE_FIXTURE(Table_Fixture, "from_temporary_reassignment")
     REQUIRE(test3.value == "_t1 || _t2");
 }
 
-TEST_CASE_FIXTURE(Table_Fixture, "from_scaler_symbol_assignment")
+TEST_CASE_FIXTURE(Binder_Fixture, "from_scaler_symbol_assignment")
 {
-    auto table_pointer = make_table_with_frame(make_node());
-    auto table = table_pointer.get_table_object();
-    auto& frame = table_pointer.get_stack_frame();
-    auto& locals = table_pointer.get_stack_frame().locals;
+    auto binder = make_binder_with_frame(make_node());
+    auto table = binder.get_objects();
+    auto& frame = binder.get_stack_frame();
+    auto& locals = binder.get_stack_frame().locals;
     locals.table_["a"] = { "5", "int", 4UL };
     locals.table_["c"] = { "6", "int", 4UL };
-    table_pointer.from_scaler_symbol_assignment("a", "c");
+    binder.from_scaler_symbol_assignment("a", "c");
     REQUIRE(locals.table_["a"].value == "6");
     // a parameter has no storage in the table, so its value is a word
     frame.parameters.emplace_back("p");
-    table_pointer.from_scaler_symbol_assignment("a", "p");
+    binder.from_scaler_symbol_assignment("a", "p");
     REQUIRE(locals.table_["a"] ==
             credence::type::Typed_RValue{ "p", "word", sizeof(void*) });
 }
 
-TEST_CASE_FIXTURE(Table_Fixture, "from_integral_unary_expression")
+TEST_CASE_FIXTURE(Binder_Fixture, "from_integral_unary_expression")
 {
-    auto table_pointer = make_table_with_frame(make_node());
-    auto table = table_pointer.get_table_object();
-    auto& locals = table_pointer.get_stack_frame().locals;
+    auto binder = make_binder_with_frame(make_node());
+    auto table = binder.get_objects();
+    auto& locals = binder.get_stack_frame().locals;
     credence::type::Typed_RValue expected1 = { "5", "int", 4UL };
     credence::type::Typed_RValue expected2 = { "5", "long", 8UL };
     credence::type::Typed_RValue expected3 = { "5", "double", 8UL };
     locals.set_symbol_by_name("a", expected1);
     locals.set_symbol_by_name("b", expected2);
     locals.set_symbol_by_name("c", expected3);
-    table_pointer.get_stack_frame().parameters.emplace_back("p");
-    auto test = table_pointer.from_integral_unary_expression("a");
-    auto test2 = table_pointer.from_integral_unary_expression("b");
-    auto test3 = table_pointer.from_integral_unary_expression("c");
-    auto test4 = table_pointer.from_integral_unary_expression("p");
+    binder.get_stack_frame().parameters.emplace_back("p");
+    auto test = binder.from_integral_unary_expression("a");
+    auto test2 = binder.from_integral_unary_expression("b");
+    auto test3 = binder.from_integral_unary_expression("c");
+    auto test4 = binder.from_integral_unary_expression("p");
     REQUIRE(test == expected1);
     REQUIRE(test2 == expected2);
     REQUIRE(test3 == expected3);
@@ -404,9 +385,9 @@ TEST_CASE_FIXTURE(Table_Fixture, "from_integral_unary_expression")
         test4 == credence::type::Typed_RValue{ "p", "word", sizeof(void*) });
 }
 
-TEST_CASE_FIXTURE(Table_Fixture, "is_unary")
+TEST_CASE_FIXTURE(Binder_Fixture, "is_unary")
 {
-    auto table = make_table(make_node());
+    auto table = make_binder(make_node());
     auto test1 = credence::type::is_unary_expression("*k");
     auto test2 = credence::type::is_unary_expression("!x");
     auto test3 = credence::type::is_unary_expression("~1000");
@@ -430,9 +411,9 @@ TEST_CASE_FIXTURE(Table_Fixture, "is_unary")
     REQUIRE(test10 == false);
 }
 
-TEST_CASE_FIXTURE(Table_Fixture, "get_unary")
+TEST_CASE_FIXTURE(Binder_Fixture, "get_unary")
 {
-    auto table = make_table(make_node());
+    auto table = make_binder(make_node());
     auto test1 = credence::type::get_unary_operator("*k");
     auto test2 = credence::type::get_unary_operator("!x");
     auto test3 = credence::type::get_unary_operator("~1000");
@@ -450,9 +431,9 @@ TEST_CASE_FIXTURE(Table_Fixture, "get_unary")
     REQUIRE(test7 == "--");
 }
 
-TEST_CASE_FIXTURE(Table_Fixture, "get_unary_rvalue_reference")
+TEST_CASE_FIXTURE(Binder_Fixture, "get_unary_rvalue_reference")
 {
-    auto table = make_table(make_node());
+    auto table = make_binder(make_node());
     auto test1 = credence::type::get_unary_rvalue_reference("*k");
     auto test2 = credence::type::get_unary_rvalue_reference("!x");
     auto test3 = credence::type::get_unary_rvalue_reference("~1000");
@@ -468,7 +449,7 @@ TEST_CASE_FIXTURE(Table_Fixture, "get_unary_rvalue_reference")
     REQUIRE(test6 == "u");
 }
 
-TEST_CASE_FIXTURE(Table_Fixture, "floats and doubles")
+TEST_CASE_FIXTURE(Binder_Fixture, "floats and doubles")
 {
     std::string expected = R"ita(__main():
  BeginFunc ;

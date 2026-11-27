@@ -1,8 +1,8 @@
 #include <doctest/doctest.h> // for ResultBuilder, CHECK, TestCase
 
 #include <credence/error.h>                   // for Credence_Exception
+#include <credence/language/hir/analyzer.h>   // for Analyzer
 #include <credence/language/hir/checker.h>    // for Type_Checker, Frame
-#include <credence/language/hir/table.h>      // for Table
 #include <credence/language/parser.h>         // for Parser
 #include <credence/language/symbol_builder.h> // for Symbol_Builder
 #include <credence/util.h>                    // for AST_Node, contains
@@ -13,7 +13,7 @@
 struct Type_Checker_Fixture
 {
     using Node = credence::util::AST_Node;
-    using Table = credence::language::hir::Table;
+    using Analyzer = credence::language::hir::Analyzer;
     using Storage = credence::language::hir::checking::Storage;
 
     /**
@@ -24,7 +24,7 @@ struct Type_Checker_Fixture
         try {
             auto ast = credence::language::Parser::parse(source);
             auto symbols = credence::language::Symbol_Builder::build(ast);
-            Table::build(symbols, ast);
+            Analyzer::build(symbols, ast);
         } catch (credence::detail::Credence_Exception const& e) {
             return e.what();
         }

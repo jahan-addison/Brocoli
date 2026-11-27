@@ -19,8 +19,8 @@
 #include "memory.h"                          // for Memory_Accessor, Addres...
 #include "stack.h"                           // for Stack
 #include <credence/error.h>                  // for credence_assert
+#include <credence/ir/binder.h>              // for make_binder, Binder
 #include <credence/ir/ita.h>                 // for make_ita_instructions
-#include <credence/ir/table.h>               // for make_table, Table
 #include <credence/object/table.h>           // for Object, Label, RValue
 #include <credence/symbol.h>                 // for Symbol_Table
 #include <credence/target/common/accessor.h> // for Buffer_Accessor
@@ -121,10 +121,10 @@ void emit(std::ostream& os,
     util::AST_Node const& ast,
     bool no_stdlib)
 {
-    auto table = ir::make_table(symbols, ast);
+    auto binder = ir::make_binder(symbols, ast);
     auto stack = std::make_shared<assembly::Stack>();
     auto accessor = std::make_shared<memory::Memory_Accessor>(
-        table->get_table_object(), table->get_table_instructions(), stack);
+        binder->get_objects(), binder->get_instructions(), stack);
     auto emitter = Assembly_Emitter{ accessor };
     emitter.text_.test_no_stdlib = no_stdlib;
     emitter.emit(os);

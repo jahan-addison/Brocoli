@@ -1,20 +1,8 @@
-#Intermediate Representation
+# Intermediate Representation
 
-The intermediate representation(IR) is formalized as a linear four-tuple, named the Instruction Tuple Abstraction (ITA). The ITA comprises a collection of platform-independent  instructions that approximate the structure and semantics of a target machine language.
+The intermediate representation (IR) is formalized as a linear four-tuple, named the Instruction Tuple Abstraction (ITA). The ITA comprises a collection of platform-independent instructions that approximate the structure and semantics of a target machine language.
 
-`ast_to_ita_instructions` walks the program's `AST_Node` tree statement by statement. For a statement holding an expression, it first gets a queue back from `AST_Lowering` and `Shunting_Yard` (see [the language frontend](/credence/language/README.md) for that part) and rvalues in reverse polish form. From there it's constructed by two stacks, an operand stack and a temporary stack: the operand stack is derived from that queue, and the temporary stack serves to decouple operands, enabling data types to be encoded within a three- or four-tuple framework. The detailed algorithm for temporary stack construction is provided [here](https://github.com/jahan-addison/Brocoli/blob/d9eb0ce3dafc5606a32eff7cf457e3ed985ea650/credence/ir/temporary.h#L68).
-
-```mermaid
-flowchart LR
-    A(AST_Node statement) -->|ast_to_ita_instructions| B(queue)
-    B -->|Temporary, operand + temporary stacks| C(Quadruples)
-    C -->|ir::Table| D(Object table)
-
-    style A fill:#2d2d2d,stroke:#888,color:#fff
-    style B fill:#2d2d2d,stroke:#888,color:#fff
-    style C fill:#2d2d2d,stroke:#888,color:#fff
-    style D fill:#2d2d2d,stroke:#888,color:#fff
-```
+The `ITA` in [`ita.cc`](/credence/ir/ita.cc) walks the program's `AST_Node` tree statement by statement. For a statement holding an expression, `ast_to_ita_instructions` in [`temporary.cc`](/credence/ir/temporary.h) gets a queue back from `AST_Lowering` and `Shunting_Yard` (see [the language frontend](/credence/language/README.md) for that part), its rvalues in reverse polish form. From there it's constructed by two stacks, an operand stack and a temporary stack: the operand stack is derived from that queue, and the temporary stack serves to decouple operands, enabling data types to be encoded within a three- or four-tuple framework. The detailed algorithm for temporary stack construction is provided [here](https://github.com/jahan-addison/Brocoli/blob/d9eb0ce3dafc5606a32eff7cf457e3ed985ea650/credence/ir/temporary.h#L68).
 
 ## Instructions
 
@@ -84,9 +72,9 @@ __main():
 See the branch state machine object for details [here](https://github.com/jahan-addison/Brocoli/blob/d9eb0ce3dafc5606a32eff7cf457e3ed985ea650/credence/ir/ita.h#L216).
 
 
-## Table
+## Binder
 
-The `Table` binds the IR onto the [object table](/credence/object/table.h) built by [semantic analysis](/credence/language/README.md#semantic-analysis) on the HIR - the addresses of functions and labels, temporaries, call parameters, and the storage of each local in its stack frame. Type checking and out-of-range boundary checks are done before the IR is constructed, so the `Table` raises no compile errors of its own. Each string, float, and double literal is recorded for the data section, including the operands of a binary expression and the value of a `RET`. The result provides a base for generating type- and size-safe platform-specific machine code.
+The `Binder` binds the IR onto the [object table](/credence/object/README.md) built by [semantic analysis](/credence/language/README.md#semantic-analysis) - the labels and locals of each frame, temporaries, call parameters, return values, and the addresses of functions and labels. Type checking and out-of-range boundary checks are done before the IR is constructed, so the `Binder` raises no compile errors of its own. Each string, float, and double literal is recorded for the data section, including the operands of a binary expression and the value of a `RET`. The result provides a base for generating type- and size-safe platform-specific machine code.
 
 A `GOTO` directly after another `GOTO` is unreachable, and the ITA drops it when it constructs a function. A `RET` jumps to the end of its function, unless it's the last statement of the function body.
 

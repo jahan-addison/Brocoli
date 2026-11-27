@@ -29,10 +29,10 @@
 /****************************************************************************
  * Function Frame
  *
- * The record of a function in the object table, where its parameters,
- * labels, and locals are defined by the HIR and then bound by the IR, and the
- * queries of a single frame, such as whether an rvalue is a pointer or what a
- * temporary holds.
+ * The record of a function in the object table, where its parameters are
+ * defined by the HIR, and its labels, locals, and temporaries are defined and
+ * bound by the IR, and the queries of a single frame, such as whether an
+ * rvalue is a pointer or what a temporary holds.
  *
  *   add(x, y) {
  *     auto z;
@@ -74,7 +74,7 @@ constexpr bool is_vector_lvalue(LValue const& lvalue)
  * HIR and then bound by the IR for the backends to read
  *
  * Note: the state a stage keeps for itself is in a side table of that stage
- * keyed by the function, such as the label addresses of ir::Table or the
+ * keyed by the function, such as the label addresses of ir::Binder or the
  * pointer slots of each backend's stack, so the record only holds what more
  * than one stage reads
  */
@@ -136,9 +136,10 @@ class Function
     }
 
   public:
-    // defined by the HIR, where the IR binds the value of each local
+    // defined by the HIR
     Label symbol{};
     Parameters parameters{};
+    // defined and bound by the IR
     Labels labels{};
     Locals locals{};
     Union_Table union_table{};

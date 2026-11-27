@@ -1,7 +1,7 @@
 #include <doctest/doctest.h> // for ResultBuilder, CHECK, TestCase
 
+#include <credence/ir/binder.h>        // for emit
 #include <credence/ir/ita.h>           // for ITA
-#include <credence/ir/table.h>         // for emit
 #include <credence/language/literal.h> // for Value_Type, TYPE_LITERAL, Byte, NULL_L...
 #include <credence/language/parser.h>         // for Parser
 #include <credence/language/symbol_builder.h> // for Symbol_Builder

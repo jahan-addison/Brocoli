@@ -2,11 +2,11 @@
 
 Each platform roughly inherits the same set of pure virtual classes, macros, and templates below to `visit` each IR instruction and construct machine code for X8664, ARM64, on Linux and BSD (Darwin).
 
-The `ir::Table` is the last target-agnostic step - it's built once from the ITA and the object table from semantic analysis, then each platform's `emit()` (see `generator.cc` for x86-64 and ARM64) takes over:
+The `ir::Binder` is the last target-agnostic step - it's built once from the ITA and the object table from semantic analysis, then each platform's `emit()` (see `generator.cc` for x86-64 and ARM64) takes over:
 
 ```mermaid
 flowchart LR
-    A(ITA IR) --> B(ir::Table)
+    A(ITA IR) --> B(ir::Binder)
     B --> C1(x86-64 Memory_Accessor)
     B --> C2(ARM64 Memory_Accessor)
     C1 --> D1(x86-64 Instruction_Inserter)

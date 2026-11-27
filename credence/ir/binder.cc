@@ -11,7 +11,7 @@
  * for the full text of these licenses.
  ****************************************************************************/
 
-#include <credence/ir/table.h>
+#include <credence/ir/binder.h>
 
 #include <algorithm>               // for find_if
 #include <credence/error.h>        // for credence_assert
@@ -32,10 +32,10 @@
 #include <utility>                 // for pair, get, move
 
 /****************************************************************************
- * Table
+ * Binder
  *
  * Binds the ITA instructions of a program onto the object table built by
- * the semantic analysis pass in hir/table.h. A visitor pattern on ITA
+ * the semantic analysis pass in hir/analyzer.h. A visitor pattern on ITA
  * instructions that stores function frame addresses, label addresses,
  * temporaries, call parameters, and the storage of each local for backend
  * passes. Type checking is done on the HIR, before the IR is constructed.
@@ -105,14 +105,14 @@ void emit(std::ostream& os,
     util::AST_Node const& symbols,
     util::AST_Node const& ast)
 {
-    auto table = make_table(symbols, ast);
-    detail::emit(os, *table->get_table_instructions());
+    auto binder = make_binder(symbols, ast);
+    detail::emit(os, *binder->get_instructions());
 }
 
 /**
  * @brief Bind each IR instruction onto the object table
  */
-void Table::build_from_ir_instructions()
+void Binder::bind()
 {
     for (instruction_index = 0; instruction_index < instructions_->size();
         instruction_index++) {
@@ -145,7 +145,7 @@ void Table::build_from_ir_instructions()
 /**
  * @brief Construct table entry from locl (auto) instruction
  */
-void Table::from_locl_ita_instruction(Quadruple const& instruction)
+void Binder::from_locl_ita_instruction(Quadruple const& instruction)
 {
     auto label = std::get<1>(instruction);
     auto& frame = get_stack_frame();
@@ -160,7 +160,7 @@ void Table::from_locl_ita_instruction(Quadruple const& instruction)
  *
  * The last return statement of a function is its return value for callers
  */
-void Table::from_return_instruction(Quadruple const& instruction)
+void Binder::from_return_instruction(Quadruple const& instruction)
 {
     auto return_rvalue = util::str_trim_ws(std::get<1>(instruction));
     auto& frame = get_stack_frame();
@@ -174,7 +174,7 @@ void Table::from_return_instruction(Quadruple const& instruction)
 /**
  * @brief Construct table entry from globl (extrn) instruction
  */
-void Table::from_globl_ita_instruction(Label const& label)
+void Binder::from_globl_ita_instruction(Label const& label)
 {
     auto& frame = get_stack_frame();
     frame.locals.set_symbol_by_name(label, type::NULL_RVALUE_LITERAL);
@@ -184,7 +184,7 @@ void Table::from_globl_ita_instruction(Label const& label)
  * @brief add label and label instruction address entry from LABEL
  * instruction
  */
-void Table::from_label_ita_instruction(Quadruple const& instruction)
+void Binder::from_label_ita_instruction(Quadruple const& instruction)
 {
     Label label = std::get<1>(instruction);
     if (is_stack_frame()) {
@@ -206,7 +206,7 @@ void Table::from_label_ita_instruction(Quadruple const& instruction)
  *  Then assign symbols to the table and allocate them as a local on the
  *  frame stack
  */
-void Table::from_mov_ita_instruction(Quadruple const& instruction)
+void Binder::from_mov_ita_instruction(Quadruple const& instruction)
 {
     LValue lhs = std::get<1>(instruction);
     auto rvalue = get_rvalue_from_mov_qaudruple(instruction);
@@ -268,7 +268,7 @@ void Table::from_mov_ita_instruction(Quadruple const& instruction)
  *     m = array[2];
  *     k = &array[2];
  */
-void Table::from_pointer_or_vector_assignment(LValue const& lvalue,
+void Binder::from_pointer_or_vector_assignment(LValue const& lvalue,
     RValue const& rvalue)
 {
     auto& locals = get_stack_frame().locals;
@@ -306,7 +306,7 @@ void Table::from_pointer_or_vector_assignment(LValue const& lvalue,
 /**
  * @brief Bind pointers and vectors, or scalers and dereferenced pointers
  */
-void Table::bind_pointer_or_vector_lvalue(LValue const& lvalue,
+void Binder::bind_pointer_or_vector_lvalue(LValue const& lvalue,
     RValue const& rvalue)
 {
     auto& locals = get_stack_frame().locals;
@@ -337,7 +337,7 @@ void Table::bind_pointer_or_vector_lvalue(LValue const& lvalue,
  *
  * A pointer increment or decrement, `p++`, keeps the address it points to
  */
-void Table::bind_pointer(LValue const& lvalue, RValue const& rvalue)
+void Binder::bind_pointer(LValue const& lvalue, RValue const& rvalue)
 {
     auto& frame = get_stack_frame();
     auto& locals = frame.locals;
@@ -373,7 +373,7 @@ void Table::bind_pointer(LValue const& lvalue, RValue const& rvalue)
 /**
  * @brief Bind trivial vectors, or vectors with one element
  */
-void Table::bind_trivial_vector(LValue const& lvalue, RValue const& rvalue)
+void Binder::bind_trivial_vector(LValue const& lvalue, RValue const& rvalue)
 {
     auto vector_contains = [&](LValue const& label) {
         return objects_->vector_contains(label);
@@ -406,7 +406,7 @@ void Table::bind_trivial_vector(LValue const& lvalue, RValue const& rvalue)
 /**
  * @brief Bind an assignment from a vector to an lvalue or vice-versa
  */
-void Table::bind_vector(LValue const& lvalue, RValue const& rvalue)
+void Binder::bind_vector(LValue const& lvalue, RValue const& rvalue)
 {
     auto& frame = get_stack_frame();
     auto& locals = frame.locals;
@@ -478,7 +478,7 @@ void Table::bind_vector(LValue const& lvalue, RValue const& rvalue)
  * An assignment through a pointer, `*k = m`, binds the pointer to the
  * right-hand-side
  */
-void Table::bind_dereference(LValue const& lvalue, RValue const& rvalue)
+void Binder::bind_dereference(LValue const& lvalue, RValue const& rvalue)
 {
     auto& frame = get_stack_frame();
     auto lhs_lvalue = type::get_unary_rvalue_reference(lvalue);
@@ -494,7 +494,7 @@ void Table::bind_dereference(LValue const& lvalue, RValue const& rvalue)
 /**
  * @brief Either lhs or rhs are trivial vector assignments
  */
-bool Table::is_trivial_vector_assignment(LValue const& lhs, LValue const& rhs)
+bool Binder::is_trivial_vector_assignment(LValue const& lhs, LValue const& rhs)
 {
     return (objects_->vector_contains(lhs) and
                objects_->get_vector(lhs).data.size() == 1) or
@@ -506,7 +506,7 @@ bool Table::is_trivial_vector_assignment(LValue const& lhs, LValue const& rhs)
  * @brief Set function definition label as current frame stack,
  *  Set instruction address location on the frame
  */
-void Table::from_func_start_ita_instruction(Label const& label)
+void Binder::from_func_start_ita_instruction(Label const& label)
 {
     Label human_label = type::get_label_as_human_readable(label);
     address_table.set_symbol_by_name(label, instruction_index - 1);
@@ -518,7 +518,7 @@ void Table::from_func_start_ita_instruction(Label const& label)
 /**
  * @brief End of function, reset stack frame
  */
-void Table::from_func_end_ita_instruction()
+void Binder::from_func_end_ita_instruction()
 {
     if (is_stack_frame())
         get_stack_frame().address_location[1] = instruction_index - 1;
@@ -529,7 +529,7 @@ void Table::from_func_end_ita_instruction()
 /**
  * @brief Push an RValue operand onto the symbolic frame stack
  */
-void Table::from_push_instruction(Quadruple const& instruction)
+void Binder::from_push_instruction(Quadruple const& instruction)
 {
     RValue operand = std::get<1>(instruction);
     auto& frame = get_stack_frame();
@@ -541,7 +541,7 @@ void Table::from_push_instruction(Quadruple const& instruction)
 /**
  * @brief Pop off the top of the symbolic frame stack based on operand size
  */
-void Table::from_pop_instruction(Quadruple const& instruction)
+void Binder::from_pop_instruction(Quadruple const& instruction)
 {
     auto operand = std::stoul(std::get<1>(instruction));
     auto pop_size = operand / sizeof(void*);
@@ -551,7 +551,7 @@ void Table::from_pop_instruction(Quadruple const& instruction)
 /**
  * @brief Parse the unary rvalue types into their operator and lvalue
  */
-type::Typed_RValue Table::from_rvalue_unary_expression(LValue const& lvalue,
+type::Typed_RValue Binder::from_rvalue_unary_expression(LValue const& lvalue,
     RValue const& rvalue,
     std::string_view unary_operator)
 {
@@ -589,7 +589,7 @@ type::Typed_RValue Table::from_rvalue_unary_expression(LValue const& lvalue,
 /**
  * @brief Reassign table entry for a temporary lvalue assignment
  */
-void Table::from_temporary_reassignment(LValue const& lhs, LValue const& rhs)
+void Binder::from_temporary_reassignment(LValue const& lhs, LValue const& rhs)
 {
     auto& frame = get_stack_frame();
     auto& locals = get_stack_frame().locals;
@@ -626,7 +626,7 @@ void Table::from_temporary_reassignment(LValue const& lhs, LValue const& rhs)
 /**
  * @brief Construct table entry for a temporary lvalue assignment
  */
-void Table::from_temporary_assignment(LValue const& lhs, LValue const& rhs)
+void Binder::from_temporary_assignment(LValue const& lhs, LValue const& rhs)
 {
     auto& frame = get_stack_frame();
     frame.temporary[lhs] = rhs;
@@ -650,7 +650,7 @@ void Table::from_temporary_assignment(LValue const& lhs, LValue const& rhs)
  *
  * A parameter has no storage in the table, so its value is a word
  */
-void Table::from_scaler_symbol_assignment(LValue const& lhs, LValue const& rhs)
+void Binder::from_scaler_symbol_assignment(LValue const& lhs, LValue const& rhs)
 {
     auto& frame = get_stack_frame();
     auto& locals = frame.locals;
@@ -666,7 +666,7 @@ void Table::from_scaler_symbol_assignment(LValue const& lhs, LValue const& rhs)
  * Parse numeric ITA unary expressions, where the rvalue may
  * be from the temporary stack or the local frame stack
  */
-type::Typed_RValue Table::from_integral_unary_expression(RValue const& lvalue)
+type::Typed_RValue Binder::from_integral_unary_expression(RValue const& lvalue)
 {
     auto& frame = get_stack_frame();
     auto& locals = frame.locals;
@@ -694,7 +694,7 @@ type::Typed_RValue Table::from_integral_unary_expression(RValue const& lvalue)
 /**
  * @brief The stack frame of the function under translation
  */
-object::Function& Table::get_stack_frame()
+object::Function& Binder::get_stack_frame()
 {
     return objects_->get_stack_frame(frame_symbol_);
 }

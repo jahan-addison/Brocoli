@@ -11,7 +11,7 @@
  * for the full text of these licenses.
  ****************************************************************************/
 
-#include "table.h"
+#include "analyzer.h"
 
 #include "../ast_lowering.h"       // for AST_Lowering
 #include "../literal.h"            // for Literal, NULL_LITERAL
@@ -31,7 +31,7 @@
 #include <variant>                 // for get
 
 /****************************************************************************
- * Table
+ * Analyzer
  *
  * Semantic analysis on the HIR. A pass over each definition and statement
  * of a program that lowers its expressions into the HIR and type checks
@@ -85,7 +85,7 @@ using checking::Value;
  *  Union definitions are scanned first, then vector definitions and the
  *  declarations, so each function is built with every global
  */
-void Table::build_from_definitions(Node const& node)
+void Analyzer::build_from_definitions(Node const& node)
 {
     credence_assert_equal(node["node"].to_string(), "program");
     auto definitions = node["left"].array_range();
@@ -124,7 +124,7 @@ void Table::build_from_definitions(Node const& node)
  *
  *    functions["show"] -> { parameters: { "*s" } }
  */
-void Table::set_pointer_parameters_from_call_arguments()
+void Analyzer::set_pointer_parameters_from_call_arguments()
 {
     bool changed{ true };
     while (changed) {
@@ -164,7 +164,7 @@ void Table::set_pointer_parameters_from_call_arguments()
  *    mess[] "too bad", "tough luck";    // size 2
  *    mess[];                            // not allowed, no size or values
  */
-void Table::build_from_vector_definition(Node const& node)
+void Analyzer::build_from_vector_definition(Node const& node)
 {
     credence_assert_equal(node["node"].to_string(), "vector_definition");
     credence_assert(node.has_key("right"));
@@ -182,7 +182,7 @@ void Table::build_from_vector_definition(Node const& node)
 /**
  * @brief A global vector of a size and the types of its values
  */
-void Table::build_global_vector(Label const& name,
+void Analyzer::build_global_vector(Label const& name,
     std::size_t size,
     Node const& values)
 {
@@ -230,7 +230,7 @@ void Table::build_global_vector(Label const& name,
  *    union data_t { ab "", ab 0 };                 // not allowed, ab twice
  *    union data_t { };                             // not allowed, no tags
  */
-void Table::build_from_union_definition(Node const& node)
+void Analyzer::build_from_union_definition(Node const& node)
 {
     credence_assert_equal(node["node"].to_string(), "union_definition");
     auto name = node["root"].to_string();
@@ -258,7 +258,7 @@ void Table::build_from_union_definition(Node const& node)
 /**
  * @brief Function definition, its parameters, and its stack frame
  */
-void Table::build_from_function_definition(Node const& node)
+void Analyzer::build_from_function_definition(Node const& node)
 {
     credence_assert_equal(node["node"].to_string(), "function_definition");
     auto name = node["root"].to_string();
@@ -326,7 +326,7 @@ void Table::build_from_function_definition(Node const& node)
 /**
  * @brief Global variables and global union variables of the declarations
  */
-void Table::build_from_declarations(Node const& node)
+void Analyzer::build_from_declarations(Node const& node)
 {
     for (auto& declaration : node.array_range()) {
         credence_assert_equal(declaration["node"].to_string(), "declaration");
@@ -350,7 +350,7 @@ void Table::build_from_declarations(Node const& node)
  *    str "puts";     // string
  *    unit;           // unset
  */
-void Table::build_from_variable_declaration(Node const& node)
+void Analyzer::build_from_variable_declaration(Node const& node)
 {
     credence_assert_equal(node["root"].to_string(), "variable");
     auto name = node["left"].to_string();
@@ -382,7 +382,7 @@ void Table::build_from_variable_declaration(Node const& node)
  *    ratio;    // ratio = 2.5; in a function -> (0.0:double:8)
  *    name;     // name = "x"; in a function  -> ("":string:0)
  */
-void Table::set_unset_global_values()
+void Analyzer::set_unset_global_values()
 {
     for (auto const& name : unset_globals_) {
         auto const& type = vectors_.at(name).data.at("0").type;
@@ -404,7 +404,7 @@ void Table::set_unset_global_values()
  * A global union variable is declared in a function with `extrn`, as any
  * global
  */
-void Table::build_from_union_declaration(Node const& node)
+void Analyzer::build_from_union_declaration(Node const& node)
 {
     credence_assert_equal(node["root"].to_string(), "union");
     auto label = node["left"].to_string();
@@ -423,7 +423,7 @@ void Table::build_from_union_declaration(Node const& node)
 /**
  * @brief Construct table of vector symbols and size allocation
  */
-void Table::build_vector_definitions_from_symbols()
+void Analyzer::build_vector_definitions_from_symbols()
 {
     auto keys = hoisted_symbols_.dump_keys();
     for (LValue const& key : keys) {
@@ -439,7 +439,7 @@ void Table::build_vector_definitions_from_symbols()
 /**
  * @brief Construct table of global vectors and their values
  */
-void Table::build_vector_definitions_from_globals()
+void Analyzer::build_vector_definitions_from_globals()
 {
     if (globals_.empty())
         return;
@@ -461,7 +461,7 @@ void Table::build_vector_definitions_from_globals()
 /**
  * @brief Semantic analysis of a statement in the current stack frame
  */
-void Table::build_from_statement(Node const& node)
+void Analyzer::build_from_statement(Node const& node)
 {
     m::match(node["root"].to_string())(
         m::pattern | "block" = [&] { build_from_block_statement(node); },
@@ -481,7 +481,7 @@ void Table::build_from_statement(Node const& node)
 /**
  * @brief Semantic analysis of each statement in a block statement
  */
-void Table::build_from_block_statement(Node const& node)
+void Analyzer::build_from_block_statement(Node const& node)
 {
     credence_assert_equal(node["root"].to_string(), "block");
     for (auto& statement : node["left"].array_range())
@@ -491,7 +491,7 @@ void Table::build_from_block_statement(Node const& node)
 /**
  * @brief Declare scalars, vectors, and pointers from an auto statement
  */
-void Table::build_from_auto_statement(Node const& node)
+void Analyzer::build_from_auto_statement(Node const& node)
 {
     credence_assert(node.has_key("left"));
     auto& frame = get_stack_frame();
@@ -543,7 +543,7 @@ void Table::build_from_auto_statement(Node const& node)
  *    union data_t x;       // not allowed, x is defined
  *    union other_t n;      // not allowed, other_t is not defined
  */
-void Table::build_from_union_statement(Node const& node)
+void Analyzer::build_from_union_statement(Node const& node)
 {
     credence_assert(node.has_key("right"));
     auto label = node["left"].to_string();
@@ -562,7 +562,7 @@ void Table::build_from_union_statement(Node const& node)
  * @brief Declare global vectors and global union variables in the stack
  * frame from an extrn statement
  */
-void Table::build_from_extrn_statement(Node const& node)
+void Analyzer::build_from_extrn_statement(Node const& node)
 {
     credence_assert(node.has_key("left"));
     for (auto& ident : node["left"].array_range()) {
@@ -580,7 +580,7 @@ void Table::build_from_extrn_statement(Node const& node)
 /**
  * @brief Semantic analysis of an if statement and its else statement
  */
-void Table::build_from_if_statement(Node const& node)
+void Analyzer::build_from_if_statement(Node const& node)
 {
     from_expression_node(node["left"]);
     auto blocks = node["right"].to_deque();
@@ -592,7 +592,7 @@ void Table::build_from_if_statement(Node const& node)
 /**
  * @brief Semantic analysis of a while statement
  */
-void Table::build_from_while_statement(Node const& node)
+void Analyzer::build_from_while_statement(Node const& node)
 {
     from_expression_node(node["left"]);
     build_from_statement(node["right"].to_deque().at(0));
@@ -601,7 +601,7 @@ void Table::build_from_while_statement(Node const& node)
 /**
  * @brief Semantic analysis of a switch statement and each of its cases
  */
-void Table::build_from_switch_statement(Node const& node)
+void Analyzer::build_from_switch_statement(Node const& node)
 {
     from_expression_node(node["left"]);
     for (auto& case_statement : node["right"].array_range()) {
@@ -614,7 +614,7 @@ void Table::build_from_switch_statement(Node const& node)
 /**
  * @brief Declare a label in the current stack frame
  */
-void Table::build_from_label_statement(Node const& node)
+void Analyzer::build_from_label_statement(Node const& node)
 {
     credence_assert(node.has_key("left"));
     auto label = node["left"].to_deque().front().to_string();
@@ -627,7 +627,7 @@ void Table::build_from_label_statement(Node const& node)
 /**
  * @brief Check that the label of a goto statement exists
  */
-void Table::build_from_goto_statement(Node const& node)
+void Analyzer::build_from_goto_statement(Node const& node)
 {
     credence_assert(node.has_key("left"));
     auto label = node["left"].to_deque().front().to_string();
@@ -641,7 +641,7 @@ void Table::build_from_goto_statement(Node const& node)
  * A function may return from more than one statement, but each return
  * value must be the same type
  */
-void Table::build_from_return_statement(Node const& node)
+void Analyzer::build_from_return_statement(Node const& node)
 {
     credence_assert(node.has_key("left"));
     auto expressions = get_expression_nodes(node["left"]);
@@ -662,7 +662,7 @@ void Table::build_from_return_statement(Node const& node)
 /**
  * @brief Type check each expression of an rvalue statement
  */
-void Table::build_from_rvalue_statement(Node const& node)
+void Analyzer::build_from_rvalue_statement(Node const& node)
 {
     credence_assert(node.has_key("left"));
     from_expression_node(node["left"]);
@@ -671,7 +671,7 @@ void Table::build_from_rvalue_statement(Node const& node)
 /**
  * @brief Lower and type check an expression node or array of nodes
  */
-Value Table::from_expression_node(Node const& node)
+Value Analyzer::from_expression_node(Node const& node)
 {
     Value value{};
     auto checker = checking::Type_Checker{
@@ -687,7 +687,7 @@ Value Table::from_expression_node(Node const& node)
 /**
  * @brief Flatten a node or nested arrays of nodes into expression nodes
  */
-std::vector<Table::Node> Table::get_expression_nodes(Node const& node)
+std::vector<Analyzer::Node> Analyzer::get_expression_nodes(Node const& node)
 {
     std::vector<Node> expressions{};
     if (node.JSON_type() != util::AST_Node::Class::Array) {
@@ -705,7 +705,7 @@ std::vector<Table::Node> Table::get_expression_nodes(Node const& node)
 /**
  * @brief Get the stack frame of the function under analysis
  */
-checking::Frame& Table::get_stack_frame()
+checking::Frame& Analyzer::get_stack_frame()
 {
     credence_assert(frames_.contains(stack_frame_symbol_));
     return frames_.at(stack_frame_symbol_);
@@ -717,7 +717,7 @@ checking::Frame& Table::get_stack_frame()
  * Each tag of the variable, `m.ab`, is a member of its symbol, and is
  * resolved by the type checker
  */
-void Table::set_union_variable(LValue const& name, Label const& label)
+void Analyzer::set_union_variable(LValue const& name, Label const& label)
 {
     get_stack_frame().unions[name] = label;
     symbols_.set_symbol_by_name(name, literal::WORD_LITERAL);
@@ -729,7 +729,7 @@ void Table::set_union_variable(LValue const& name, Label const& label)
  * A tag of a union definition, `data_t.ab`, is a member of its label, and
  * is the right-hand-side of an `is` expression
  */
-void Table::set_union_tag_symbols()
+void Analyzer::set_union_tag_symbols()
 {
     for (auto const& definition : unions_)
         symbols_.set_symbol_by_name(definition.first, literal::WORD_LITERAL);
@@ -738,7 +738,7 @@ void Table::set_union_tag_symbols()
 /**
  * @brief Raise a semantic error in the current stack frame
  */
-void Table::semantic_error(std::string_view message,
+void Analyzer::semantic_error(std::string_view message,
     std::string_view symbol,
     std::source_location const& location)
 {
