@@ -34,6 +34,7 @@
 #include <matchit.h>                            // for App, pattern, app
 #include <memory>                               // for shared_ptr
 #include <source_location>                      // for source_location
+#include <string_view>                          // for operator""sv
 #include <tuple>                                // for get, tuple
 #include <variant>                              // for variant, get, operat...
 
@@ -93,6 +94,8 @@
  *   stack below rbp
  *
  *****************************************************************************/
+
+using namespace std::literals;
 
 namespace credence::target::x86_64 {
 
@@ -813,14 +816,14 @@ void Invocation_Inserter::insert_from_standard_library_function(
     auto operands = get_operands_storage_from_argument_stack();
     auto& argument_stack = stack_frame_.argument_stack;
     m::match(routine)(
-        m::pattern | sv("putchar") = [&] {},
-        m::pattern | sv("getchar") = [&] {},
-        m::pattern | sv("print") =
+        m::pattern | "putchar"sv = [&] {},
+        m::pattern | "getchar"sv = [&] {},
+        m::pattern | "print"sv =
             [&] {
                 insert_type_check_stdlib_print_arguments(
                     argument_stack, operands);
             },
-        m::pattern | sv("printf") =
+        m::pattern | "printf"sv =
             [&] {
                 insert_type_check_stdlib_printf_arguments(
                     argument_stack, operands);

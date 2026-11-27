@@ -121,21 +121,22 @@
         return STRINGIFY(reg);          \
         break
 
-#define COMMON_DIRECTIVE_OSTREAM(dd, d)        \
-    case dd(d): {                              \
-        auto di = sv(STRINGIFY(d));            \
-        if (credence::util::contains(di, "_")) \
-            di.remove_suffix(1);               \
-        os << "." << di;                       \
+#define COMMON_DIRECTIVE_OSTREAM(dd, d)             \
+    case dd(d): {                                   \
+        auto di = std::string_view{ STRINGIFY(d) }; \
+        if (credence::util::contains(di, "_"))      \
+            di.remove_suffix(1);                    \
+        os << "." << di;                            \
     }; break
 
-#define COMMON_DIRECTIVE_OSTREAM_2ARY(dd, d, g)                            \
-    case dd(d): {                                                          \
-        auto di =                                                          \
-            sv(STRINGIFY(d)) == sv("start") ? "global" : sv(STRINGIFY(d)); \
-        if (credence::util::contains(di, "_"))                             \
-            di.remove_suffix(1);                                           \
-        os << fmt::format(".{} {}", di, STRINGIFY(g));                     \
+#define COMMON_DIRECTIVE_OSTREAM_2ARY(dd, d, g)               \
+    case dd(d): {                                             \
+        auto di = std::string_view{ STRINGIFY(d) } == "start" \
+                      ? "global"                              \
+                      : std::string_view{ STRINGIFY(d) };     \
+        if (credence::util::contains(di, "_"))                \
+            di.remove_suffix(1);                              \
+        os << fmt::format(".{} {}", di, STRINGIFY(g));        \
     }; break
 
 namespace credence::target::common::assembly {

@@ -105,6 +105,8 @@
  *
  *****************************************************************************/
 
+using namespace std::literals;
+
 namespace credence::target::x86_64 {
 
 namespace m = matchit;
@@ -150,7 +152,7 @@ void Assembly_Emitter::emit(std::ostream& os)
 constexpr std::string emit_immediate_storage(Immediate const& immediate)
 {
     auto [v_value, v_type, v_size] = immediate;
-    m::match(sv(v_type))(m::pattern | sv("char") = [&] {
+    m::match(v_type)(m::pattern | "char"sv = [&] {
         v_value = util::strip_char(v_value, '\'');
     });
     return v_value;

@@ -61,6 +61,8 @@
  *
  *****************************************************************************/
 
+using namespace std::literals;
+
 int main(int argc, const char* argv[])
 {
     namespace m = matchit;
@@ -140,9 +142,8 @@ int main(int argc, const char* argv[])
         std::ostringstream out_to{};
 
         const std::string_view extension = m::match(target)(
-            m::pattern |
-                m::or_(sv("x86_64"), sv("arm64")) = [&] { return "bs"; },
-            m::pattern | sv("ast") = [&] { return "bast"; },
+            m::pattern | m::or_("x86_64"sv, "arm64"sv) = [&] { return "bs"; },
+            m::pattern | "ast"sv = [&] { return "bast"; },
             m::pattern | m::_ = [&] { return "bo"; });
 
         m::match(target)(

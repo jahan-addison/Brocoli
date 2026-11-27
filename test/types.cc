@@ -6,7 +6,6 @@
 #include <utility>          // for pair
 
 using namespace credence::type;
-using namespace std::literals;
 
 static_assert(is_dot_notation_object_identifier("v.pair[0]"));
 static_assert(get_union_tag_offset("v.pair[1]") == "1");
@@ -89,7 +88,7 @@ TEST_CASE("types.h: from_lvalue_offset")
     CHECK(from_lvalue_offset("x") == "x");
     // a view into the middle of a string, such as the tag of `v.pair[0]`
     // split at its dot, is the view and not the rest of the string
-    constexpr auto lvalue = "v.pair[0]"sv;
+    constexpr auto lvalue = std::string_view{ "v.pair[0]" };
     CHECK(from_lvalue_offset(lvalue.substr(2)) == "pair");
     CHECK(from_lvalue_offset(lvalue.substr(0, 1)) == "v");
 }
@@ -99,7 +98,7 @@ TEST_CASE("types.h: from_decay_offset")
     CHECK(from_decay_offset("v[20]") == "20");
     CHECK(from_decay_offset("sidno[errno]") == "errno");
     CHECK(from_decay_offset("x") == "x");
-    constexpr auto lvalue = "v.pair[0]"sv;
+    constexpr auto lvalue = std::string_view{ "v.pair[0]" };
     CHECK(from_decay_offset(lvalue.substr(2)) == "0");
     CHECK(from_decay_offset(lvalue.substr(0, 1)) == "v");
 }

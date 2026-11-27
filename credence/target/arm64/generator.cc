@@ -100,6 +100,8 @@
  *
  *****************************************************************************/
 
+using namespace std::literals;
+
 namespace credence::target::arm64 {
 
 namespace m = matchit;
@@ -366,11 +368,11 @@ void Data_Emitter::emit_data_section(std::ostream& os)
 constexpr std::string emit_immediate_storage(Immediate const& immediate)
 {
     auto [v_value, v_type, v_size] = immediate;
-    m::match(sv(v_type))(m::pattern | sv("char") = [&] {
+    m::match(v_type)(m::pattern | "char"sv = [&] {
         v_value = util::strip_char(v_value, '\'');
     });
     // ARM64 immediates use '#', except for labels/strings handled elsewhere
-    if (sv(v_type) == sv("int") || sv(v_type) == sv("long"))
+    if (v_type == "int" || v_type == "long")
         return std::string{ "#" } + v_value;
     return v_value;
 }

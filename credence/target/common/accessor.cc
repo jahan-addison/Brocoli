@@ -26,6 +26,7 @@
 #include <map>                                  // for map
 #include <matchit.h>                            // for Or, match, or_, pattern
 #include <string>                               // for basic_string, char_t...
+#include <string_view>                          // for operator""sv
 #include <tuple>                                // for get, tuple
 
 /****************************************************************************
@@ -56,6 +57,8 @@
  *    bl _print
  *
  ****************************************************************************/
+
+using namespace std::literals;
 
 namespace credence::target::x86_64::assembly {
 enum class Operand_Size : std::size_t;
@@ -314,7 +317,7 @@ void Buffer_Accessor::set_buffer_size_from_syscall(std::string_view routine,
     if (argument_stack.empty())
         return;
     namespace m = matchit;
-    m::match(routine)(m::pattern | m::or_(sv("read")) = [&] {
+    m::match(routine)(m::pattern | m::or_("read"sv) = [&] {
         auto const& argument = argument_stack.back();
         if (credence::util::is_numeric(argument))
             pimpl->read_bytes_cache_ = std::stoul(argument);

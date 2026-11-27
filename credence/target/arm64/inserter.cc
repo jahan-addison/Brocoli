@@ -35,6 +35,7 @@
 #include <matchit.h>                            // for App, pattern, app
 #include <memory>                               // for shared_ptr
 #include <source_location>                      // for source_location
+#include <string_view>                          // for operator""sv
 #include <tuple>                                // for get, tuple
 #include <variant>                              // for variant, get, operat...
 
@@ -91,6 +92,8 @@
  *   on the stack
  *
  *****************************************************************************/
+
+using namespace std::literals;
 
 namespace credence::target::arm64 {
 
@@ -2207,7 +2210,7 @@ void Invocation_Inserter::insert_from_user_defined_function(
                 argv_offset);
         } else
             m::match(arg_type)(
-                m::pattern | sv("string") =
+                m::pattern | "string"sv =
                     [&] {
                         auto immediate = type::get_value_from_typed_rvalue(
                             std::get<Immediate>(operand));
@@ -2222,7 +2225,7 @@ void Invocation_Inserter::insert_from_user_defined_function(
                             arg_register,
                             imm_2);
                     },
-                m::pattern | m::or_(sv("float"), sv("double")) =
+                m::pattern | m::or_("float"sv, "double"sv) =
                     [&] {
                         auto immediate = type::get_value_from_typed_rvalue(
                             std::get<Immediate>(operand));
@@ -2266,14 +2269,14 @@ void Invocation_Inserter::insert_from_standard_library_function(
     auto operands = get_operands_storage_from_argument_stack();
     auto const& argument_stack = stack_frame_.argument_stack;
     m::match(routine)(
-        m::pattern | sv("putchar") = [&] {},
-        m::pattern | sv("getchar") = [&] {},
-        m::pattern | sv("print") =
+        m::pattern | "putchar"sv = [&] {},
+        m::pattern | "getchar"sv = [&] {},
+        m::pattern | "print"sv =
             [&] {
                 insert_type_check_stdlib_print_arguments(
                     argument_stack, operands);
             },
-        m::pattern | sv("printf") =
+        m::pattern | "printf"sv =
             [&] {
                 insert_type_check_stdlib_printf_arguments(
                     argument_stack, operands);

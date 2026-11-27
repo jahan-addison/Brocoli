@@ -63,12 +63,6 @@ class JSON;
 #define CREDENCE_PROTECTED_UNLESS_TESTED protected
 #endif
 
-#define sv(m)        \
-    std::string_view \
-    {                \
-        m            \
-    }
-
 namespace credence {
 
 namespace util {
