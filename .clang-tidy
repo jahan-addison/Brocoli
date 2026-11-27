@@ -5,7 +5,17 @@ Checks: >
   performance-*,
   portability-*,
   -bugprone-easily-swappable-parameters,
-  -portability-avoid-pragma-once
-WarningsAsErrors: ''
-HeaderFilterRegex: '^(?!.*(\.cache/CPM|/build/)).*$'
+  -portability-avoid-pragma-once,
+  -bugprone-throwing-static-initialization
+WarningsAsErrors: '*'
+HeaderFilterRegex: '.*'
+ExcludeHeaderFilterRegex: '(\.cache/CPM|/build/)'
 FormatStyle: file
+CheckOptions:
+  # the value() of an optional is a checked access that throws
+  # bad_optional_access, so only a dereference is unchecked
+  bugprone-unchecked-optional-access.IgnoreValueCalls: true
+  # the shift amount of a flag, `1U << 3`, is a positive literal
+  bugprone-signed-bitwise.IgnorePositiveIntegerLiterals: true
+  # a flag enum keeps the storage type of the flags it is combined into
+  performance-enum-size.EnumIgnoreList: 'Instruction_Flag;ARM64_Instruction_Flag'
