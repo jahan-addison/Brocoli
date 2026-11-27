@@ -128,15 +128,15 @@ void IR_Instruction_Visitor::from_func_start_ita(Label const& name)
     // frame
     accessor_->stack()->allocate(16);
     set_alignment_flag(Align_SP);
-    arm64_add__asm(instructions, stp, x29, x30, alignment__integer());
+    arm64_add_asm(instructions, stp, x29, x30, alignment_integer());
     // x19 is callee saved, and is saved in the slot above the frame record
     if (name == "main" and
         common::runtime::argc_argv_kernel_runtime_access(stack_frame_).first) {
         accessor_->stack()->allocate(8);
         auto argv_imm = direct_immediate("[sp, #16]");
-        arm64_add__asm(instructions, str, x19, argv_imm);
+        arm64_add_asm(instructions, str, x19, argv_imm);
     }
-    arm64_add__asm(instructions, mov, x29, sp);
+    arm64_add_asm(instructions, mov, x29, sp);
     // setup argc and argv for the main function
     if (name == "main") {
         auto argc_argv =
@@ -146,13 +146,13 @@ void IR_Instruction_Visitor::from_func_start_ita(Label const& name)
             // On linux, argc, argv are at the top of the stcak
             // add x19, sp, #32
             set_alignment_flag(Align_S2_Folded);
-            arm64_add__asm(instructions, add, x19, sp, 0);
+            arm64_add_asm(instructions, add, x19, sp, 0);
 #elif defined(__APPLE__) || defined(__bsdi__)
             // On darwin, argc, argv are in x0 and x1
             accessor_->stack()->set_address_from_size("argc");
-            arm64_add__asm(
+            arm64_add_asm(
                 instructions, str, w0, accessor_->stack()->get("argc").first);
-            arm64_add__asm(instructions, mov, x19, x1);
+            arm64_add_asm(instructions, mov, x19, x1);
 #endif
         }
         if (argc_argv.second) {
@@ -171,7 +171,7 @@ void IR_Instruction_Visitor::from_func_start_ita(Label const& name)
         return;
     for (std::size_t index = 0; index < frame.parameters.size(); index++) {
         auto const& parameter = frame.parameters.at(index);
-        auto pointer = parameter.starts_with("*");
+        auto pointer = parameter.starts_with('*');
         auto slot = fmt::format(
             "__parameter_{}", type::get_unary_rvalue_reference(parameter));
         accessor_->stack()->set_address_from_size(
@@ -179,7 +179,7 @@ void IR_Instruction_Visitor::from_func_start_ita(Label const& name)
         auto value =
             pointer ? memory::registers::available_doubleword_argument.at(index)
                     : memory::registers::available_word_argument.at(index);
-        arm64_add__asm(
+        arm64_add_asm(
             instructions, str, value, accessor_->stack()->get(slot).first);
     }
 }
@@ -299,12 +299,8 @@ void IR_Instruction_Visitor::from_mov_ita(ir::Quadruple const& inst)
         auto stack_register = accessor_->registers().get_available_register(
             accessor_->devices().get_word_size_from_lvalue(lhs));
         auto stack_address = accessor_->stack()->get(lhs).first;
-        arm64_add__asm(instructions, str, stack_register, stack_address);
+        arm64_add_asm(instructions, str, stack_register, stack_address);
     }
-
-    // the scratch registers of an assignment are free after it
-    if (!type::is_temporary(lhs))
-        accessor_->registers().clear_scratch_registers();
 }
 
 /**
@@ -380,7 +376,7 @@ void IR_Instruction_Visitor::insert_temporary_to_stack(LValue const& temporary,
                     : Operand_Size::Word;
     if (!accessor_->stack()->is_allocated(slot))
         accessor_->stack()->set_address_from_size(slot, size);
-    arm64_add__asm(
+    arm64_add_asm(
         instructions, str, value, accessor_->stack()->get(slot).first);
 }
 
@@ -408,7 +404,7 @@ void IR_Instruction_Visitor::insert_to_pointer(LValue const& pointer,
     auto value = operand_inserter.insert_operand_into_accumulator(rvalue);
     if (operand_inserter.get_pointee_size(pointer) == 8UL) {
         if (!assembly::is_doubleword_register(value)) {
-            arm64_add__asm(instructions, sxtw, x8, value);
+            arm64_add_asm(instructions, sxtw, x8, value);
             value = Register::x8;
         }
     } else
@@ -417,7 +413,7 @@ void IR_Instruction_Visitor::insert_to_pointer(LValue const& pointer,
         assembly::get_doubleword_register_from_word(std::get<Register>(
             operand_inserter.get_operand_storage_from_expression_operand(
                 pointer)));
-    arm64_add__asm(instructions,
+    arm64_add_asm(instructions,
         str,
         value,
         direct_immediate(fmt::format("[{}]",
@@ -506,20 +502,20 @@ void IR_Instruction_Visitor::from_leave_ita()
         auto argc_argv =
             common::runtime::argc_argv_kernel_runtime_access(stack_frame_);
         if (argc_argv.first)
-            arm64_add__asm(instructions, ldr, x19, argv_imm);
+            arm64_add_asm(instructions, ldr, x19, argv_imm);
     }
 
     auto sp_imm = direct_immediate("[sp]");
     // replaced safely in the code generator
     auto code_imm = direct_immediate("0x0");
-    arm64_add__asm(instructions, ldp, x29, x30, sp_imm, code_imm);
+    arm64_add_asm(instructions, ldp, x29, x30, sp_imm, code_imm);
 
     if (stack_frame_.symbol == "main") {
         auto syscall_inserter =
             syscall_ns::Syscall_Invocation_Inserter{ accessor_, stack_frame_ };
         syscall_inserter.exit_syscall(instructions, 0);
     } else
-        arm64_add__asm(instructions, ret);
+        arm64_add_asm(instructions, ret);
 }
 
 /**
@@ -644,7 +640,7 @@ void IR_Instruction_Visitor::from_goto_ita(ir::Quadruple const& inst)
         assembly::make_label(std::get<1>(inst), stack_frame_.symbol));
     auto instruction_accessor = accessor_->instructions();
     auto& instructions = instruction_accessor->get_instructions();
-    arm64_add__asm(instructions, b, label);
+    arm64_add_asm(instructions, b, label);
 }
 
 /**
@@ -742,12 +738,12 @@ void IR_Instruction_Visitor::from_if_ita(ir::Quadruple const& inst)
         operand_inserter.get_operand_storage_from_expression_operand(
             std::get<1>(inst));
     if (is_variant(Immediate, condition)) {
-        arm64_add__asm(instructions, mov, w7, condition);
+        arm64_add_asm(instructions, mov, w7, condition);
         condition = Register::w7;
     }
     auto label = common::assembly::make_direct_immediate(
         assembly::make_label(std::get<3>(inst), stack_frame_.symbol));
-    arm64_add__asm(instructions, cmp, condition, u32_int_immediate(0));
-    arm64_add__asm(instructions, b_ne, label);
+    arm64_add_asm(instructions, cmp, condition, u32_int_immediate(0));
+    arm64_add_asm(instructions, b_ne, label);
 }
 }

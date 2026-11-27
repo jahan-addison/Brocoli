@@ -48,7 +48,7 @@ inline std::filesystem::path get_root_path()
         auto fixture_content =                                               \
             easyjson::JSON::load_file(file_path.string()).to_deque();        \
         credence::ir::emit(test, fixture_content[0], fixture_content[1]);    \
-        REQUIRE(test.str() == expected);                                     \
+        REQUIRE(test.str() == (expected));                                   \
     } while (0)
 
 struct Table_Fixture
@@ -228,11 +228,11 @@ TEST_CASE_FIXTURE(Table_Fixture, "from_return_instruction")
         credence::ir::Instruction::RETURN, "(2:int:4)", "", ""
     };
     table_pointer.from_return_instruction(test1);
-    REQUIRE(frame.ret->second == "(1:int:4)");
+    REQUIRE(frame.ret.value().second == "(1:int:4)");
     // the last return statement is the return value for callers
     REQUIRE_NOTHROW(table_pointer.from_return_instruction(test2));
-    REQUIRE(frame.ret->first == "2");
-    REQUIRE(frame.ret->second == "(2:int:4)");
+    REQUIRE(frame.ret.value().first == "2");
+    REQUIRE(frame.ret.value().second == "(2:int:4)");
 }
 
 TEST_CASE_FIXTURE(Table_Fixture, "from_func_end_ita_instruction")
@@ -292,7 +292,6 @@ TEST_CASE_FIXTURE(Table_Fixture, "from_rvalue_unary_expression")
     table->get_stack_frame("main").locals.addr_["b"] = "a";
     table->get_stack_frame("main").locals.table_["c"] = { "5", "int", 4UL };
     std::string test_rvalue = "~ 5";
-    std::string test_pointer = "b";
     std::string test_pointer2 = "a";
     std::string test_pointer3 = "*b";
     REQUIRE_NOTHROW(

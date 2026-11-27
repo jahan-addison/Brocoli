@@ -90,7 +90,7 @@ int main(int argc, const char* argv[])
         auto result = options.parse(argc, argv);
 
         if (result.count("help")) {
-            std::cout << options.help() << std::endl;
+            std::cout << options.help() << '\n';
             exit(0);
         }
         credence::util::AST_Node ast, symbols;
@@ -117,8 +117,7 @@ int main(int argc, const char* argv[])
                 [&] { ast["root"] = credence::util::AST_Node::load(source); },
             m::pattern | m::_ =
                 [&] {
-                    std::cerr << "Credence :: No source file provided"
-                              << std::endl;
+                    std::cerr << "Credence :: No source file provided" << '\n';
                     exit(1);
                 });
 
@@ -136,7 +135,7 @@ int main(int argc, const char* argv[])
                 credence::target::common::assembly::Arch_Type::ARM64);
 
         if (result["symbols"].count() and target != "ast")
-            std::cout << "> Symbol Table:" << std::endl << symbols << std::endl;
+            std::cout << "> Symbol Table:" << '\n' << symbols << '\n';
 
         std::ostringstream out_to{};
 
@@ -165,35 +164,35 @@ int main(int argc, const char* argv[])
                         auto group = credence::util::AST::array();
                         group[0] = symbols;
                         group[1] = ast["root"];
-                        out_to << group << std::endl;
+                        out_to << group << '\n';
                     } else
-                        out_to << ast["root"] << std::endl;
+                        out_to << ast["root"] << '\n';
                 },
             m::pattern | m::_ =
                 [&]() {
-                    std::cerr << "Credence :: Invalid target option"
-                              << std::endl;
+                    std::cerr << "Credence :: Invalid target option" << '\n';
                 });
 
         credence::util::write_to_file_from_string_stream(
             output, out_to, extension);
 
     } catch (cxxopts::exceptions::option_has_no_value const&) {
-        std::cout << "Credence :: See \"--help\" for usage overview"
-                  << std::endl;
+        std::cout << "Credence :: See \"--help\" for usage overview" << '\n';
     } catch (cxxopts::exceptions::no_such_option const&) {
         std::cout
             << "Credence :: Invalid option, See \"--help\" for usage overview"
-            << std::endl;
+            << '\n';
     } catch (std::filesystem::filesystem_error const& e) {
-        std::cerr << "Credence :: Invalid file path: " << e.path1()
-                  << std::endl;
+        std::cerr << "Credence :: Invalid file path: " << e.path1() << '\n';
         return 1;
     } catch (credence::detail::Credence_Exception const& e) {
         auto what = credence::util::capitalize(e.what());
-        std::cerr << std::endl
+        std::cerr << '\n'
                   << "Credence Error :: " << "\033[31m" << what << "\033[0m"
-                  << std::endl;
+                  << '\n';
+        return 1;
+    } catch (std::exception const& e) {
+        std::cerr << "Credence Error :: " << e.what() << '\n';
         return 1;
     }
     return 0;

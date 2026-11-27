@@ -122,7 +122,7 @@ class Credence_Exception : public std::exception
     }
 };
 
-inline void compile_error_impl(
+[[noreturn]] inline void compile_error_impl(
     [[maybe_unused]] std::source_location const& location,
     std::string_view message,
     std::string_view symbol_name,
@@ -302,7 +302,7 @@ constexpr inline void assert_nequal_impl(std::source_location const& location,
 
 } // namespace detail
 
-inline void throw_compiletime_error(std::string_view message,
+[[noreturn]] inline void throw_compiletime_error(std::string_view message,
     std::string_view symbol,
     std::source_location const& location = std::source_location::current(),
     std::string_view type_ = "symbol",

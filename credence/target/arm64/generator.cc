@@ -296,7 +296,6 @@ void Data_Emitter::set_data_globals()
             auto data = type::get_value_from_typed_rvalue(item.second);
             accessor_->vectors().set_address_offset(
                 global, item.first, address);
-            auto type = type::get_type_from_typed_rvalue(item.second);
             address += assembly::get_size_from_operand_size(
                 assembly::get_operand_size_from_typed_rvalue(item.second));
 
@@ -343,7 +342,7 @@ void Data_Emitter::emit_data_section(std::ostream& os)
             }
             std::visit(
                 util::overload{
-                    [&](Label const& s) { os << s << ":" << std::endl; },
+                    [&](Label const& s) { os << s << ":" << '\n'; },
                     [&](assembly::Data_Pair const& s) {
                         os << assembly::tabwidth(4) << s.first;
                         if (s.first == assembly::Directive::asciz)
@@ -523,9 +522,9 @@ void Storage_Emitter::apply_stack_alignment(Storage& operand,
                                    true),
                              m::app(operand_source_is(Source::s_1), true)) =
                 [&] {
-                    auto offset_index =
-                        stack->get_pointer_count(frame_name_) >= 1 ? 1 : 0;
                     if (*address_pointer_index > 0UL) {
+                        auto offset_index =
+                            stack->get_pointer_count(frame_name_) >= 1 ? 1 : 0;
                         auto offset =
                             stack->get_stack_frame_allocation_size(
                                 frame_name_) -
@@ -643,7 +642,6 @@ void Text_Emitter::emit_assembly_label(std::ostream& os,
         // this is a new frame, emit the last frame function epilogue
         if (frame_ != s) {
             emit_function_epilogue(os);
-            accessor_->devices().set_current_frame_symbol(s);
         }
         frame_ = s;
         address_pointer_index = accessor_->stack()->get_pointer_count(s);
@@ -659,8 +657,7 @@ void Text_Emitter::emit_assembly_label(std::ostream& os,
     // branch labels
     if (set_label and label_size_ > 1) {
         branch_ = s;
-        auto label = util::get_numbers_from_string(s);
-        if (set_label and s == "_L1") {
+        if (s == "_L1") {
             // In the IR, labels are linear until _L1 and then branching starts.
             // So as soon as _L1 would be emitted, add a jump to _L1 instead
             emit_epilogue_jump(os);
@@ -702,14 +699,14 @@ void Text_Emitter::emit_vector_storage_instruction(std::ostream& os,
         storage_emitter.emit(
             os, operand, mnemonic, Storage_Emitter::Source::s_1);
         assembly::newline(os, 1);
-        os << assembly::tabwidth(4) << "str x8, [x15]" << std::endl;
+        os << assembly::tabwidth(4) << "str x8, [x15]" << '\n';
     } else {
         storage_emitter.emit(
             os, Register::w8, mnemonic, Storage_Emitter::Source::s_0);
         storage_emitter.emit(
             os, operand, mnemonic, Storage_Emitter::Source::s_1);
         assembly::newline(os, 1);
-        os << assembly::tabwidth(4) << "str w8, [x15]" << std::endl;
+        os << assembly::tabwidth(4) << "str w8, [x15]" << '\n';
     }
 }
 
@@ -755,7 +752,7 @@ void Text_Emitter::emit_assembly_instruction(std::ostream& os,
         assembly::is_immediate_relative_address(src3) and
         not str_instructions.empty()) {
         assembly::newline(os, 1);
-        os << assembly::tabwidth(4) << str_instructions.back() << std::endl;
+        os << assembly::tabwidth(4) << str_instructions.back() << '\n';
         str_instructions.pop_back();
     } else
         assembly::newline(os, 1);
@@ -828,11 +825,11 @@ void Text_Emitter::emit_text_directives(std::ostream& os)
 {
     assembly::newline(os, 1);
 #if defined(__linux__)
-    os << assembly::Directive::text << std::endl;
+    os << assembly::Directive::text << '\n';
 #elif defined(__APPLE__) || defined(__bsdi__)
-    os << ".section	__TEXT,__text,regular,pure_instructions" << std::endl;
+    os << ".section	__TEXT,__text,regular,pure_instructions" << '\n';
 #elif defined(_WIN32) || defined(_WIN64)
-    os << assembly::Directive::text << std::endl;
+    os << assembly::Directive::text << '\n';
 #endif
     assembly::newline(os, 1);
     emit_arm64_alignment_directive(os, 3, 2);

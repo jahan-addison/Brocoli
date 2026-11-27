@@ -59,7 +59,7 @@ using type::Operator;
 namespace {
 
 /**
- * @brief The innermost expression of a chain of HIR pointers
+ * @brief Get the innermost expression of a chain of HIR pointers
  */
 Data_Kind::Kind const& unwrap(Data_Kind::Kind const& expression)
 {
@@ -67,6 +67,9 @@ Data_Kind::Kind const& unwrap(Data_Kind::Kind const& expression)
         return unwrap(std::get<Data_Kind::Pointer>(expression)->value);
     return expression;
 }
+
+// the innermost expression of a temporary would not outlive the call
+Data_Kind::Kind const& unwrap(Data_Kind::Kind&& expression) = delete;
 
 } // namespace
 
@@ -96,7 +99,7 @@ RValue get_symbol_from_expression(Data_Kind::Kind const& expression)
  */
 bool is_union_member(LValue const& lvalue)
 {
-    return util::contains(lvalue, ".") and not lvalue.starts_with("*");
+    return util::contains(lvalue, ".") and not lvalue.starts_with('*');
 }
 
 /**
@@ -219,7 +222,7 @@ Value Type_Checker::from_literal(literal::Literal const& literal)
  */
 Value Type_Checker::from_lvalue(LValue const& lvalue)
 {
-    if (lvalue.starts_with("*")) {
+    if (lvalue.starts_with('*')) {
         auto pointer = lvalue.substr(1);
         return from_dereference(from_lvalue(pointer), pointer);
     }
@@ -585,7 +588,7 @@ void Type_Checker::assign(LValue const& lvalue,
     Value const& rvalue,
     RValue const& symbol)
 {
-    if (lvalue.starts_with("*")) {
+    if (lvalue.starts_with('*')) {
         assign_to_dereference(lvalue.substr(1), rvalue, symbol);
         return;
     }
@@ -922,10 +925,10 @@ Vector* Type_Checker::get_vector_at_offset(LValue const& lvalue)
 RValue Type_Checker::get_constant_offset(LValue const& lvalue)
 {
     auto offset = credence::type::from_decay_offset(lvalue);
-    if (frame_.locals.contains(offset) and
-        frame_.locals.at(offset).constant.has_value())
-        return *frame_.locals.at(offset).constant;
-    return offset;
+    if (!frame_.locals.contains(offset))
+        return offset;
+    auto const& constant = frame_.locals.at(offset).constant;
+    return constant.has_value() ? *constant : offset;
 }
 
 /**

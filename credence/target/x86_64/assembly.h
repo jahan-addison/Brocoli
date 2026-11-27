@@ -19,6 +19,7 @@
 #include <credence/types.h>                  // for RValue, Type, get_type_...
 #include <credence/util.h>                   // for contains, STRINGIFY
 #include <cstddef>                           // for size_t
+#include <cstdint>                           // for uint8_t
 #include <deque>                             // for deque
 #include <fmt/compile.h>                     // for operator""_cf
 #include <fmt/format.h>                      // for format
@@ -35,9 +36,9 @@
 #include <variant>                           // for variant, monostate, get
 
 namespace credence::target::x86_64::assembly {
-enum class Directive;
-enum class Mnemonic;
-enum class Register;
+enum class Directive : std::uint8_t;
+enum class Mnemonic : std::uint8_t;
+enum class Register : std::uint8_t;
 }
 
 /****************************************************************************
@@ -127,12 +128,12 @@ enum class Register;
     x86_64::assembly::Directives name(type::semantic::RValue const& rvalue)
 
 /**
- * `x8664_add__asm` appends an instruction with the enumerators in scope,
+ * `x8664_add_asm` appends an instruction with the enumerators in scope,
  * and the bodies of the instruction constructors return the register of
  * their result and their instructions
  */
 
-#define x8664_add__asm(inst, op, ...)                                \
+#define x8664_add_asm(inst, op, ...)                                 \
     do {                                                             \
         using enum x86_64::assembly::Register;                       \
         using enum x86_64::assembly::Mnemonic;                       \
@@ -142,14 +143,14 @@ enum class Register;
             inst, op __VA_OPT__(, ) __VA_ARGS__);                    \
     } while (false)
 
-#define x8664__first_storage_device(first, ...) first
+#define x8664_first_storage_device(first, ...) first
 
-#define x8664__make_and_ret(op, ...)                                   \
-    do {                                                               \
-        auto instructions = make_empty();                              \
-        auto s = __VA_OPT__(x8664__first_storage_device(__VA_ARGS__)); \
-        x8664_add__asm(instructions, op __VA_OPT__(, ) __VA_ARGS__);   \
-        return { s, std::move(instructions) };                         \
+#define x8664_make_and_ret(op, ...)                                   \
+    do {                                                              \
+        auto instructions = make_empty();                             \
+        auto s = __VA_OPT__(x8664_first_storage_device(__VA_ARGS__)); \
+        x8664_add_asm(instructions, op __VA_OPT__(, ) __VA_ARGS__);   \
+        return { s, std::move(instructions) };                        \
     } while (false)
 
 /**
@@ -187,10 +188,10 @@ namespace credence::target::x86_64::assembly {
 /**
  * @brief Write one or more newlines to an ostream
  */
-inline void newline(std::ostream& os, int amount = 1)
+inline void newline(std::ostream& os, std::size_t amount = 1)
 {
     for (; amount > 0; amount--)
-        os << std::endl;
+        os << '\n';
 }
 
 /**
@@ -199,7 +200,7 @@ inline void newline(std::ostream& os, int amount = 1)
  * A 64-bit register, `rax`, has its 32-bit, 16-bit, and 8-bit parts, `eax`,
  * `ax`, and `al`, and `xmm0` to `xmm7` hold a float or double
  */
-enum class Register
+enum class Register : std::uint8_t
 {
     rbp,
     rsp,
@@ -297,7 +298,7 @@ constexpr const auto FLOAT_REGISTER = { Register::xmm7,
     Register::xmm1,
     Register::xmm0 };
 
-enum class Mnemonic
+enum class Mnemonic : std::uint8_t
 {
     imul,
     lea,
@@ -345,7 +346,7 @@ enum class Mnemonic
     syscall
 };
 
-enum class Directive
+enum class Directive : std::uint8_t
 {
     asciz,
     data,
@@ -367,7 +368,7 @@ enum class Directive
 /**
  * @brief The size of an operand in bytes
  */
-enum class Operand_Size : std::size_t
+enum class Operand_Size : std::uint8_t
 {
     Byte = 1,
     Word = 2,
@@ -770,7 +771,7 @@ constexpr std::string tabwidth(unsigned int t)
 {
     std::string tab{};
     for (; t > 0; t--)
-        tab += " ";
+        tab += ' ';
     return tab;
 }
 

@@ -124,7 +124,7 @@ constexpr Data_Kind::LValue make_lvalue(std::string name, T value)
 inline Data_Kind::Kind_Pointer make_kind_pointer(
     Data_Kind::Kind type) // not constexpr until C++23
 {
-    return std::make_shared<Data_Kind::Kind>(type);
+    return std::make_shared<Data_Kind::Kind>(std::move(type));
 }
 
 template<typename T>

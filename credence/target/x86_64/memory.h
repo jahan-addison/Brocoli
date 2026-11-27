@@ -163,6 +163,7 @@ constexpr std::string storage_prefix_from_operand_size(
 
 namespace detail {
 
+class Device_Accessor;
 struct Vector_Accessor;
 
 using X8664_Address_Accessor =
@@ -246,9 +247,11 @@ struct Address_Accessor : public X8664_Address_Accessor
         X8664_Address_Accessor::Stack_Pointer_Type& stack,
         Flag_Accessor& flag_accessor,
         Vector_Accessor& vector_accessor,
+        Device_Accessor& device_accessor,
         Stack_Frame& stack_frame)
         : X8664_Address_Accessor(table, stack, flag_accessor, stack_frame)
         , vector_accessor_(vector_accessor)
+        , device_accessor_(device_accessor)
     {
     }
     bool is_qword_storage_size(assembly::Storage const& storage) const;
@@ -260,6 +263,7 @@ struct Address_Accessor : public X8664_Address_Accessor
 
   private:
     Vector_Accessor& vector_accessor_;
+    Device_Accessor& device_accessor_;
 };
 
 /**
@@ -291,23 +295,21 @@ struct Instruction_Accessor : public X8664_Instruction_Accessor
  * Each argument takes the next register of its size, and the registers are
  * reset after the call
  */
-struct Register_Accessor
+struct Register_Accessor : public X8664_Register_Accessor
 {
-    explicit Register_Accessor(Address_Accessor& address_accessor)
-        : address_accessor_(address_accessor)
-        , available_qword_(registers::available_qword_register)
-        , available_dword_(registers::available_dword_register)
+    explicit Register_Accessor(Instruction_State& state)
+        : X8664_Register_Accessor(state)
     {
+        d_size_registers = registers::available_qword_register;
+        w_size_registers = registers::available_dword_register;
     }
 
-    Storage get_register_for_binary_operator(RValue const& rvalue,
-        Stack_Pointer& stack);
     Storage get_available_register(Operand_Size size, Stack_Pointer& stack);
 
     void reset_available_registers()
     {
-        available_qword_ = registers::available_qword_register;
-        available_dword_ = registers::available_dword_register;
+        d_size_registers = registers::available_qword_register;
+        w_size_registers = registers::available_dword_register;
     }
 
     /**
@@ -322,11 +324,63 @@ struct Register_Accessor
             m::pattern | Operand_Size::Byte = [&] { return Register::dil; },
             m::pattern | m::_ = [&] { return Register::edi; });
     }
+};
+
+/**
+ * @brief The storage device of each local of the function
+ *
+ * Every local of x86-64 is a stack slot below rbp, where a pointer is an
+ * aligned quadword and any other local is the size of its type, and the
+ * devices are reset at each `BeginFunc`
+ *
+ *  Example:
+ *
+ *    LOCL x;
+ *    LOCL *p;
+ *
+ *  Becomes:
+ *
+ *    x  -> [rbp - 4]
+ *    p  -> [rbp - 16]
+ */
+class Device_Accessor
+{
+  public:
+    using Device = Storage;
+
+  public:
+    Device_Accessor(Table_Pointer& table,
+        Stack_Frame& stack_frame,
+        Stack_Pointer& stack)
+        : table_(table)
+        , stack_frame_(stack_frame)
+        , stack_(stack)
+    {
+    }
+
+  public:
+    void reset_storage_devices() { stack_->clear(); }
+    bool is_lvalue_allocated_in_memory(LValue const& lvalue)
+    {
+        return stack_->is_allocated(lvalue);
+    }
+    Device get_device_by_lvalue(LValue const& lvalue)
+    {
+        return stack_->get(lvalue).first;
+    }
+    Operand_Size get_word_size_from_lvalue(LValue const& lvalue)
+    {
+        return stack_->get(lvalue).second;
+    }
+
+  public:
+    void insert_lvalue_to_device(LValue const& lvalue);
+    void insert_pointer_to_device(LValue const& lvalue);
 
   private:
-    Address_Accessor& address_accessor_;
-    registers::general_purpose available_qword_;
-    registers::general_purpose available_dword_;
+    Table_Pointer& table_;
+    Stack_Frame& stack_frame_;
+    Stack_Pointer& stack_;
 };
 
 } // namespace detail
@@ -335,9 +389,9 @@ struct Register_Accessor
  * @brief The Memory_Accessor of the x86-64 target, a Layered Aggregate
  *
  * The inserters, visitor, and emitter share one Memory_Accessor, where its
- * layers are private and declared in dependency order with the registers
- * above the address, and each is reached through its role such as `ir()`,
- * `addresses()`, or `state()`
+ * layers are private and declared in dependency order with the device below
+ * the address, and each is reached through its role such as `ir()`,
+ * `devices()`, or `state()`
  */
 class Memory_Accessor final : public X8664_Memory_Accessor
 {
@@ -379,11 +433,11 @@ class Memory_Accessor final : public X8664_Memory_Accessor
     {
         return address_accessor_;
     }
+    detail::Device_Accessor& devices() { return device_accessor_; }
     detail::Buffer_Accessor& buffers() { return buffer_accessor_; }
     Instruction_Pointer& instructions() { return instruction_accessor_; }
     Stack_Pointer& stack() { return stack_; }
 
-  public:
   private:
     Table_Pointer table_;
     ir::Instructions_PTR instructions_;
@@ -396,12 +450,16 @@ class Memory_Accessor final : public X8664_Memory_Accessor
     detail::Buffer_Accessor buffer_accessor_{ table_ };
     detail::Accumulator_Accessor accumulator_accessor_{ state_ };
     detail::Vector_Accessor vector_accessor_{ table_, get_frame_in_memory() };
+    detail::Register_Accessor register_accessor_{ state_ };
+    detail::Device_Accessor device_accessor_{ table_,
+        get_frame_in_memory(),
+        stack_ };
     detail::Address_Accessor address_accessor_{ table_,
         stack_,
         flag_accessor_,
         vector_accessor_,
+        device_accessor_,
         get_frame_in_memory() };
-    detail::Register_Accessor register_accessor_{ address_accessor_ };
     Instruction_Pointer instruction_accessor_{
         std::make_shared<detail::Instruction_Accessor>()
     };

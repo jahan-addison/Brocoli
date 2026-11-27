@@ -14,6 +14,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -29,7 +30,7 @@
 
 namespace credence::language {
 
-enum class Token_Type
+enum class Token_Type : std::uint8_t
 {
     END_OF_FILE,
     INVALID,

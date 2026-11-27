@@ -194,11 +194,11 @@ TEST_CASE("object/table.h: Object_Table::get_union_of_variable")
 
     auto local = table.get_union_of_variable("v", main);
     REQUIRE(local.has_value());
-    CHECK(&local->get() == &value_t);
+    CHECK(&local.value().get() == &value_t);
 
     auto global = table.get_union_of_variable("last", main);
     REQUIRE(global.has_value());
-    CHECK(&global->get() == &value_t);
+    CHECK(&global.value().get() == &value_t);
 
     CHECK(not table.get_union_of_variable("w", main).has_value());
     CHECK(not table.get_union_of_variable("value_t", main).has_value());

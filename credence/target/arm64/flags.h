@@ -66,12 +66,12 @@ namespace credence::target::arm64::detail::flags {
  */
 enum ARM64_Instruction_Flag : common::flag::flags
 {
-    Align_Folded = 1 << 7,
-    Align_SP = 1 << 8,
-    Align_SP_Folded = 1 << 9,
-    Align_S3_Folded = 1 << 10,
-    Vector_Storage = 1 << 13,
-    Align_S2_Folded = 1 << 14,
+    Align_Folded = 1U << 7,
+    Align_SP = 1U << 8,
+    Align_SP_Folded = 1U << 9,
+    Align_S3_Folded = 1U << 10,
+    Vector_Storage = 1U << 13,
+    Align_S2_Folded = 1U << 14,
 };
 
 } // namespace credence::target::arm64::detail::flags

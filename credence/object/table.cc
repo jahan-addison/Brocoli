@@ -306,7 +306,7 @@ void set_stack_frame_return_value(RValue const& rvalue,
     Vectors const& vectors,
     Stack const& stack)
 {
-    auto local_contains = [&](LValue const& lvalue) {
+    auto is_local = [&](LValue const& lvalue) {
         const auto& locals = frame.locals;
         return locals.is_defined(lvalue) and not is_vector_lvalue(lvalue);
     };
@@ -333,7 +333,7 @@ void set_stack_frame_return_value(RValue const& rvalue,
                 credence_assert_nequal(index_of, -1);
                 frame.ret = std::make_pair(stack.at(index_of), rvalue);
             },
-        m::pattern | m::app(local_contains, true) =
+        m::pattern | m::app(is_local, true) =
             [&] {
                 auto value_at = type::get_value_from_typed_rvalue(
                     frame.locals.get_symbol_by_name(rvalue));

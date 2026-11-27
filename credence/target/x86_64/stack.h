@@ -88,9 +88,9 @@ class Stack : public common::detail::base_stack_pointer
         assembly::Immediate const& rvalue);
     void set_address_from_accumulator(LValue const& lvalue,
         assembly::Register acc);
-    void set_address_from_type(LValue const& lvalue, Type type);
+    void set_address_from_type(LValue const& lvalue, Type const& type);
     void set_address_from_size(LValue const& lvalue,
-        Offset allocate,
+        Offset allocation,
         Operand_Size operand = Operand_Size::Dword);
     void allocate_aligned_lvalue(LValue const& lvalue,
         Size value_size,

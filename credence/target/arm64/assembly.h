@@ -19,6 +19,7 @@
 #include <credence/types.h>                  // for RValue, get_type_from_r...
 #include <credence/util.h>                   // for STRINGIFY, range_contains
 #include <cstddef>                           // for size_t
+#include <cstdint>                           // for uint8_t
 #include <deque>                             // for deque
 #include <fmt/compile.h>                     // for operator""_cf
 #include <fmt/format.h>                      // for format
@@ -78,9 +79,9 @@
  *****************************************************************************/
 
 namespace credence::target::arm64::assembly {
-enum class Directive;
-enum class Mnemonic;
-enum class Register;
+enum class Directive : std::uint8_t;
+enum class Mnemonic : std::uint8_t;
+enum class Register : std::uint8_t;
 }
 
 /**
@@ -129,39 +130,39 @@ enum class Register;
 /**
  * The bodies of the instruction constructors. An immediate right-hand-side
  * is moved to w7 or x7 first, since most ARM64 instructions take a register,
- * and `arm64_add__asm` appends an instruction with the enumerators in scope.
+ * and `arm64_add_asm` appends an instruction with the enumerators in scope.
  */
 
-#define arm64__first_storage_device(first, ...) first
+#define arm64_first_storage_device(first, ...) first
 
-#define arm64__make_and_ret(op, ...)                                   \
-    do {                                                               \
-        auto instructions = make_empty();                              \
-        auto s = __VA_OPT__(arm64__first_storage_device(__VA_ARGS__)); \
-        arm64_add__asm(instructions, op __VA_OPT__(, ) __VA_ARGS__);   \
-        return { s, std::move(instructions) };                         \
+#define arm64_make_and_ret(op, ...)                                   \
+    do {                                                              \
+        auto instructions = make_empty();                             \
+        auto s = __VA_OPT__(arm64_first_storage_device(__VA_ARGS__)); \
+        arm64_add_asm(instructions, op __VA_OPT__(, ) __VA_ARGS__);   \
+        return { s, std::move(instructions) };                        \
     } while (false)
 
-#define arm64__make_and_ret_with_immediate(op)                                \
+#define arm64_make_and_ret_with_immediate(op)                                 \
     do {                                                                      \
         if (is_variant(Immediate, ss1)) {                                     \
             auto inst = make_empty();                                         \
             auto size =                                                       \
                 get_operand_size_from_typed_rvalue(std::get<Immediate>(ss1)); \
             if (size == Operand_Size::Doubleword) {                           \
-                arm64_add__asm(inst, mov, x7, ss1);                           \
-                arm64_add__asm(inst, op, ss0, ss0, x7);                       \
+                arm64_add_asm(inst, mov, x7, ss1);                            \
+                arm64_add_asm(inst, op, ss0, ss0, x7);                        \
                 return { ss0, inst };                                         \
             } else {                                                          \
-                arm64_add__asm(inst, mov, w7, ss1);                           \
-                arm64_add__asm(inst, op, ss0, ss0, w7);                       \
+                arm64_add_asm(inst, mov, w7, ss1);                            \
+                arm64_add_asm(inst, op, ss0, ss0, w7);                        \
                 return { ss0, inst };                                         \
             }                                                                 \
         } else                                                                \
-            arm64__make_and_ret(op, ss0, ss0, ss1);                           \
+            arm64_make_and_ret(op, ss0, ss0, ss1);                            \
     } while (false)
 
-#define arm64_add__asm(inst, op, ...)                               \
+#define arm64_add_asm(inst, op, ...)                                \
     do {                                                            \
         using enum arm64::assembly::Register;                       \
         using enum arm64::assembly::Mnemonic;                       \
@@ -191,7 +192,7 @@ enum class Register;
         auto mnem_str = std::string_view{ STRINGIFY(mnem) }; \
         if (mnem_str.starts_with("b_")) {                    \
             os << "b." << mnem_str.substr(2);                \
-        } else if (mnem_str.ends_with("_")) {                \
+        } else if (mnem_str.ends_with('_')) {                \
             os << mnem_str.substr(0, mnem_str.length() - 1); \
         } else {                                             \
             os << mnem_str;                                  \
@@ -203,10 +204,10 @@ namespace credence::target::arm64::assembly {
 /**
  * @brief Write one or more newlines to an ostream
  */
-inline void newline(std::ostream& os, int amount = 1)
+inline void newline(std::ostream& os, std::size_t amount = 1)
 {
     for (; amount > 0; amount--)
-        os << std::endl;
+        os << '\n';
 }
 
 /**
@@ -215,7 +216,7 @@ inline void newline(std::ostream& os, int amount = 1)
  * An `x` register is a doubleword and its `w` register is the lower word of
  * it. An `s` register is a float and a `d` register is a double.
  */
-enum class Register
+enum class Register : std::uint8_t
 {
     x0,
     x1,
@@ -554,7 +555,7 @@ constexpr const auto VECTOR_REGISTER = { Register::v0,
     Register::v30,
     Register::v31 };
 
-enum class Mnemonic
+enum class Mnemonic : std::uint8_t
 {
     add,
     adds,
@@ -607,7 +608,7 @@ enum class Mnemonic
     nop
 };
 
-enum class Directive
+enum class Directive : std::uint8_t
 {
     asciz,
     global,
@@ -633,7 +634,7 @@ enum class Directive
 /**
  * @brief The size of an operand in bytes
  */
-enum class Operand_Size : std::size_t
+enum class Operand_Size : std::uint8_t
 {
     Empty = 0,
     Byte = 1,
@@ -1533,7 +1534,7 @@ constexpr std::string tabwidth(unsigned int t)
 {
     std::string tab{};
     for (; t > 0; t--)
-        tab += " ";
+        tab += ' ';
     return tab;
 }
 
@@ -1662,7 +1663,7 @@ constexpr Immediate make_argv_offset_immediate(std::size_t index)
 /**
  * @brief Get the argument register of an argument index, x0 to x7
  */
-constexpr Register get_register_from_integer_argument(int index)
+constexpr Register get_register_from_integer_argument(std::size_t index)
 {
     switch (index) {
         case 0:

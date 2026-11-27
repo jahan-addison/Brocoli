@@ -60,35 +60,6 @@ using syscall_t = std::array<std::size_t, 2>;
 using syscall_list_t = std::map<std::string_view, syscall_t>;
 using syscall_arguments_t = std::deque<assembly::Storage>;
 
-void syscall_operands_to_instructions(assembly::Instructions instructions,
-    syscall_arguments_t const& arguments,
-    memory::registers::general_purpose& w_registers,
-    memory::registers::general_purpose& d_registers,
-    memory::Stack_Frame* stack_frame = nullptr,
-    memory::Memory_Accessor* accessor = nullptr);
-
-/**
- * @brief Get the syscall register of an argument, a quadword for an address
- */
-inline Register get_storage_register_from_safe_address(
-    assembly::Storage const& argument,
-    memory::registers::general_purpose const& w_registers,
-    memory::registers::general_purpose const& d_registers,
-    memory::Stack_Frame const* stack_frame = nullptr,
-    memory::Memory_Accessor const* accessor = nullptr)
-{
-    Register storage = target::common::get_first_of_enum_t<Register>();
-    if (accessor != nullptr and stack_frame != nullptr) {
-        auto& accessor_ = *accessor;
-        if (accessor_.addresses().is_qword_storage_size(argument)) {
-            storage = w_registers.back();
-        } else {
-            storage = d_registers.back();
-        }
-    }
-    return storage;
-}
-
 namespace common {
 
 void exit_syscall(assembly::Instructions& instructions, int exit_status = 0);
@@ -97,7 +68,7 @@ void make_syscall(assembly::Instructions& instructions,
     std::string_view syscall,
     syscall_arguments_t const& arguments,
     memory::Stack_Frame* stack_frame = nullptr,
-    memory::Memory_Access* accessor = nullptr);
+    memory::Memory_Access const* accessor = nullptr);
 
 }
 
@@ -106,5 +77,5 @@ void make_syscall(assembly::Instructions& instructions,
  */
 bool check_signal_register_from_safe_address(Instructions& instructions,
     assembly::Register storage,
-    memory::Memory_Access* accessor);
+    memory::Memory_Access const* accessor);
 }

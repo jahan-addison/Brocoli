@@ -127,13 +127,12 @@ namespace m = matchit;
 void Instruction_Inserter::setup_stack_frame_in_function(
     ir::Instructions const& ir_instructions,
     IR_Instruction_Visitor& visitor,
-    int index)
+    std::size_t index)
 {
     auto stack_frame = accessor_->get_frame_in_memory();
     auto symbol = std::get<1>(ir_instructions.at(index - 1));
     auto name = type::get_label_as_human_readable(symbol);
     stack_frame.set_stack_frame(name);
-    accessor_->devices().set_current_frame_symbol(name);
     visitor.from_func_start_ita(name);
 }
 
@@ -160,7 +159,7 @@ void Invocation_Inserter::insert_type_check_stdlib_print_arguments(
     auto library_caller =
         runtime::Library_Call_Inserter{ accessor_, stack_frame_ };
     if (argument_stack.front() != "RET" and
-        not argument_stack.front().starts_with("&"))
+        not argument_stack.front().starts_with('&'))
         if (!address_storage.is_lvalue_storage_type(
                 argument_stack.front(), "string") and
             not library_caller.is_address_device_pointer_to_buffer(
@@ -224,7 +223,7 @@ common::Stack_Offset Unary_Operator_Inserter::from_lvalue_address_of_expression(
 
     auto op = type::get_unary_operator(expr);
     RValue rvalue = type::get_unary_rvalue_reference(expr);
-    auto offset = accessor_->devices().get_device_by_lvalue_reference(rvalue);
+    auto offset = accessor_->devices().get_device_by_lvalue(rvalue);
     accessor_->state().set_address_assignment();
     accessor_->stack()->allocate_pointer_on_stack(
         accessor_->get_frame_in_memory().symbol);
@@ -347,7 +346,7 @@ void Binary_Operator_Inserter::from_binary_operator_expression(
                                        lhs_i) == Operand_Size::Doubleword
                                ? Register::x8
                                : Register::w8;
-        arm64_add__asm(instructions, mov, accumulator, immediate);
+        arm64_add_asm(instructions, mov, accumulator, immediate);
         result = accumulator;
         return;
     }
@@ -358,7 +357,7 @@ void Binary_Operator_Inserter::from_binary_operator_expression(
         auto scratch = assembly::is_doubleword_register(held->second)
                            ? Register::x7
                            : Register::w7;
-        arm64_add__asm(instructions, mov, scratch, held->second);
+        arm64_add_asm(instructions, mov, scratch, held->second);
         rhs_s = scratch;
     }
     auto accumulator = operand_inserter.insert_operand_into_accumulator(lhs);
@@ -371,11 +370,11 @@ void Binary_Operator_Inserter::from_binary_operator_expression(
         auto rhs_r = std::get<Register>(rhs_s);
         if (assembly::is_doubleword_register(rhs_r) and
             not assembly::is_doubleword_register(accumulator)) {
-            arm64_add__asm(instructions, sxtw, x8, w8);
+            arm64_add_asm(instructions, sxtw, x8, w8);
             accumulator = Register::x8;
         } else if (assembly::is_doubleword_register(accumulator) and
                    not assembly::is_doubleword_register(rhs_r)) {
-            arm64_add__asm(instructions, sxtw, x7, rhs_r);
+            arm64_add_asm(instructions, sxtw, x7, rhs_r);
             rhs_s = Register::x7;
         }
     }
@@ -399,7 +398,7 @@ void Binary_Operator_Inserter::from_binary_operator_expression(
             auto scratch = assembly::is_doubleword_register(accumulator)
                                ? Register::x7
                                : Register::w7;
-            arm64_add__asm(instructions, mov, scratch, rhs_s);
+            arm64_add_asm(instructions, mov, scratch, rhs_s);
             rhs_s = scratch;
         }
         auto bitwise = Bitwise_Operator_Inserter{ accessor_ };
@@ -431,14 +430,14 @@ void Binary_Operator_Inserter::insert_from_modulo_operands(Register accumulator,
     bool doubleword = assembly::is_doubleword_register(accumulator);
     if (is_variant(Immediate, divisor)) {
         auto scratch = doubleword ? Register::x7 : Register::w7;
-        arm64_add__asm(instructions, mov, scratch, divisor);
+        arm64_add_asm(instructions, mov, scratch, divisor);
         divisor = scratch;
     }
     auto quotient = doubleword ? Register::x10 : Register::w10;
     if (std::get<Register>(divisor) == quotient)
         quotient = doubleword ? Register::x6 : Register::w6;
-    arm64_add__asm(instructions, sdiv, quotient, accumulator, divisor);
-    arm64_add__asm(
+    arm64_add_asm(instructions, sdiv, quotient, accumulator, divisor);
+    arm64_add_asm(
         instructions, msub, accumulator, quotient, divisor, accumulator);
 }
 
@@ -474,7 +473,7 @@ void Binary_Operator_Inserter::insert_from_relational_operands(
         m::pattern | std::string{ "<=" } = [] { return std::string{ "le" }; },
         m::pattern | m::_ = [] { return std::string{ "ge" }; });
 
-    arm64_add__asm(instructions, cmp, accumulator, rhs);
+    arm64_add_asm(instructions, cmp, accumulator, rhs);
     if (index + 1 < ir_instructions.size()) {
         auto const& current = ir_instructions.at(index);
         auto const& next = ir_instructions.at(index + 1);
@@ -483,23 +482,23 @@ void Binary_Operator_Inserter::insert_from_relational_operands(
             auto label = common::assembly::make_direct_immediate(
                 assembly::make_label(std::get<3>(next), stack_frame_.symbol));
             if (op == "==")
-                arm64_add__asm(instructions, b_eq, label);
+                arm64_add_asm(instructions, b_eq, label);
             else if (op == "!=")
-                arm64_add__asm(instructions, b_ne, label);
+                arm64_add_asm(instructions, b_ne, label);
             else if (op == "<")
-                arm64_add__asm(instructions, b_lt, label);
+                arm64_add_asm(instructions, b_lt, label);
             else if (op == ">")
-                arm64_add__asm(instructions, b_gt, label);
+                arm64_add_asm(instructions, b_gt, label);
             else if (op == "<=")
-                arm64_add__asm(instructions, b_le, label);
+                arm64_add_asm(instructions, b_le, label);
             else
-                arm64_add__asm(instructions, b_ge, label);
+                arm64_add_asm(instructions, b_ge, label);
             accessor_->state().set_relational_jump();
             result = std::nullopt;
             return;
         }
     }
-    arm64_add__asm(instructions, cset, w8, direct_immediate(condition));
+    arm64_add_asm(instructions, cset, w8, direct_immediate(condition));
     result = Register::w8;
 }
 
@@ -526,17 +525,17 @@ void Binary_Operator_Inserter::insert_from_logical_operands(
     auto& instructions = accessor_->instructions()->get_instructions();
     Storage rhs_s = rhs;
     if (is_variant(Immediate, rhs_s)) {
-        arm64_add__asm(instructions, mov, w7, rhs_s);
+        arm64_add_asm(instructions, mov, w7, rhs_s);
         rhs_s = Register::w7;
     }
-    arm64_add__asm(instructions, cmp, accumulator, u32_int_immediate(0));
-    arm64_add__asm(instructions, cset, w8, direct_immediate("ne"));
-    arm64_add__asm(instructions, cmp, rhs_s, u32_int_immediate(0));
-    arm64_add__asm(instructions, cset, w7, direct_immediate("ne"));
+    arm64_add_asm(instructions, cmp, accumulator, u32_int_immediate(0));
+    arm64_add_asm(instructions, cset, w8, direct_immediate("ne"));
+    arm64_add_asm(instructions, cmp, rhs_s, u32_int_immediate(0));
+    arm64_add_asm(instructions, cset, w7, direct_immediate("ne"));
     if (op == "&&")
-        arm64_add__asm(instructions, and_, w8, w8, w7);
+        arm64_add_asm(instructions, and_, w8, w8, w7);
     else
-        arm64_add__asm(instructions, orr, w8, w8, w7);
+        arm64_add_asm(instructions, orr, w8, w8, w7);
     result = Register::w8;
 }
 
@@ -691,7 +690,6 @@ void Unary_Operator_Inserter::insert_from_unary_operator_operands(
                         accessor_->get_accumulator_with_rvalue_context(size);
                     assembly::inserter(
                         instructions, assembly::b_not(acc, src).second);
-                    accessor_->registers().push_scratch_register(acc);
                 } else
                     assembly::inserter(
                         instructions, assembly::b_not(dest, src).second);
@@ -710,7 +708,7 @@ void Unary_Operator_Inserter::insert_from_unary_operator_operands(
                     dest, accessor_->stack(), accessor_->get_frame_in_memory());
                 auto acc = accessor_->get_accumulator_with_rvalue_context(size);
                 if (!assembly::is_equal_storage_devices(acc, dest)) {
-                    arm64_add__asm(instructions, mov, acc, dest);
+                    arm64_add_asm(instructions, mov, acc, dest);
                     accessor_->flags().set_instruction_flag(
                         common::flag::Indirect_Source, index + 1);
                 } else {
@@ -718,7 +716,7 @@ void Unary_Operator_Inserter::insert_from_unary_operator_operands(
                         common::flag::Indirect_Source, index);
                 }
 
-                arm64_add__asm(instructions, str, acc, src);
+                arm64_add_asm(instructions, str, acc, src);
             },
         m::pattern | std::string{ "-" } =
             [&] {
@@ -788,16 +786,16 @@ void Expression_Inserter::insert_from_return_rvalue(
     auto operand_inserter = Operand_Inserter{ accessor_ };
     auto immediate =
         operand_inserter.get_operand_storage_from_expression_operand(
-            ret->second);
+            ret.value().second);
     // a string literal is the address of its label
     if (assembly::is_immediate_relative_address(immediate)) {
         auto label =
             type::get_value_from_typed_rvalue(std::get<Immediate>(immediate));
-        arm64_add__asm(instructions,
+        arm64_add_asm(instructions,
             adrp,
             x0,
             assembly::page_offset_upper_immediate(label));
-        arm64_add__asm(instructions,
+        arm64_add_asm(instructions,
             add,
             x0,
             x0,
@@ -806,9 +804,9 @@ void Expression_Inserter::insert_from_return_rvalue(
     }
     if (memory::is_doubleword_storage_size(
             immediate, accessor_->stack(), accessor_->get_frame_in_memory()))
-        arm64_add__asm(instructions, mov, x0, immediate);
+        arm64_add_asm(instructions, mov, x0, immediate);
     else
-        arm64_add__asm(instructions, mov, w0, immediate);
+        arm64_add_asm(instructions, mov, w0, immediate);
 }
 
 /**
@@ -840,18 +838,17 @@ void Expression_Inserter::insert_from_address_of_rvalue(RValue const& rvalue)
             accessor_->vectors()
                 .get_offset_address(lvalue, type::from_decay_offset(lvalue))
                 .first;
-        arm64_add__asm(instructions,
+        arm64_add_asm(instructions,
             adrp,
             x8,
             assembly::page_offset_upper_immediate(label));
-        arm64_add__asm(instructions,
+        arm64_add_asm(instructions,
             add,
             x8,
             x8,
             assembly::page_offset_lower_immediate(label));
         if (offset != 0UL)
-            arm64_add__asm(
-                instructions, add, x8, x8, u32_int_immediate(offset));
+            arm64_add_asm(instructions, add, x8, x8, u32_int_immediate(offset));
         result_ = Register::x8;
         return;
     }
@@ -860,7 +857,7 @@ void Expression_Inserter::insert_from_address_of_rvalue(RValue const& rvalue)
         auto offset = std::get<common::Stack_Offset>(
             operand_inserter.get_operand_storage_from_local_vector_offset(
                 lvalue));
-        arm64_add__asm(instructions, add, x8, sp, u32_int_immediate(offset));
+        arm64_add_asm(instructions, add, x8, sp, u32_int_immediate(offset));
         result_ = Register::x8;
         return;
     }
@@ -868,7 +865,7 @@ void Expression_Inserter::insert_from_address_of_rvalue(RValue const& rvalue)
     // taken
     if (accessor_->stack()->is_allocated(lvalue)) {
         auto offset = accessor_->stack()->get(lvalue).first;
-        arm64_add__asm(instructions, add, x8, sp, u32_int_immediate(offset));
+        arm64_add_asm(instructions, add, x8, sp, u32_int_immediate(offset));
         result_ = Register::x8;
         return;
     }
@@ -882,7 +879,7 @@ void Expression_Inserter::insert_from_address_of_rvalue(RValue const& rvalue)
         accessor_->stack()->add_address_location_to_stack(rvalue);
         if (is_variant(common::Stack_Offset, lhs_s)) {
             lhs_s = u32_int_immediate(std::get<common::Stack_Offset>(lhs_s));
-            auto rhs_s = assembly::O_NUL;
+            Storage rhs_s;
             auto last_arm64_inst = std::get<1>(instructions.back());
             Storage last_src_one = std::get<1>(last_arm64_inst);
             if (is_variant(Register, last_src_one) and
@@ -892,19 +889,19 @@ void Expression_Inserter::insert_from_address_of_rvalue(RValue const& rvalue)
                     std::get<2>(last_arm64_inst));
             } else
                 rhs_s = accessor_->stack()->get(rvalue).first;
-            arm64_add__asm(instructions, add, x6, sp, lhs_s);
-            arm64_add__asm(instructions, str, x6, rhs_s);
+            arm64_add_asm(instructions, add, x6, sp, lhs_s);
+            arm64_add_asm(instructions, str, x6, rhs_s);
         } else {
             auto unary_inserter = Unary_Operator_Inserter{ accessor_ };
             auto rhs_s = u32_int_immediate(
                 unary_inserter.from_lvalue_address_of_expression(rvalue));
-            arm64_add__asm(instructions, add, x6, sp, rhs_s);
+            arm64_add_asm(instructions, add, x6, sp, rhs_s);
         }
     } else {
         auto unary_inserter = Unary_Operator_Inserter{ accessor_ };
         auto rhs_s = u32_int_immediate(
             unary_inserter.from_lvalue_address_of_expression(rvalue));
-        arm64_add__asm(instructions, add, x6, sp, rhs_s);
+        arm64_add_asm(instructions, add, x6, sp, rhs_s);
     }
     return;
 }
@@ -967,7 +964,7 @@ void Expression_Inserter::insert_from_temporary_rvalue(RValue const& rvalue)
                 auto acc = accessor_->accumulator()
                                .get_accumulator_register_from_storage(
                                    immediate, accessor_->stack());
-                arm64_add__asm(instructions, mov, acc, immediate);
+                arm64_add_asm(instructions, mov, acc, immediate);
                 auto type = type::get_type_from_typed_rvalue(rvalue);
                 if (type == "string")
                     accessor_->flags().set_instruction_flag(
@@ -990,7 +987,7 @@ void Expression_Inserter::insert_from_temporary_rvalue(RValue const& rvalue)
                 if (common::runtime::is_returning_library_function(
                         stack_frame_.tail,
                         common::assembly::Arch_Type::ARM64)) {
-                    arm64_add__asm(instructions, mov, w8, w0);
+                    arm64_add_asm(instructions, mov, w8, w0);
                     result_ = Register::w8;
                     return;
                 }
@@ -999,10 +996,10 @@ void Expression_Inserter::insert_from_temporary_rvalue(RValue const& rvalue)
                 auto& frame = table->get_stack_frame(stack_frame_.tail);
                 credence_assert(frame.ret.has_value());
                 if (is_doubleword_return_value(frame)) {
-                    arm64_add__asm(instructions, mov, x8, x0);
+                    arm64_add_asm(instructions, mov, x8, x0);
                     result_ = Register::x8;
                 } else {
-                    arm64_add__asm(instructions, mov, w8, w0);
+                    arm64_add_asm(instructions, mov, w8, w0);
                     result_ = Register::w8;
                 }
             },
@@ -1048,18 +1045,14 @@ std::optional<Register> Expression_Inserter::insert_from_unary_value(
         type::get_unary_rvalue_reference(rvalue));
     m::match(op)(
         m::pattern | std::string{ "-" } =
-            [&] {
-                arm64_add__asm(instructions, neg, accumulator, accumulator);
-            },
+            [&] { arm64_add_asm(instructions, neg, accumulator, accumulator); },
         m::pattern | std::string{ "~" } =
-            [&] {
-                arm64_add__asm(instructions, mvn, accumulator, accumulator);
-            },
+            [&] { arm64_add_asm(instructions, mvn, accumulator, accumulator); },
         m::pattern | std::string{ "!" } =
             [&] {
-                arm64_add__asm(
+                arm64_add_asm(
                     instructions, cmp, accumulator, u32_int_immediate(0));
-                arm64_add__asm(instructions, cset, w8, direct_immediate("eq"));
+                arm64_add_asm(instructions, cset, w8, direct_immediate("eq"));
                 accumulator = Register::w8;
             },
         m::pattern | m::_ = [&] {});
@@ -1113,7 +1106,7 @@ void Expression_Inserter::insert_from_global_vector_assignment(
     assembly::inserter(instructions, rhs_storage_inst);
     accessor_->flags().set_instruction_flag(
         common::flag::Indirect_Source, instructions.size());
-    arm64_add__asm(instructions, ldr, lhs_storage, rhs_storage);
+    arm64_add_asm(instructions, ldr, lhs_storage, rhs_storage);
 }
 
 /**
@@ -1149,11 +1142,11 @@ void Expression_Inserter::insert_to_global_vector(LValue const& lhs,
                        : type == "float"
                            ? buffer.get_float_address_offset(key)
                            : buffer.get_double_address_offset(key);
-        arm64_add__asm(instructions,
+        arm64_add_asm(instructions,
             adrp,
             value,
             assembly::page_offset_upper_immediate(literal));
-        arm64_add__asm(instructions,
+        arm64_add_asm(instructions,
             add,
             value,
             value,
@@ -1171,12 +1164,12 @@ void Expression_Inserter::insert_to_global_vector(LValue const& lhs,
     if (size == Operand_Size::Doubleword and
         not assembly::is_doubleword_register(value)) {
         auto wide = assembly::get_doubleword_register_from_word(value);
-        arm64_add__asm(instructions, sxtw, wide, value);
+        arm64_add_asm(instructions, sxtw, wide, value);
         value = wide;
     } else if (size != Operand_Size::Doubleword and
                assembly::is_doubleword_register(value))
         value = assembly::get_word_register_from_doubleword(value);
-    arm64_add__asm(instructions, str, value, lhs_storage);
+    arm64_add_asm(instructions, str, value, lhs_storage);
 }
 
 /**
@@ -1264,7 +1257,7 @@ void Operand_Inserter::insert_from_immediate_rvalues(Immediate const& lhs,
                     get_result_from_trivial_integral_expression(lhs, op, rhs);
                 auto acc = accumulator.get_accumulator_register_from_size(
                     assembly::get_operand_size_from_typed_rvalue(lhs));
-                arm64_add__asm(instructions, mov, acc, imm);
+                arm64_add_asm(instructions, mov, acc, imm);
             },
         m::pattern | m::app(type::is_relation_binary_operator, true) =
             [&] {
@@ -1273,17 +1266,17 @@ void Operand_Inserter::insert_from_immediate_rvalues(Immediate const& lhs,
                 auto acc = accumulator.get_accumulator_register_from_size(
                     Operand_Size::Byte);
                 accessor_->state().set_signal_register(acc);
-                arm64_add__asm(instructions, mov, acc, imm);
+                arm64_add_asm(instructions, mov, acc, imm);
             },
         m::pattern | m::app(type::is_bitwise_binary_operator, true) =
             [&] {
                 auto imm = common::assembly::
                     get_result_from_trivial_bitwise_expression(lhs, op, rhs);
                 auto acc = accessor_->get_accumulator_with_rvalue_context(imm);
+                // a temporary of two immediates is resolved from the IR
+                // table by the instruction that reads it
                 if (!accessor_->ir().is_ir_instruction_temporary())
-                    arm64_add__asm(instructions, mov, acc, imm);
-                else
-                    accessor_->state().push_folded_immediate(imm);
+                    arm64_add_asm(instructions, mov, acc, imm);
             },
         m::pattern | m::_ = [&] { credence_error("unreachable"); });
 }
@@ -1339,16 +1332,16 @@ void Expression_Inserter::insert_lvalue_from_return_rvalue(LValue const& lvalue)
     if (is_variant(common::Stack_Offset, lhs_s)) {
         auto lhs_r = accessor_->registers().get_available_register(
             accessor_->devices().get_word_size_from_lvalue(lvalue));
-        arm64_add__asm(instructions, str, lhs_r, lhs_s);
+        arm64_add_asm(instructions, str, lhs_r, lhs_s);
         lhs_s = lhs_r;
     }
     if (returns_word)
-        arm64_add__asm(instructions, mov, lhs_s, w0);
+        arm64_add_asm(instructions, mov, lhs_s, w0);
     else {
-        auto& frame = table->get_stack_frame(stack_frame_.tail);
+        auto const& frame = table->get_stack_frame(stack_frame_.tail);
         Storage return_s =
             is_doubleword_return_value(frame) ? Register::x0 : Register::w0;
-        arm64_add__asm(instructions, mov, lhs_s, return_s);
+        arm64_add_asm(instructions, mov, lhs_s, return_s);
     }
 }
 
@@ -1408,9 +1401,9 @@ void Operand_Inserter::insert_from_mnemonic_operand(LValue const& lhs,
         auto pointer = insert_operand_into_accumulator(lhs);
         auto stride = u32_int_immediate(get_pointer_stride(lhs));
         if (type::get_unary_operator(rhs) == "++")
-            arm64_add__asm(instructions, add, pointer, pointer, stride);
+            arm64_add_asm(instructions, add, pointer, pointer, stride);
         else
-            arm64_add__asm(instructions, sub, pointer, pointer, stride);
+            arm64_add_asm(instructions, sub, pointer, pointer, stride);
         insert_from_accumulator_to_lvalue(lhs, pointer);
         return;
     }
@@ -1441,7 +1434,7 @@ void Operand_Inserter::insert_from_mnemonic_operand(LValue const& lhs,
                 if (is_variant(common::Stack_Offset, lhs_storage)) {
                     auto lhs_r = accessor_->registers().get_available_register(
                         devices.get_word_size_from_lvalue(rhs));
-                    arm64_add__asm(instructions, str, lhs_r, lhs_storage);
+                    arm64_add_asm(instructions, str, lhs_r, lhs_storage);
                     lhs_storage = lhs_r;
                 }
                 assembly::inserter(instructions, storage_inst);
@@ -1453,7 +1446,7 @@ void Operand_Inserter::insert_from_mnemonic_operand(LValue const& lhs,
                 else if (type::get_type_from_typed_rvalue(imm) == "double")
                     insert_from_double_address_operand(lhs, lhs_storage, rhs);
                 else
-                    arm64_add__asm(instructions, mov, lhs_storage, imm);
+                    arm64_add_asm(instructions, mov, lhs_storage, imm);
             },
         m::pattern | m::app(type::is_binary_expression, true) =
             [&] {
@@ -1473,7 +1466,7 @@ void Operand_Inserter::insert_from_mnemonic_operand(LValue const& lhs,
                 if (is_variant(common::Stack_Offset, lhs_storage)) {
                     auto lhs_r = accessor_->registers().get_available_register(
                         devices.get_word_size_from_lvalue(rhs));
-                    arm64_add__asm(instructions, str, lhs_r, lhs_storage);
+                    arm64_add_asm(instructions, str, lhs_r, lhs_storage);
                     lhs_storage = lhs_r;
                 }
                 assembly::inserter(instructions, storage_inst);
@@ -1492,12 +1485,12 @@ void Operand_Inserter::insert_from_mnemonic_operand(LValue const& lhs,
                         auto lhs_r =
                             accessor_->registers().get_available_register(
                                 devices.get_word_size_from_lvalue(rhs));
-                        arm64_add__asm(instructions, str, lhs_r, lhs_storage);
+                        arm64_add_asm(instructions, str, lhs_r, lhs_storage);
                         lhs_storage = lhs_r;
                     }
-                    arm64_add__asm(instructions, mov, lhs_storage, x6);
+                    arm64_add_asm(instructions, mov, lhs_storage, x6);
                 } else {
-                    auto& frame = stack_frame_.get_stack_frame();
+                    auto const& frame = stack_frame_.get_stack_frame();
                     auto rvalue =
                         object::lvalue_at_temporary_object_address(rhs, frame);
                     if (rvalue == "RET") {
@@ -1519,7 +1512,7 @@ void Operand_Inserter::insert_from_mnemonic_operand(LValue const& lhs,
                                            ? Register::x8
                                            : Register::w8;
                     if (std::get<Register>(value) != accumulator)
-                        arm64_add__asm(instructions, mov, accumulator, value);
+                        arm64_add_asm(instructions, mov, accumulator, value);
                     insert_from_accumulator_to_lvalue(lhs, accumulator);
                 }
             },
@@ -1536,8 +1529,8 @@ void Operand_Inserter::insert_from_mnemonic_operand(LValue const& lhs,
                 auto acc = accumulator.get_accumulator_register_from_size(
                     devices.get_word_size_from_lvalue(rhs));
 
-                arm64_add__asm(instructions, mov, acc, rhs_storage);
-                arm64_add__asm(instructions, mov, lhs_storage, acc);
+                arm64_add_asm(instructions, mov, acc, rhs_storage);
+                arm64_add_asm(instructions, mov, lhs_storage, acc);
             },
         m::pattern | m::_ = [&] {});
 }
@@ -1560,11 +1553,11 @@ void Operand_Inserter::insert_from_accumulator_to_lvalue(LValue const& lhs,
         if (assembly::is_doubleword_register(destination) and
             not assembly::is_doubleword_register(source)) {
             auto wide = assembly::get_doubleword_register_from_word(source);
-            arm64_add__asm(instructions, sxtw, wide, source);
+            arm64_add_asm(instructions, sxtw, wide, source);
             source = wide;
         } else if (!assembly::is_doubleword_register(destination))
             source = assembly::get_word_register_from_doubleword(source);
-        arm64_add__asm(instructions, mov, destination, source);
+        arm64_add_asm(instructions, mov, destination, source);
     };
     if (frame.is_parameter(lhs)) {
         auto parameter = get_operand_storage_from_parameter(lhs);
@@ -1575,7 +1568,7 @@ void Operand_Inserter::insert_from_accumulator_to_lvalue(LValue const& lhs,
             auto value = size == Operand_Size::Doubleword ? Register::x10
                                                           : Register::w10;
             insert_from_accumulator(value);
-            arm64_add__asm(instructions, str, value, parameter);
+            arm64_add_asm(instructions, str, value, parameter);
             return;
         }
         insert_from_accumulator(std::get<Register>(parameter));
@@ -1603,8 +1596,8 @@ inline Storage Operand_Inserter::get_operand_storage_from_return()
 {
     auto& tail_call =
         accessor_->ir().get_table()->get_stack_frame(stack_frame_.tail);
-    if (tail_call.locals.is_pointer(tail_call.ret->first) or
-        type::is_typed_rvalue_string(tail_call.ret->first))
+    if (tail_call.locals.is_pointer(tail_call.ret.value().first) or
+        type::is_typed_rvalue_string(tail_call.ret.value().first))
         return Register::x0;
     else
         return Register::w0;
@@ -1819,13 +1812,13 @@ Storage Operand_Inserter::get_operand_storage_from_expression_operand(
                              accessor_->stack()) == Operand_Size::Doubleword
                              ? Register::x10
                              : Register::w10;
-            arm64_add__asm(instructions, ldr, value, parameter);
+            arm64_add_asm(instructions, ldr, value, parameter);
             return value;
         }
         if (frame.symbol == "main" and
             frame.get_index_of_parameter(rvalue) == 0 and
             std::get<Register>(parameter) == Register::x19) {
-            arm64_add__asm(instructions, ldr, w10, direct_immediate("[x19]"));
+            arm64_add_asm(instructions, ldr, w10, direct_immediate("[x19]"));
             return Register::w10;
         }
         return parameter;
@@ -1839,7 +1832,7 @@ Storage Operand_Inserter::get_operand_storage_from_expression_operand(
             get_pointee_size(type::get_unary_rvalue_reference(rvalue)) == 8UL
                 ? Register::x10
                 : Register::w10;
-        arm64_add__asm(instructions,
+        arm64_add_asm(instructions,
             ldr,
             value,
             direct_immediate(fmt::format("[{}]",
@@ -1852,7 +1845,7 @@ Storage Operand_Inserter::get_operand_storage_from_expression_operand(
             memory::get_operand_size_from_storage(offset, accessor_->stack());
         auto value =
             size == Operand_Size::Doubleword ? Register::x10 : Register::w10;
-        arm64_add__asm(instructions, ldr, value, offset);
+        arm64_add_asm(instructions, ldr, value, offset);
         return value;
     }
     if (type::is_temporary(rvalue) and
@@ -1860,15 +1853,15 @@ Storage Operand_Inserter::get_operand_storage_from_expression_operand(
         auto [offset, size] = accessor_->stack()->get(rvalue);
         auto value =
             size == Operand_Size::Doubleword ? Register::x10 : Register::w10;
-        arm64_add__asm(instructions, ldr, value, offset);
+        arm64_add_asm(instructions, ldr, value, offset);
         return value;
     }
     if (type::is_temporary(rvalue)) {
         auto expression_inserter = Expression_Inserter{ accessor_ };
         expression_inserter.insert_lvalue_at_temporary_object_address(rvalue);
-        return accessor_->state().get_held_temporary().has_value()
-                   ? accessor_->state().get_held_temporary()->second
-                   : Register::w8;
+        // the held temporary is a reference to the instruction state, so it
+        // is the temporary the insertion above holds
+        return held.has_value() ? held->second : Register::w8;
     }
     auto [operand, operand_inst] =
         accessor_->addresses().get_arm64_lvalue_and_insertion_instructions(
@@ -1879,7 +1872,7 @@ Storage Operand_Inserter::get_operand_storage_from_expression_operand(
             memory::get_operand_size_from_storage(operand, accessor_->stack());
         auto value =
             size == Operand_Size::Doubleword ? Register::x10 : Register::w10;
-        arm64_add__asm(instructions, ldr, value, operand);
+        arm64_add_asm(instructions, ldr, value, operand);
         return value;
     }
     return operand;
@@ -1936,7 +1929,7 @@ Register Operand_Inserter::insert_operand_into_accumulator(RValue const& rvalue)
     auto accumulator = doubleword ? Register::x8 : Register::w8;
     if (!is_variant(Register, storage) or
         std::get<Register>(storage) != accumulator)
-        arm64_add__asm(instructions, mov, accumulator, storage);
+        arm64_add_asm(instructions, mov, accumulator, storage);
     return accumulator;
 }
 
@@ -2006,8 +1999,9 @@ Invocation_Inserter::get_operands_storage_from_argument_stack()
         if (rvalue == "RET") {
             auto& tail_frame = table->get_stack_frame(stack_frame_.tail);
             if (accessor_->addresses().is_lvalue_storage_type(
-                    tail_frame.ret->first, "string") or
-                caller_frame.is_pointer_in_stack_frame(tail_frame.ret->first) or
+                    tail_frame.ret.value().first, "string") or
+                caller_frame.is_pointer_in_stack_frame(
+                    tail_frame.ret.value().first) or
                 is_doubleword_return_value(tail_frame))
                 arguments.emplace_back(Register::x0);
             else
@@ -2105,14 +2099,14 @@ common::Stack_Offset Invocation_Inserter::insert_global_argument_to_stack(
                     : Operand_Size::Word;
     auto value =
         size == Operand_Size::Doubleword ? Register::x10 : Register::w10;
-    arm64_add__asm(
+    arm64_add_asm(
         instructions, adrp, x6, assembly::page_offset_upper_immediate(label));
-    arm64_add__asm(instructions,
+    arm64_add_asm(instructions,
         add,
         x6,
         x6,
         assembly::page_offset_lower_immediate(label));
-    arm64_add__asm(instructions,
+    arm64_add_asm(instructions,
         ldr,
         value,
         direct_immediate(fmt::format("[x6, #{}]", offset)));
@@ -2123,7 +2117,7 @@ common::Stack_Offset Invocation_Inserter::insert_global_argument_to_stack(
         ++global_argument_index);
     accessor_->stack()->set_address_from_size(slot, size);
     auto slot_offset = accessor_->stack()->get(slot).first;
-    arm64_add__asm(instructions, str, value, slot_offset);
+    arm64_add_asm(instructions, str, value, slot_offset);
     return slot_offset;
 }
 
@@ -2167,7 +2161,7 @@ Storage Invocation_Inserter::insert_parameter_argument_to_stack(
         ++global_argument_index);
     accessor_->stack()->set_address_from_size(slot, size);
     auto slot_offset = accessor_->stack()->get(slot).first;
-    arm64_add__asm(instructions, str, value, slot_offset);
+    arm64_add_asm(instructions, str, value, slot_offset);
     return slot_offset;
 }
 
@@ -2227,7 +2221,7 @@ void Invocation_Inserter::insert_from_user_defined_function(
                 type::from_decay_offset(argument));
             auto argv_offset =
                 assembly::make_argv_offset_immediate(offset_integer);
-            arm64_add__asm(instructions,
+            arm64_add_asm(instructions,
                 ldr,
                 assembly::get_doubleword_register_from_word(arg_register),
                 argv_offset);
@@ -2239,10 +2233,10 @@ void Invocation_Inserter::insert_from_user_defined_function(
                             std::get<Immediate>(operand));
                         auto imm_1 =
                             assembly::page_offset_upper_immediate(immediate);
-                        arm64_add__asm(instructions, adrp, arg_register, imm_1);
+                        arm64_add_asm(instructions, adrp, arg_register, imm_1);
                         auto imm_2 =
                             assembly::page_offset_lower_immediate(immediate);
-                        arm64_add__asm(instructions,
+                        arm64_add_asm(instructions,
                             add,
                             arg_register,
                             arg_register,
@@ -2254,7 +2248,7 @@ void Invocation_Inserter::insert_from_user_defined_function(
                             std::get<Immediate>(operand));
                         auto imm =
                             direct_immediate(fmt::format("={}", immediate));
-                        arm64_add__asm(instructions, ldr, arg_register, imm);
+                        arm64_add_asm(instructions, ldr, arg_register, imm);
                     },
                 m::pattern | m::_ =
                     [&] {
@@ -2262,7 +2256,7 @@ void Invocation_Inserter::insert_from_user_defined_function(
                             common::flag::Argument, instructions.size());
                         if (is_variant(common::Stack_Offset, operand) or
                             assembly::is_immediate_pc_address_offset(operand))
-                            arm64_add__asm(
+                            arm64_add_asm(
                                 instructions, ldr, arg_register, operand);
                         else if (is_variant(Register, operand) and
                                  assembly::is_word_register(
@@ -2270,14 +2264,14 @@ void Invocation_Inserter::insert_from_user_defined_function(
                             auto storage_dword =
                                 assembly::get_word_register_from_doubleword(
                                     arg_register);
-                            arm64_add__asm(
+                            arm64_add_asm(
                                 instructions, mov, storage_dword, operand);
                         } else
-                            arm64_add__asm(
+                            arm64_add_asm(
                                 instructions, mov, arg_register, operand);
                     });
     }
-    arm64_add__asm(instructions, bl, direct_immediate(routine));
+    arm64_add_asm(instructions, bl, direct_immediate(routine));
 }
 
 /**
@@ -2290,7 +2284,7 @@ void Invocation_Inserter::insert_from_standard_library_function(
     Instructions& instructions)
 {
     auto operands = get_operands_storage_from_argument_stack();
-    auto& argument_stack = stack_frame_.argument_stack;
+    auto const& argument_stack = stack_frame_.argument_stack;
     m::match(routine)(
         m::pattern | sv("putchar") = [&] {},
         m::pattern | sv("getchar") = [&] {},
@@ -2488,7 +2482,7 @@ void Operand_Inserter::insert_from_string_address_operand(
         auto offset = std::get<assembly::Stack::Offset>(storage);
         accessor_->stack()->set(offset, Operand_Size::Doubleword);
     }
-    arm64_add__asm(instructions, mov, storage, x6);
+    arm64_add_asm(instructions, mov, storage, x6);
 }
 
 /**
@@ -2509,9 +2503,9 @@ void Expression_Inserter::insert_from_string(RValue const& str)
     credence_assert(accessor_->buffers().is_allocated_string(str));
     auto immediate = accessor_->buffers().get_string_address_offset(str);
     auto imm_1 = assembly::page_offset_upper_immediate(immediate);
-    arm64_add__asm(instructions, adrp, x6, imm_1);
+    arm64_add_asm(instructions, adrp, x6, imm_1);
     auto imm_2 = assembly::page_offset_lower_immediate(immediate);
-    arm64_add__asm(instructions, add, x6, x6, imm_2);
+    arm64_add_asm(instructions, add, x6, x6, imm_2);
 }
 
 /**
@@ -2521,14 +2515,14 @@ void Expression_Inserter::insert_from_float(RValue const& str)
 {
     auto& instructions = accessor_->instructions()->get_instructions();
     auto immediate = direct_immediate(fmt::format("={}", str));
-    arm64_add__asm(instructions, ldr, s6, immediate);
+    arm64_add_asm(instructions, ldr, s6, immediate);
 }
 
 void Expression_Inserter::insert_from_double(RValue const& str)
 {
     auto& instructions = accessor_->instructions()->get_instructions();
     auto immediate = direct_immediate(fmt::format("={}", str));
-    arm64_add__asm(instructions, ldr, d6, immediate);
+    arm64_add_asm(instructions, ldr, d6, immediate);
 }
 
 } // namespace credence::target::arm64

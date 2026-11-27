@@ -179,7 +179,7 @@ Parser::Node Parser::make_node(std::string_view node_type,
 {
     auto node = util::AST::object();
     node["node"] = json_string(std::string(node_type));
-    node["root"] = root;
+    node["root"] = std::move(root);
     if (left.has_value())
         node["left"] = *left;
     if (right.has_value())

@@ -102,12 +102,12 @@ class Stack::Stack_IMPL
      * @brief Set the operand size of an offset with no lvalue, such as a
      * vector element
      */
-    constexpr void set(Offset offset, Operand_Size size)
+    constexpr void set(Offset offset, Operand_Size operand)
     {
         using namespace fmt::literals;
         stack_address.insert(
             fmt::format("__internal_vector_offset_{}"_cf, ++vectors),
-            Entry{ offset, size });
+            Entry{ offset, operand });
     }
 
     /**
@@ -174,7 +174,7 @@ class Stack::Stack_IMPL
     /**
      * @brief Allocate a slot for an lvalue of the size of a type
      */
-    constexpr void set_address_from_type(LValue const& lvalue, Type type)
+    constexpr void set_address_from_type(LValue const& lvalue, Type const& type)
     {
         if (stack_address[lvalue].second != assembly::Operand_Size::Empty)
             return;
@@ -280,12 +280,12 @@ class Stack::Stack_IMPL
      * An lvalue that has a slot keeps it
      */
     constexpr void set_address_from_size(LValue const& lvalue,
-        Offset allocate,
+        Offset allocation,
         assembly::Operand_Size operand = assembly::Operand_Size::Dword)
     {
         if (stack_address[lvalue].second != assembly::Operand_Size::Empty)
             return;
-        size += allocate;
+        size += allocation;
         stack_address.insert(lvalue, { size, operand });
     }
 
@@ -366,7 +366,7 @@ void Stack::set_address_from_accumulator(LValue const& lvalue,
 {
     pimpl->set_address_from_accumulator(lvalue, acc);
 }
-void Stack::set_address_from_type(LValue const& lvalue, Type type)
+void Stack::set_address_from_type(LValue const& lvalue, Type const& type)
 {
     pimpl->set_address_from_type(lvalue, type);
 }
@@ -395,10 +395,10 @@ Size Stack::get_stack_size_from_table_vector(object::Vector const& vector)
     return pimpl->get_stack_size_from_table_vector(vector);
 }
 void Stack::set_address_from_size(LValue const& lvalue,
-    Offset allocate,
+    Offset allocation,
     assembly::Operand_Size operand)
 {
-    pimpl->set_address_from_size(lvalue, allocate, operand);
+    pimpl->set_address_from_size(lvalue, allocation, operand);
 }
 std::string Stack::get_lvalue_from_offset(Offset offset) const
 {

@@ -61,11 +61,6 @@
  *
  ****************************************************************************/
 
-namespace credence::target::common::assembly {
-enum class Arch_Type;
-enum class OS_Type;
-}
-
 namespace credence::target::common::runtime {
 
 /**

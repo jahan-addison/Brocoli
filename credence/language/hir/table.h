@@ -66,8 +66,11 @@ class Table
     Table() = delete;
     Table(Table const&) = delete;
     Table& operator=(Table const&) = delete;
+    // the move of the easyjson node of the hoisted symbols may throw
+    // NOLINTBEGIN(performance-noexcept-move-constructor,bugprone-exception-escape)
     Table(Table&&) = default;
     Table& operator=(Table&&) = default;
+    // NOLINTEND(performance-noexcept-move-constructor,bugprone-exception-escape)
     explicit Table(util::AST_Node const& hoisted_symbols)
         : hoisted_symbols_(hoisted_symbols)
         , objects_(std::make_shared<object::Object_Table>())

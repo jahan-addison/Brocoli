@@ -17,6 +17,7 @@
 #include <credence/symbol.h> // for Symbol_Table
 #include <credence/util.h>   // for AST_Node, CREDENCE_PRIVATE_UNLESS_TESTED
 #include <cstddef>           // for size_t
+#include <cstdint>           // for uint8_t
 #include <deque>             // for deque, operator<=>, operator==
 #include <easyjson.h>        // for JSON, object
 #include <iomanip>           // for operator<<, setw
@@ -62,7 +63,7 @@ namespace credence {
 
 namespace ir {
 
-enum class Instruction
+enum class Instruction : std::uint8_t
 {
     FUNC_START,
     FUNC_END,
@@ -149,7 +150,7 @@ inline util::AST_Node make_block_statement(
 /**
  * @brief Create a statement AST from an rvalue statement or others
  */
-inline util::AST_Node make_block_statement(util::AST_Node block)
+inline util::AST_Node make_block_statement(util::AST_Node const& block)
 {
     auto block_statement = util::AST::object();
     block_statement["node"] = util::AST_Node{ "statement" };
@@ -315,7 +316,7 @@ inline void emit(std::ostream& os,
     for (auto i = instructions.begin(); i < instructions.end(); i++) {
         if (i == instructions.end() - 1 and indent) {
             emit_to(os, *i, false);
-            os << std::endl;
+            os << '\n';
         } else
             emit_to(os, *i, indent);
     }

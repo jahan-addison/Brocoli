@@ -12,6 +12,9 @@
 #include <sstream>
 #include <string>
 
+// fmt formats a compiled format string at run time under the clang static
+// analyzer, so these immediates are not constant expressions in clang-tidy
+#ifndef __clang_analyzer__
 static_assert(
     credence::target::arm64::assembly::make_asciz_immediate("._L_str1__")
         .value == "._L_str1__");
@@ -20,6 +23,7 @@ static_assert(credence::target::arm64::assembly::make_argv_offset_immediate(1)
 static_assert(
     credence::target::arm64::assembly::page_offset_upper_immediate("._L_str1__")
         .value.starts_with("._L_str1__"));
+#endif
 
 using namespace credence;
 using namespace credence::target::arm64;
@@ -32,11 +36,11 @@ namespace fs = std::filesystem;
 
 inline std::string read_file_from_path(std::string_view path)
 {
-    std::ifstream f(path.data(), std::ios::in | std::ios::binary);
+    std::ifstream f(fs::path{ path }, std::ios::in | std::ios::binary);
     const auto sz = fs::file_size(path);
 
     std::string result(sz, '\0');
-    f.read(result.data(), sz);
+    f.read(result.data(), static_cast<std::streamsize>(sz));
 
     return result;
 }

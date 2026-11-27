@@ -143,7 +143,7 @@ void Table::set_pointer_parameters_from_call_arguments()
                                          .is_pointer_parameter(call.parameter);
             auto& parameter = function.parameters[call.index];
             auto& frame = frames_.at(call.callee);
-            if (!pointer or parameter.starts_with("*") or
+            if (!pointer or parameter.starts_with('*') or
                 frame.locals[parameter].storage != Storage::SCALAR)
                 continue;
             frame.locals[parameter] = Value{ Storage::POINTER, "word" };
@@ -186,7 +186,7 @@ void Table::build_global_vector(Label const& name,
     std::size_t size,
     Node const& values)
 {
-    auto right_child_node = values;
+    auto const& right_child_node = values;
     std::vector<literal::Literal> values_at{};
 
     if (globals_.is_defined(name) or union_globals_.contains(name) or

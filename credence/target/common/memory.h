@@ -18,6 +18,7 @@
 
 #include <credence/types.h>
 #include <credence/util.h>
+#include <cstdint>
 #include <memory>
 #include <string>
 
@@ -70,7 +71,7 @@ constexpr std::size_t align_up_to(std::size_t value, std::size_t alignment)
 /**
  * @brief The position of an operand in an emitted instruction
  */
-enum class Operand_Type
+enum class Operand_Type : std::uint8_t
 {
     Destination,
     Source

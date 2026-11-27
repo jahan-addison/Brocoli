@@ -117,14 +117,14 @@ void IR_Instruction_Visitor::from_func_start_ita(Label const& name)
     auto instruction_accessor = accessor_->instructions();
     auto& table = accessor_->ir().get_table();
     credence_assert(table->function_contains(name));
-    accessor_->stack()->clear();
+    accessor_->devices().reset_storage_devices();
     stack_frame_.symbol = name;
     stack_frame_.set_stack_frame(name);
     auto& frame = table->get_stack_frame(name);
     auto& inst = instruction_accessor->get_instructions();
     // function prologue
-    x8664_add__asm(inst, push, rbp);
-    x8664_add__asm(inst, mov_, rbp, rsp);
+    x8664_add_asm(inst, push, rbp);
+    x8664_add_asm(inst, mov_, rbp, rsp);
     // a frame with no calls keeps its locals below rsp, in the red zone
     if (!ir::stack_frame_contains_call_instruction(
             frame, accessor_->ir().get_ir_instructions()))
@@ -132,7 +132,7 @@ void IR_Instruction_Visitor::from_func_start_ita(Label const& name)
     auto imm = u32_int_immediate(0);
     accessor_->flags().set_instruction_flag(
         common::flag::Align, instruction_accessor->size());
-    x8664_add__asm(inst, sub, rsp, imm);
+    x8664_add_asm(inst, sub, rsp, imm);
     if (name == "main")
         return;
     // a call overwrites the argument registers, so each parameter of a
@@ -140,13 +140,13 @@ void IR_Instruction_Visitor::from_func_start_ita(Label const& name)
     for (std::size_t index = 0; index < frame.parameters.size(); index++) {
         auto const& parameter = frame.parameters.at(index);
         auto value =
-            parameter.starts_with("*")
+            parameter.starts_with('*')
                 ? memory::registers::available_qword_register.at(index)
                 : memory::registers::available_dword_register.at(index);
         auto slot = fmt::format(
             "__parameter_{}", type::get_unary_rvalue_reference(parameter));
         accessor_->stack()->set_address_from_accumulator(slot, value);
-        x8664_add__asm(inst, mov, accessor_->stack()->get(slot).first, value);
+        x8664_add_asm(inst, mov, accessor_->stack()->get(slot).first, value);
     }
 }
 
@@ -161,7 +161,6 @@ void IR_Instruction_Visitor::from_func_end_ita()
     auto& frame = stack_frame_.get_stack_frame();
     if (ir::stack_frame_contains_call_instruction(
             frame, accessor_->ir().get_ir_instructions())) {
-        auto imm = u32_int_immediate(0);
         accessor_->flags().set_instruction_flag(
             common::flag::Align, instruction_accessor->size());
     }
@@ -198,7 +197,7 @@ void IR_Instruction_Visitor::from_locl_ita(ir::Quadruple const& inst)
             [&] {
                 auto lvalue =
                     type::get_unary_rvalue_reference(std::get<1>(inst));
-                stack->set_address_from_address(lvalue);
+                accessor_->devices().insert_pointer_to_device(lvalue);
             },
         m::pattern | m::app(is_vector, true) =
             [&] {
@@ -207,11 +206,7 @@ void IR_Instruction_Visitor::from_locl_ita(ir::Quadruple const& inst)
                 stack->set_address_from_size(locl_lvalue, size);
             },
         m::pattern | m::_ =
-            [&] {
-                auto type = table->get_type_from_object_data_type(
-                    locl_lvalue, stack_frame_.get_stack_frame());
-                stack->set_address_from_type(locl_lvalue, type);
-            }
+            [&] { accessor_->devices().insert_lvalue_to_device(locl_lvalue); }
 
     );
 }
@@ -459,7 +454,7 @@ void IR_Instruction_Visitor::insert_temporary_to_stack(LValue const& temporary,
     auto value = operand_inserter.insert_operand_into_accumulator(temporary);
     if (!accessor_->stack()->is_allocated(slot))
         accessor_->stack()->set_address_from_accumulator(slot, value);
-    x8664_add__asm(
+    x8664_add_asm(
         instructions, mov, accessor_->stack()->get(slot).first, value);
 }
 
@@ -491,8 +486,8 @@ void IR_Instruction_Visitor::from_if_ita(ir::Quadruple const& inst)
         operand_inserter.insert_operand_into_accumulator(std::get<1>(inst));
     auto label = direct_immediate(
         assembly::make_label(std::get<3>(inst), stack_frame_.symbol));
-    x8664_add__asm(instructions, cmp, condition, u32_int_immediate(0));
-    x8664_add__asm(instructions, jne, label);
+    x8664_add_asm(instructions, cmp, condition, u32_int_immediate(0));
+    x8664_add_asm(instructions, jne, label);
 }
 
 /**
@@ -546,7 +541,7 @@ void IR_Instruction_Visitor::from_goto_ita(ir::Quadruple const& inst)
         assembly::make_label(std::get<1>(inst), stack_frame_.symbol));
     auto instruction_accessor = accessor_->instructions();
     auto& instructions = instruction_accessor->get_instructions();
-    x8664_add__asm(instructions, goto_, label);
+    x8664_add_asm(instructions, goto_, label);
 }
 
 /**
@@ -595,14 +590,14 @@ void IR_Instruction_Visitor::from_leave_ita()
                 accessor_->ir().get_ir_instructions())) {
             auto size = u32_int_immediate(
                 accessor_->stack()->get_stack_frame_allocation_size());
-            x8664_add__asm(
+            x8664_add_asm(
                 accessor_->instructions()->get_instructions(), add, rsp, size);
         }
         syscall_ns::common::exit_syscall(instructions, 0);
     } else {
         // `leave` restores the stack pointer of a frame with calls
-        x8664_add__asm(instructions, leave);
-        x8664_add__asm(instructions, ret);
+        x8664_add_asm(instructions, leave);
+        x8664_add_asm(instructions, ret);
     }
 }
 

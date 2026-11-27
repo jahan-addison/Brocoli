@@ -27,6 +27,7 @@
 #include <matchit.h>
 #include <memory>
 #include <string>
+#include <utility>
 
 /****************************************************************************
  * Instruction Inserters
@@ -79,7 +80,7 @@ struct Relational_Operator_Inserter
     virtual ~Relational_Operator_Inserter() = default;
     explicit Relational_Operator_Inserter(
         memory::Memory_Access<Accessor> accessor)
-        : accessor_(accessor)
+        : accessor_(std::move(accessor))
         , stack_frame_(accessor_->get_frame_in_memory())
     {
     }
@@ -115,7 +116,7 @@ struct Bitwise_Operator_Inserter
 {
     virtual ~Bitwise_Operator_Inserter() = default;
     explicit Bitwise_Operator_Inserter(memory::Memory_Access<Accessor> accessor)
-        : accessor_(accessor)
+        : accessor_(std::move(accessor))
     {
     }
     virtual Instruction_Pair from_bitwise_expression_operands(
@@ -154,7 +155,7 @@ struct Invocation_Inserter
 {
     virtual ~Invocation_Inserter() = default;
     explicit Invocation_Inserter(memory::Memory_Access<Accessor> accessor)
-        : accessor_(accessor)
+        : accessor_(std::move(accessor))
         , stack_frame_(accessor_->get_frame_in_memory())
     {
     }
@@ -193,7 +194,7 @@ struct Arithemtic_Operator_Inserter
     virtual ~Arithemtic_Operator_Inserter() = default;
     explicit Arithemtic_Operator_Inserter(
         memory::Memory_Access<Accessor> accessor)
-        : accessor_(accessor)
+        : accessor_(std::move(accessor))
     {
     }
     virtual Instruction_Pair from_arithmetic_expression_operands(
@@ -226,7 +227,7 @@ struct Binary_Operator_Inserter
 {
     virtual ~Binary_Operator_Inserter() = default;
     explicit Binary_Operator_Inserter(memory::Memory_Access<Accessor> accessor)
-        : accessor_(accessor)
+        : accessor_(std::move(accessor))
         , stack_frame_(accessor_->get_frame_in_memory())
     {
     }
@@ -257,7 +258,7 @@ struct Unary_Operator_Inserter
 {
     virtual ~Unary_Operator_Inserter() = default;
     explicit Unary_Operator_Inserter(memory::Memory_Access<Accessor> accessor)
-        : accessor_(accessor)
+        : accessor_(std::move(accessor))
         , stack_frame_(accessor_->get_frame_in_memory())
     {
     }
@@ -300,7 +301,7 @@ struct Expression_Inserter
   public:
     virtual ~Expression_Inserter() = default;
     explicit Expression_Inserter(memory::Memory_Access<Accessor> accessor)
-        : accessor_(accessor)
+        : accessor_(std::move(accessor))
         , stack_frame_(accessor_->get_frame_in_memory())
     {
     }
@@ -332,7 +333,7 @@ class Instruction_Inserter
   public:
     virtual ~Instruction_Inserter() = default;
     explicit Instruction_Inserter(memory::Memory_Access<Accessor> accessor)
-        : accessor_(accessor)
+        : accessor_(std::move(accessor))
     {
     }
 
@@ -341,7 +342,7 @@ class Instruction_Inserter
     virtual void setup_stack_frame_in_function(
         ir::Instructions const& ir_instructions,
         Visitor& visitor,
-        int index) = 0;
+        std::size_t index) = 0;
 
   public:
     memory::Memory_Access<Accessor> accessor_;
@@ -368,7 +369,7 @@ class Operand_Inserter
   public:
     virtual ~Operand_Inserter() = default;
     explicit Operand_Inserter(memory::Memory_Access<Accessor> accessor)
-        : accessor_(accessor)
+        : accessor_(std::move(accessor))
         , stack_frame_(accessor_->get_frame_in_memory())
     {
     }

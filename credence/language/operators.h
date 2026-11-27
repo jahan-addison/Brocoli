@@ -14,6 +14,7 @@
 #pragma once
 #include <array>
 #include <credence/util.h>
+#include <cstdint>
 #include <map>
 #include <ostream>
 #include <sstream>
@@ -41,7 +42,7 @@ namespace credence::language::type {
 /**
  * @brief Operators
  */
-enum class Operator
+enum class Operator : std::uint8_t
 {
     // relational operators
     R_EQUAL,
@@ -90,7 +91,7 @@ enum class Operator
     B_ASSIGN
 };
 
-enum class Associativity
+enum class Associativity : std::uint8_t
 {
     LEFT_TO_RIGHT,
     RIGHT_TO_LEFT

@@ -130,7 +130,7 @@ class Function
         for (std::size_t i = 0; i < parameters.size(); i++) {
             if (type::get_unary_rvalue_reference(parameters[i]) ==
                 type::from_lvalue_offset(parameter))
-                return i;
+                return static_cast<int>(i);
         }
         return -1;
     }
@@ -166,7 +166,7 @@ class Function
 [[nodiscard]] constexpr bool is_pointer(RValue const& rvalue,
     Function const& stack_frame)
 {
-    return stack_frame.locals.is_pointer(rvalue) or rvalue.starts_with("&") or
+    return stack_frame.locals.is_pointer(rvalue) or rvalue.starts_with('&') or
            type::is_typed_rvalue_string(rvalue);
 }
 

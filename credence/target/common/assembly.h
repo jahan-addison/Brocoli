@@ -18,6 +18,7 @@
 #include <cmath>            // for fmod
 #include <credence/types.h> // for integral_from_type, get_value_f...
 #include <credence/util.h>  // for STRINGIFY, sv, Numeric, to_cons...
+#include <cstdint>          // for uint8_t
 #include <fmt/format.h>     // for format
 #include <ostream>          // for operator<<, basic_ostream
 #include <sstream>          // for basic_ostringstream, basic_ios
@@ -58,6 +59,8 @@
  * immediates. A string is compared by its contents, and a char by its code.
  */
 
+// NOLINTBEGIN(bugprone-macro-parentheses) the operator of a relational entry
+// is a token pasted between its operands, so it cannot be parenthesized
 #define make_integral_relational_entry(T, op)                   \
     m::pattern | std::string{ STRINGIFY(T) } = [&] {            \
         result = credence::type::integral_from_type<T>(lhs_imm) \
@@ -85,6 +88,7 @@
             make_string_relational_entry(op),                       \
             make_char_relational_entry(op));                        \
     }
+// NOLINTEND(bugprone-macro-parentheses)
 
 /**
  * Short-form immediates of the instruction inserters. A direct immediate is
@@ -95,11 +99,11 @@
 
 #define u32_int_immediate(i) target::common::assembly::make_u32_int_immediate(i)
 
-#define alignment__integer() target::common::assembly::make_u32_int_immediate(0)
+#define alignment_integer() target::common::assembly::make_u32_int_immediate(0)
 
-#define alignment__sp_integer(i) direct_immediate(fmt::format("[sp, #{}]", i))
+#define alignment_sp_integer(i) direct_immediate(fmt::format("[sp, #{}]", i))
 
-#define alignment__16_integer() \
+#define alignment_16_integer() \
     target::common::assembly::make_u32_int_immediate(16)
 
 /**
@@ -209,7 +213,7 @@ struct Operand_Resolver
  *
  *  Example:
  *
- *    arm64_add__asm(instructions, add, w8, w8, w7);
+ *    arm64_add_asm(instructions, add, w8, w8, w7);
  *
  *  Becomes:
  *
@@ -220,7 +224,7 @@ struct Assembly_Inserter
 {
     Assembly_Inserter() = delete;
 
-    enum class nary
+    enum class nary : std::uint8_t
     {
         ary_2,
         ary_3,
@@ -232,10 +236,10 @@ struct Assembly_Inserter
     template<typename T, nary Size>
     static void insert(Instructions& inst,
         Op op,
-        detail::Operand_Resolver<Register> s0 = std::monostate{},
-        detail::Operand_Resolver<Register> s1 = std::monostate{},
-        detail::Operand_Resolver<Register> s2 = std::monostate{},
-        detail::Operand_Resolver<Register> s3 = std::monostate{})
+        detail::Operand_Resolver<Register> const& s0 = std::monostate{},
+        detail::Operand_Resolver<Register> const& s1 = std::monostate{},
+        detail::Operand_Resolver<Register> const& s2 = std::monostate{},
+        detail::Operand_Resolver<Register> const& s3 = std::monostate{})
     {
         if constexpr (Size == nary::ary_2) {
             inst.emplace_back(T{ op.value, s0.value, s1.value });
@@ -251,13 +255,13 @@ struct Assembly_Inserter
 /**
  * @brief The operating system of the target, BSD is Darwin
  */
-enum class OS_Type
+enum class OS_Type : std::uint8_t
 {
     Linux,
     BSD
 };
 
-enum class Arch_Type
+enum class Arch_Type : std::uint8_t
 {
     ARM64,
     X8664
@@ -353,6 +357,8 @@ T trivial_arithmetic_from_numeric_table_type(std::string const& lhs,
                 return imm_l % imm_r;
             else
                 return std::fmod(imm_l, imm_r);
+        default:
+            break;
     }
     return result;
 }
@@ -371,6 +377,8 @@ T trivial_bitwise_from_numeric_table_type(std::string const& lhs,
 {
     T imm_l = type::integral_from_type<T>(lhs);
     T imm_r = type::integral_from_type<T>(rhs);
+    // NOLINTBEGIN(bugprone-signed-bitwise) a bitwise expression of B is the
+    // two's complement arithmetic of its signed type, which C++20 defines
     if (op == ">>")
         return imm_l >> imm_r;
     else if (op == "<<")
@@ -383,7 +391,10 @@ T trivial_bitwise_from_numeric_table_type(std::string const& lhs,
                 return imm_l & imm_r;
             case '|':
                 return imm_l | imm_r;
+            default:
+                break;
         }
+    // NOLINTEND(bugprone-signed-bitwise)
     return 0;
 }
 

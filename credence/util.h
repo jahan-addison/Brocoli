@@ -191,12 +191,6 @@ constexpr inline std::string to_constexpr_string(T const& val)
         if (negative)
             s.insert(0, 1, '-');
         return s;
-    } else if constexpr (std::is_same_v<T, uint_least32_t>) {
-        return std::to_string(val);
-    } else if constexpr (std::is_same_v<T, unsigned int>) {
-        return std::to_string(val);
-    } else if constexpr (std::is_same_v<T, std::size_t>) {
-        return std::to_string(val);
     } else if constexpr (std::is_integral_v<T>) {
         return std::to_string(val);
     } else if constexpr (std::is_same_v<T, double>) {
@@ -292,7 +286,7 @@ constexpr std::string tuple_to_string(std::tuple<Args...> const& t,
                 ...);
         },
         t);
-    result += ")";
+    result += ')';
     return result;
 }
 

@@ -92,47 +92,6 @@ namespace m = matchit;
 namespace detail {
 
 /**
- * @brief Get the storage device of an operand of a binary expression
- *
- * `argc` is at the address in r15 and an element of `argv` is after it, a
- * literal is an immediate, a local is its stack slot, and a temporary is in
- * rax
- *
- *  Examples:
- *
- *    get_register_for_binary_operator("argc", stack)      // [r15]
- *    get_register_for_binary_operator("argv[1]", stack)   // [r15 + 8 * 2]
- */
-assembly::Storage Register_Accessor::get_register_for_binary_operator(
-    RValue const& rvalue,
-    Stack_Pointer& stack)
-{
-    // the kernel passes argc on the stack, then the pointers of argv
-    if (rvalue == "argc")
-        return common::assembly::make_direct_immediate("[r15]");
-    if (type::from_lvalue_offset(rvalue) == "argv") {
-        auto offset = type::from_decay_offset(rvalue);
-        if (!util::is_numeric(offset) and
-            not address_accessor_.is_lvalue_storage_type(offset, "int"))
-            throw_compiletime_error(
-                fmt::format(
-                    "invalid argv access, argv has malformed offset '{}'",
-                    offset),
-                rvalue);
-        auto offset_integer = type::integral_from_type_ulint(offset) + 1;
-        return common::assembly::make_direct_immediate(
-            fmt::format("[r15 + 8 * {}]", offset_integer));
-    }
-    if (type::is_typed_rvalue(rvalue))
-        return type::get_typed_rvalue_from_string(rvalue);
-
-    if (stack->contains(rvalue))
-        return stack->get(rvalue).first;
-
-    return assembly::Register::rax;
-}
-
-/**
  * @brief Take the next argument register of a size, or a stack slot when
  * none is left
  *
@@ -143,13 +102,33 @@ assembly::Storage Register_Accessor::get_available_register(
     assembly::Operand_Size size,
     Stack_Pointer& stack)
 {
-    if (available_qword_.empty() or available_dword_.empty())
+    if (d_size_registers.empty() or w_size_registers.empty())
         return stack->allocate(size);
-    Storage storage = size == Operand_Size::Qword ? available_qword_.front()
-                                                  : available_dword_.front();
-    available_qword_.pop_front();
-    available_dword_.pop_front();
+    Storage storage = size == Operand_Size::Qword ? d_size_registers.front()
+                                                  : w_size_registers.front();
+    d_size_registers.pop_front();
+    w_size_registers.pop_front();
     return storage;
+}
+
+/**
+ * @brief Allocate the stack slot of a local of its type
+ *
+ * The size is the size of the value of the local in the object table
+ */
+void Device_Accessor::insert_lvalue_to_device(LValue const& lvalue)
+{
+    auto type = table_->get_type_from_object_data_type(
+        lvalue, stack_frame_.get_stack_frame());
+    stack_->set_address_from_type(lvalue, type);
+}
+
+/**
+ * @brief Allocate the stack slot of a pointer, an aligned quadword
+ */
+void Device_Accessor::insert_pointer_to_device(LValue const& lvalue)
+{
+    stack_->set_address_from_address(lvalue);
 }
 
 /**
@@ -173,7 +152,7 @@ Address_Accessor::get_lvalue_address_and_insertion_instructions(
     if (type::is_dereference_expression(lvalue)) {
         auto storage =
             stack_->get(type::get_unary_rvalue_reference(lvalue)).first;
-        x8664_add__asm(instructions.second, mov, Register::rax, storage);
+        x8664_add_asm(instructions.second, mov, Register::rax, storage);
         flag_accessor_.set_instruction_flag(
             common::flag::Indirect, instruction_index + 1);
         instructions.first = Register::rax;
@@ -198,8 +177,8 @@ Address_Accessor::get_lvalue_address_and_insertion_instructions(
         instructions.first = stack_->get_stack_offset_from_table_vector_index(
             lhs, offset, vector);
 
-    } else if (stack_->is_allocated(lvalue)) {
-        instructions.first = stack_->get(lvalue).first;
+    } else if (device_accessor_.is_lvalue_allocated_in_memory(lvalue)) {
+        instructions.first = device_accessor_.get_device_by_lvalue(lvalue);
     }
     return instructions;
 }

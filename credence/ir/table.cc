@@ -23,12 +23,13 @@
 #include <deque>                   // for deque
 #include <easyjson.h>              // for JSON
 #include <fmt/format.h>            // for format
+#include <iterator>                // for next
 #include <map>                     // for operator!=
 #include <matchit.h>               // for pattern, PatternHelper, Patt...
 #include <string>                  // for basic_string, char_traits
 #include <string_view>             // for basic_string_view, string_view
 #include <tuple>                   // for get, tuple, operator==
-#include <utility>                 // for pair, get
+#include <utility>                 // for pair, get, move
 
 /****************************************************************************
  * Table
@@ -148,7 +149,7 @@ void Table::from_locl_ita_instruction(Quadruple const& instruction)
 {
     auto label = std::get<1>(instruction);
     auto& frame = get_stack_frame();
-    if (label.starts_with("*"))
+    if (label.starts_with('*'))
         frame.locals.set_symbol_by_name(label.substr(1), "NULL");
     else
         frame.locals.set_symbol_by_name(label, type::NULL_RVALUE_LITERAL);
@@ -285,7 +286,8 @@ void Table::from_pointer_or_vector_assignment(LValue const& lvalue,
             auto value = type::get_typed_rvalue_from_string(rvalue);
             objects_->data().insert(value);
             if (objects_->vector_contains(lhs_lvalue))
-                objects_->get_vector(lhs_lvalue).data[offset] = value;
+                objects_->get_vector(lhs_lvalue).data[offset] =
+                    std::move(value);
         }
         return;
     }
@@ -293,7 +295,7 @@ void Table::from_pointer_or_vector_assignment(LValue const& lvalue,
     if (objects_->vector_contains(lvalue) and type::is_typed_rvalue(rvalue))
         objects_->data().insert(type::get_typed_rvalue_from_string(rvalue));
     // the right-hand-side is an address-of rvalue, `k = &m;`
-    if (rvalue.starts_with("&")) {
+    if (rvalue.starts_with('&')) {
         locals.set_symbol_by_name(
             lvalue, type::get_unary_rvalue_reference(rvalue));
         return;
@@ -385,7 +387,7 @@ void Table::bind_trivial_vector(LValue const& lvalue, RValue const& rvalue)
                          m::app(vector_contains, true)) =
             [&] {
                 auto value = objects_->get_vector(rvalue).data["0"];
-                objects_->get_vector(lvalue).data["0"] = value;
+                objects_->get_vector(lvalue).data["0"] = std::move(value);
             },
         m::pattern |
             m::ds(m::app(vector_contains, true), m::app(local_contains, true)) =
@@ -441,7 +443,8 @@ void Table::bind_vector(LValue const& lvalue, RValue const& rvalue)
                 // vector, e.g. `v[1] = v[0]`
                 auto value =
                     objects_->get_vector(rvalue_direct).data[rvalue_offset];
-                objects_->get_vector(lvalue_direct).data[lvalue_offset] = value;
+                objects_->get_vector(lvalue_direct).data[lvalue_offset] =
+                    std::move(value);
             },
         m::pattern |
             m::ds(m::app(vector_contains, true), m::app(local_contains, true)) =
@@ -702,13 +705,13 @@ object::Function& Table::get_stack_frame()
 bool stack_frame_contains_call_instruction(object::Function const& frame,
     Instructions const& instructions)
 {
-    auto end = instructions.begin() + frame.address_location[1];
-    auto search =
-        std::ranges::find_if(instructions.begin() + frame.address_location[0],
-            end,
-            [&](Quadruple const& quad) {
-                return std::get<0>(quad) == Instruction::CALL;
-            });
+    auto begin = std::next(instructions.begin(),
+        static_cast<std::ptrdiff_t>(frame.address_location[0]));
+    auto end = std::next(instructions.begin(),
+        static_cast<std::ptrdiff_t>(frame.address_location[1]));
+    auto search = std::ranges::find_if(begin, end, [&](Quadruple const& quad) {
+        return std::get<0>(quad) == Instruction::CALL;
+    });
     return search != end;
 }
 

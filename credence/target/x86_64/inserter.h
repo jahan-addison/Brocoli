@@ -25,7 +25,7 @@
 #include <optional>                             // for optional
 #include <string>                               // for basic_string, string
 #include <string_view>                          // for string_view
-#include <utility>                              // for make_pair
+#include <utility>                              // for make_pair, move
 
 /****************************************************************************
  * x86-64 Instruction Inserters
@@ -167,7 +167,7 @@ inline auto get_rvalue_pair_as_immediate(RValue const& lhs, RValue const& rhs)
 struct Relational_Operator_Inserter : public X8664_Relational_Operator_Inserter
 {
     explicit Relational_Operator_Inserter(memory::Memory_Access accessor)
-        : X8664_Relational_Operator_Inserter(accessor)
+        : X8664_Relational_Operator_Inserter(std::move(accessor))
     {
     }
     Instructions from_relational_expression_operands(
@@ -182,7 +182,7 @@ struct Relational_Operator_Inserter : public X8664_Relational_Operator_Inserter
 struct Bitwise_Operator_Inserter : public X8664_Bitwise_Operator_Inserter
 {
     explicit Bitwise_Operator_Inserter(memory::Memory_Access accessor)
-        : X8664_Bitwise_Operator_Inserter(accessor)
+        : X8664_Bitwise_Operator_Inserter(std::move(accessor))
     {
     }
     Instruction_Pair from_bitwise_expression_operands(
@@ -200,7 +200,7 @@ struct Bitwise_Operator_Inserter : public X8664_Bitwise_Operator_Inserter
 struct Invocation_Inserter : public X8664_Invocation_Inserter
 {
     explicit Invocation_Inserter(memory::Memory_Access accessor)
-        : X8664_Invocation_Inserter(accessor)
+        : X8664_Invocation_Inserter(std::move(accessor))
     {
     }
     arguments_t get_operands_storage_from_argument_stack() override;
@@ -231,7 +231,7 @@ struct Invocation_Inserter : public X8664_Invocation_Inserter
 struct Arithemtic_Operator_Inserter : public X8664_Arithemtic_Operator_Inserter
 {
     explicit Arithemtic_Operator_Inserter(memory::Memory_Access accessor)
-        : X8664_Arithemtic_Operator_Inserter(accessor)
+        : X8664_Arithemtic_Operator_Inserter(std::move(accessor))
     {
     }
     Instruction_Pair from_arithmetic_expression_operands(
@@ -249,7 +249,7 @@ struct Arithemtic_Operator_Inserter : public X8664_Arithemtic_Operator_Inserter
 struct Binary_Operator_Inserter : X8664_Binary_Operator_Inserter
 {
     explicit Binary_Operator_Inserter(memory::Memory_Access accessor)
-        : X8664_Binary_Operator_Inserter(accessor)
+        : X8664_Binary_Operator_Inserter(std::move(accessor))
     {
     }
     void from_binary_operator_expression(RValue const& rvalue) override;
@@ -280,7 +280,7 @@ struct Binary_Operator_Inserter : X8664_Binary_Operator_Inserter
 struct Unary_Operator_Inserter : public X8664_Unary_Operator_Inserter
 {
     explicit Unary_Operator_Inserter(memory::Memory_Access accessor)
-        : X8664_Unary_Operator_Inserter(accessor)
+        : X8664_Unary_Operator_Inserter(std::move(accessor))
     {
     }
 
@@ -303,7 +303,7 @@ struct Unary_Operator_Inserter : public X8664_Unary_Operator_Inserter
 struct Expression_Inserter : public X8664_Expression_Inserter
 {
     explicit Expression_Inserter(memory::Memory_Access accessor)
-        : X8664_Expression_Inserter(accessor)
+        : X8664_Expression_Inserter(std::move(accessor))
     {
     }
 
@@ -338,13 +338,13 @@ class Instruction_Inserter : public X8664_Instruction_Inserter
 {
   public:
     explicit Instruction_Inserter(memory::Memory_Access accessor)
-        : X8664_Instruction_Inserter(accessor)
+        : X8664_Instruction_Inserter(std::move(accessor))
     {
     }
     void from_ir_instructions(ir::Instructions const& ir_instructions) override;
     void setup_stack_frame_in_function(ir::Instructions const& ir_instructions,
         IR_Instruction_Visitor& visitor,
-        int index) override;
+        std::size_t index) override;
 };
 
 /**
@@ -357,7 +357,7 @@ class Operand_Inserter : public X8664_Operand_Inserter
 {
   public:
     explicit Operand_Inserter(memory::Memory_Access accessor)
-        : X8664_Operand_Inserter(accessor)
+        : X8664_Operand_Inserter(std::move(accessor))
     {
     }
 

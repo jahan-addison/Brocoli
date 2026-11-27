@@ -210,7 +210,7 @@ constexpr std::string emit_register_storage(assembly::Register device,
  */
 inline void emit_x86_64_assembly_intel_prologue(std::ostream& os)
 {
-    os << std::endl << ".intel_syntax noprefix" << std::endl << std::endl;
+    os << "\n.intel_syntax noprefix\n\n";
 }
 
 /**
@@ -401,7 +401,7 @@ void Data_Emitter::emit_data_section(std::ostream& os)
             auto data_item = instructions_[index];
             std::visit(
                 util::overload{
-                    [&](Label const& s) { os << s << ":" << std::endl; },
+                    [&](Label const& s) { os << s << ":" << '\n'; },
                     [&](assembly::Data_Pair const& s) {
                         os << assembly::tabwidth(4) << s.first;
                         if (s.first == Directive::asciz)
@@ -553,8 +553,7 @@ void Text_Emitter::emit_assembly_label(std::ostream& os,
     // branch labels
     if (set_label and label_size_ > 1) {
         branch_ = s;
-        auto label = util::get_numbers_from_string(s);
-        if (set_label and s == "_L1") {
+        if (s == "_L1") {
             // In the IR, labels are linear until _L1 and then branching starts.
             // So as soon as _L1 would be emitted, add a jump to _L1 instead
             emit_epilogue_jump(os);
@@ -657,7 +656,7 @@ void Text_Emitter::emit_function_epilogue(std::ostream& os)
 void Text_Emitter::emit_text_section(std::ostream& os)
 {
     auto instructions_accessor = accessor_->instructions();
-    auto& instructions = instructions_accessor->get_instructions();
+    auto const& instructions = instructions_accessor->get_instructions();
     emit_text_directives(os);
     for (std::size_t index = 0; index < instructions_accessor->size(); index++)
         emit_text_instruction(os, instructions[index], index);
@@ -670,7 +669,7 @@ void Text_Emitter::emit_text_section(std::ostream& os)
  */
 void Text_Emitter::emit_text_directives(std::ostream& os)
 {
-    os << assembly::Directive::text << std::endl;
+    os << assembly::Directive::text << '\n';
     assembly::newline(os, 1);
     emit_alignment_directive(os, 4, 2);
     os << assembly::tabwidth(4) << assembly::Directive::start;

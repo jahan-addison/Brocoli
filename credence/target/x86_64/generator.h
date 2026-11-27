@@ -167,9 +167,9 @@ class Text_Emitter
 {
   public:
     explicit Text_Emitter(memory::Memory_Access accessor)
-        : accessor_(accessor)
+        : accessor_(std::move(accessor))
     {
-        instructions_ = accessor->instructions();
+        instructions_ = accessor_->instructions();
     }
     friend class Assembly_Emitter;
 
@@ -215,7 +215,7 @@ class Data_Emitter
 {
   public:
     explicit Data_Emitter(memory::Memory_Access accessor)
-        : accessor_(accessor)
+        : accessor_(std::move(accessor))
     {
     }
     friend class Assembly_Emitter;

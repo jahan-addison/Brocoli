@@ -183,9 +183,9 @@ void Library_Call_Inserter::
                 auto immediate = type::get_value_from_typed_rvalue(
                     std::get<Immediate>(argument));
                 auto imm_1 = assembly::page_offset_upper_immediate(immediate);
-                arm64_add__asm(instructions, adrp, storage, imm_1);
+                arm64_add_asm(instructions, adrp, storage, imm_1);
                 auto imm_2 = assembly::page_offset_lower_immediate(immediate);
-                arm64_add__asm(instructions, add, storage, storage, imm_2);
+                arm64_add_asm(instructions, add, storage, storage, imm_2);
             },
         m::pattern | m::or_(m::app(is_double_immediate, true),
                          m::app(is_float_immediate, true)) =
@@ -193,10 +193,10 @@ void Library_Call_Inserter::
                 auto immediate = type::get_value_from_typed_rvalue(
                     std::get<Immediate>(argument));
                 auto imm_1 = assembly::page_offset_upper_immediate(immediate);
-                arm64_add__asm(instructions, adrp, x8, imm_1);
+                arm64_add_asm(instructions, adrp, x8, imm_1);
                 auto imm = assembly::load_offset_lower_immediate(
                     Register::x8, immediate);
-                arm64_add__asm(instructions, ldr, storage, imm);
+                arm64_add_asm(instructions, ldr, storage, imm);
             },
         m::pattern | m::_ =
             [&] {
@@ -207,26 +207,26 @@ void Library_Call_Inserter::
                         assembly::Register::x6) {
                     accessor_->state().set_signal_register(
                         assembly::Register::w0);
-                    arm64_add__asm(instructions, mov, storage, x6);
+                    arm64_add_asm(instructions, mov, storage, x6);
                     return;
                 }
                 if (is_variant(common::Stack_Offset, argument) or
                     assembly::is_immediate_pc_address_offset(argument)) {
-                    arm64_add__asm(instructions, ldr, storage, argument);
+                    arm64_add_asm(instructions, ldr, storage, argument);
                 } else if (is_variant(Register, argument) and
                            std::get<Register>(argument) == Register::x19) {
                     // argc, argv register
                     auto argc_imm = direct_immediate("[x19]");
-                    arm64_add__asm(instructions, ldr, storage, argc_imm);
+                    arm64_add_asm(instructions, ldr, storage, argc_imm);
 
                 } else if (is_variant(Register, argument) and
                            assembly::is_word_register(
                                std::get<Register>(argument))) {
                     auto storage_dword =
                         assembly::get_word_register_from_doubleword(storage);
-                    arm64_add__asm(instructions, mov, storage_dword, argument);
+                    arm64_add_asm(instructions, mov, storage_dword, argument);
                 } else
-                    arm64_add__asm(instructions, mov, storage, argument);
+                    arm64_add_asm(instructions, mov, storage, argument);
             });
 }
 
@@ -258,7 +258,7 @@ bool Library_Call_Inserter::try_insert_operand_from_argv_rvalue(
                 assembly::make_argv_offset_immediate(offset_integer);
             auto storage =
                 assembly::get_doubleword_register_from_word(argument_storage);
-            arm64_add__asm(instructions, ldr, storage, argv_offset);
+            arm64_add_asm(instructions, ldr, storage, argv_offset);
             return true;
         }
     } catch ([[maybe_unused]] std::out_of_range const& e) {
@@ -318,7 +318,7 @@ void Library_Call_Inserter::make_library_call(Instructions& instructions,
                 accessor_->ir().get_index(),
                 accessor_->get_frame_in_memory().get_stack_frame());
             auto stack_address = accessor_->stack()->get(lvalue).first;
-            arm64_add__asm(instructions, ldr, storage, stack_address);
+            arm64_add_asm(instructions, ldr, storage, stack_address);
         } else {
             insert_argument_instructions_standard_library_function(
                 storage, instructions, arg, i);
@@ -338,7 +338,7 @@ void Library_Call_Inserter::make_library_call(Instructions& instructions,
     auto call_immediate =
         common::assembly::make_array_immediate(syscall_function);
 #endif
-    arm64_add__asm(instructions, bl, call_immediate);
+    arm64_add_asm(instructions, bl, call_immediate);
 }
 
 } // namespace credence::target::arm64::runtime

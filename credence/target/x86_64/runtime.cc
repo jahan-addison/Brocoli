@@ -287,7 +287,7 @@ void Library_Call_Inserter::make_library_call(Instructions& instructions,
         get_argument_general_purpose_registers();
 
     for (std::size_t i = 0; i < arguments.size(); i++) {
-        auto arg = arguments.at(i);
+        auto const& arg = arguments.at(i);
         Register storage{};
         // the type of a literal is only its storage while it is a label
         std::string arg_type =

@@ -15,7 +15,7 @@
 
 #include "stack_frame.h" // for Locals
 #include "types.h"       // for RValue, LValue, Stack_Pointer, Table...
-#include <concepts>      // for derived_from
+#include <concepts>      // for derived_from, same_as
 #include <credence/object/table.h> // for Object, get_rvalue_at_lvalue_object_...
 #include <credence/symbol.h>       // for Symbol_Table
 #include <credence/types.h> // for from_lvalue_offset, get_rvalue_data_...
@@ -90,11 +90,31 @@ class Memory_Accessor
 };
 
 /**
+ * @brief The storage device of each local of a function, the layer below the
+ * address where each target decides whether a local is a register or a stack
+ * slot, and that is reset at each `BeginFunc`
+ *
+ *  Example:
+ *
+ *    accessor_->devices().insert_lvalue_to_device("x");
+ *    accessor_->devices().get_device_by_lvalue("x");   // w9 or [rbp - 4]
+ */
+template<typename T>
+concept Device_Accessor_T = requires(T& devices, LValue const& lvalue) {
+    devices.reset_storage_devices();
+    devices.insert_lvalue_to_device(lvalue);
+    { devices.is_lvalue_allocated_in_memory(lvalue) } -> std::same_as<bool>;
+    devices.get_device_by_lvalue(lvalue);
+    devices.get_word_size_from_lvalue(lvalue);
+};
+
+/**
  * @brief The roles of a target's Memory_Accessor, each of which hands out one
  * private layer of the aggregate so an inserter reaches a layer only through
  * its role
  *
- * Note: a target may add its own roles, such as `devices()` on arm64
+ * Note: a target may add its own roles beyond these, and the `devices()`
+ * role of each target satisfies Device_Accessor_T
  *
  *  Example:
  *
@@ -103,6 +123,7 @@ class Memory_Accessor
 template<typename T>
 concept Memory_Accessor_T =
     std::derived_from<T, Memory_Accessor> and requires(T& accessor) {
+        { accessor.devices() } -> Device_Accessor_T;
         accessor.state();
         accessor.ir();
         accessor.flags();
@@ -137,9 +158,6 @@ class Address_Accessor;
  *
  *  * the address assignment, set while an address-of expression is stored to
  *    an lvalue
- *
- *  * the folded immediates, the value of a bitwise expression of two
- *    immediates in a temporary, in place of a `mov`
  */
 template<Enum_T Register>
 class Instruction_State
@@ -188,19 +206,12 @@ class Instruction_State
         return std::exchange(address_assignment_, false);
     }
 
-  public:
-    void push_folded_immediate(Immediate const& immediate)
-    {
-        folded_immediates_.emplace_back(immediate);
-    }
-
   private:
     Register empty_register_;
     Register signal_register_;
     Held_Temporary held_temporary_{};
     bool relational_jump_{ false };
     bool address_assignment_{ false };
-    std::deque<Immediate> folded_immediates_{};
 };
 
 /**
@@ -483,11 +494,6 @@ class Address_Accessor
     using Stack_Pointer_Type = Stack_Pointer<Stack>;
     using Address = Address_Result;
     using Storage = Storage_T<Registers>;
-
-    Storage get_lvalue_address_from_stack(LValue const& lvalue)
-    {
-        return stack_->get(lvalue).first;
-    }
 
     /**
      * @brief Check the type of the value an lvalue holds

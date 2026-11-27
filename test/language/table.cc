@@ -85,21 +85,14 @@ TEST_CASE_FIXTURE(HIR_Table_Fixture, "Type Checking")
             fs::path(type_fixtures_path).append(std::format("{}.json", i));
         auto path_contents =
             easyjson::JSON::load_file(file_path.string()).to_deque();
-        if (*status) {
-            try {
-                Table::build(path_contents[0], path_contents[1]);
-            } catch (...) {
-                FAIL(std::format(
-                    "FAIL: Expected '{}.json' to NOT throw exception", i));
-            }
-        } else
-            try {
-                Table::build(path_contents[0], path_contents[1]);
-                FAIL(std::format(
-                    "FAIL: Expected '{}.json' to throw exception", i));
-            } catch (...) {
-                // expected
-            }
+        if (*status)
+            CHECK_NOTHROW_MESSAGE(
+                Table::build(path_contents[0], path_contents[1]),
+                std::format("expected '{}.json' to not throw", i));
+        else
+            CHECK_THROWS_MESSAGE(
+                Table::build(path_contents[0], path_contents[1]),
+                std::format("expected '{}.json' to throw", i));
     }
 }
 

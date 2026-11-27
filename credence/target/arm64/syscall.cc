@@ -12,7 +12,7 @@
  ****************************************************************************/
 
 #include "syscall.h"
-#include "assembly.h"                        // for Mnemonic, arm64_add__asm
+#include "assembly.h"                        // for Mnemonic, arm64_add_asm
 #include "memory.h"                          // for Memory_Access, Memory_A...
 #include "runtime.h"                         // for get_argument_general_pu...
 #include <credence/error.h>                  // for assert_equal_impl, cred...
@@ -97,7 +97,7 @@ bool Syscall_Invocation_Inserter::check_signal_register_from_safe_address(
     if (storage == arm_rr(x6) and
         accessor_->state().get_signal_register() == Register::x6) {
         accessor_->state().set_signal_register(Register::w0);
-        arm64_add__asm(instructions, mov, storage, arm_rr(x6));
+        arm64_add_asm(instructions, mov, storage, arm_rr(x6));
         return false;
     }
     return true;
@@ -168,27 +168,27 @@ void Syscall_Invocation_Inserter::make_syscall(
 #if defined(__linux__)
     assembly::Storage syscall_number =
         target::common::assembly::make_numeric_immediate(syscall_entry[0]);
-    arm64_add__asm(instructions, mov, x8, syscall_number);
+    arm64_add_asm(instructions, mov, x8, syscall_number);
 #elif defined(__APPLE__) || defined(__bsdi__)
     target::arm64::assembly::Storage syscall_number =
         target::common::assembly::make_numeric_immediate(syscall_entry[0]);
-    arm64_add__asm(instructions, mov, x16, syscall_number);
+    arm64_add_asm(instructions, mov, x16, syscall_number);
 #elif defined(_WIN32) || defined(_WIN64)
     assembly::Storage syscall_number =
         target::common::assembly::make_numeric_immediate(syscall_entry[0]);
-    arm64_add__asm(instructions, mov, x8, syscall_number);
+    arm64_add_asm(instructions, mov, x8, syscall_number);
 #else
     credence_error("Operating system not supported");
 #endif
 
 #if defined(__linux__)
-    arm64_add__asm(
+    arm64_add_asm(
         instructions, svc, common::assembly::make_direct_immediate("#0"));
 #elif defined(__APPLE__) || defined(__bsdi__)
-    arm64_add__asm(
+    arm64_add_asm(
         instructions, svc, common::assembly::make_direct_immediate("#0x80"));
 #elif defined(_WIN32) || defined(_WIN64)
-    arm64_add__asm(
+    arm64_add_asm(
         instructions, svc, common::assembly::make_direct_immediate("#0"));
 
 #endif
@@ -221,22 +221,22 @@ void Syscall_Invocation_Inserter::syscall_operands_to_instructions(
             auto immediate =
                 type::get_value_from_typed_rvalue(std::get<Immediate>(arg));
             auto imm_1 = assembly::page_offset_upper_immediate(immediate);
-            arm64_add__asm(instructions, adrp, storage, imm_1);
+            arm64_add_asm(instructions, adrp, storage, imm_1);
             auto imm_2 = assembly::page_offset_lower_immediate(immediate);
-            arm64_add__asm(instructions, add, storage, storage, imm_2);
+            arm64_add_asm(instructions, add, storage, storage, imm_2);
         } else if (assembly::is_immediate_pc_address_offset(arg)) {
-            arm64_add__asm(instructions, ldr, storage, arg);
+            arm64_add_asm(instructions, ldr, storage, arg);
         } else if (check_signal_register_from_safe_address(
                        instructions, storage)) {
             if (is_variant(common::Stack_Offset, arg))
-                arm64_add__asm(instructions, ldr, storage, arg);
+                arm64_add_asm(instructions, ldr, storage, arg);
             else if (is_variant(Register, arg) and
                      assembly::is_word_register(std::get<Register>(arg))) {
                 auto storage_dword =
                     assembly::get_word_register_from_doubleword(storage);
-                arm64_add__asm(instructions, mov, storage_dword, arg);
+                arm64_add_asm(instructions, mov, storage_dword, arg);
             } else
-                arm64_add__asm(instructions, mov, storage, arg);
+                arm64_add_asm(instructions, mov, storage, arg);
         }
     }
 }

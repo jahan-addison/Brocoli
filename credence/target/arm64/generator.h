@@ -21,6 +21,7 @@
 #include <credence/target/common/flags.h> // for flags
 #include <credence/util.h>                // for AST_Node, CREDENCE_PRIVATE...
 #include <cstddef>                        // for size_t
+#include <cstdint>                        // for uint8_t
 #include <deque>                          // for deque
 #include <ostream>                        // for ostream
 #include <string>                         // for basic_string, string
@@ -145,7 +146,7 @@ class Storage_Emitter
     }
 
     // the position of an operand, from the first
-    enum class Source
+    enum class Source : std::uint8_t
     {
         s_0,
         s_1,
@@ -201,9 +202,9 @@ class Text_Emitter
 {
   public:
     explicit Text_Emitter(memory::Memory_Access accessor)
-        : accessor_(accessor)
+        : accessor_(std::move(accessor))
     {
-        instructions_ = accessor->instructions();
+        instructions_ = accessor_->instructions();
     }
     friend class Assembly_Emitter;
 
@@ -258,7 +259,7 @@ class Data_Emitter
 {
   public:
     explicit Data_Emitter(memory::Memory_Access accessor)
-        : accessor_(accessor)
+        : accessor_(std::move(accessor))
     {
     }
     friend class Assembly_Emitter;

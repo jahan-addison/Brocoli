@@ -172,7 +172,7 @@ AST_Lowering::Node AST_Lowering::from_indirect_relation_node(Node const& node)
     auto chain = util::AST::object();
     chain["node"] = relation["node"];
     chain["root"] = relation["root"];
-    chain["left"] = indirect;
+    chain["left"] = std::move(indirect);
     chain["right"] = relation["right"];
     return chain;
 }
@@ -419,7 +419,6 @@ hir::Data_Kind AST_Lowering::from_assignment_expression_node(Node const& node)
 hir::Data_Kind::LValue AST_Lowering::from_lvalue_expression_node(
     Node const& node)
 {
-    auto constant_type = node["node"].to_string();
     if (!symbols_.is_defined(node["root"].to_string()) and
         !symbols_.is_defined(node["left"]["root"].to_string()) and
         not is_member_symbol(node["root"].to_string())) {

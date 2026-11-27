@@ -178,7 +178,7 @@ Directives byte_(type::semantic::RValue const& rvalue)
 
 Instruction_Pair mul(Storage const& dest, Storage const& src)
 {
-    x8664__make_and_ret(imul, dest, src);
+    x8664_make_and_ret(imul, dest, src);
 }
 
 /**
@@ -205,14 +205,14 @@ Instruction_Pair div(Storage const& dest, Storage const& src)
     auto divisor = src;
     if (is_variant(Immediate, divisor)) {
         auto scratch = qword ? Register::r11 : Register::r11d;
-        x8664_add__asm(inst, mov, scratch, divisor);
+        x8664_add_asm(inst, mov, scratch, divisor);
         divisor = scratch;
     }
     if (qword)
-        x8664_add__asm(inst, cqo);
+        x8664_add_asm(inst, cqo);
     else
-        x8664_add__asm(inst, cdq);
-    x8664_add__asm(inst, idiv, divisor);
+        x8664_add_asm(inst, cdq);
+    x8664_add_asm(inst, idiv, divisor);
     return { qword ? x64_rr(rax) : x64_rr(eax), inst };
 }
 
@@ -226,35 +226,35 @@ Instruction_Pair mod(Storage const& dest, Storage const& src)
 {
     auto [quotient, inst] = div(dest, src);
     if (quotient == Storage{ Register::rax })
-        x8664_add__asm(inst, mov, rax, rdx);
+        x8664_add_asm(inst, mov, rax, rdx);
     else
-        x8664_add__asm(inst, mov, eax, edx);
+        x8664_add_asm(inst, mov, eax, edx);
     return { quotient, inst };
 }
 
 Instruction_Pair sub(Storage const& dest, Storage const& src)
 {
-    x8664__make_and_ret(sub, dest, src);
+    x8664_make_and_ret(sub, dest, src);
 }
 
 Instruction_Pair add(Storage const& dest, Storage const& src)
 {
-    x8664__make_and_ret(add, dest, src);
+    x8664_make_and_ret(add, dest, src);
 }
 
 Instruction_Pair inc(Storage const& dest)
 {
-    x8664__make_and_ret(inc, dest);
+    x8664_make_and_ret(inc, dest);
 }
 
 Instruction_Pair dec(Storage const& dest)
 {
-    x8664__make_and_ret(dec, dest);
+    x8664_make_and_ret(dec, dest);
 }
 
 Instruction_Pair neg(Storage const& dest)
 {
-    x8664__make_and_ret(neg, dest);
+    x8664_make_and_ret(neg, dest);
 }
 
 Instructions r_eq(Storage const& dest,
@@ -263,9 +263,9 @@ Instructions r_eq(Storage const& dest,
     x86_64::assembly::Register const& with)
 {
     auto inst = make_empty();
-    x8664_add__asm(inst, mov, with, dest);
-    x8664_add__asm(inst, cmp, with, src);
-    x8664_add__asm(inst, je, direct_immediate(to));
+    x8664_add_asm(inst, mov, with, dest);
+    x8664_add_asm(inst, cmp, with, src);
+    x8664_add_asm(inst, je, direct_immediate(to));
     return inst;
 }
 
@@ -275,9 +275,9 @@ Instructions r_neq(Storage const& dest,
     x86_64::assembly::Register const& with)
 {
     auto inst = make_empty();
-    x8664_add__asm(inst, mov, with, dest);
-    x8664_add__asm(inst, cmp, with, src);
-    x8664_add__asm(inst, jne, direct_immediate(to));
+    x8664_add_asm(inst, mov, with, dest);
+    x8664_add_asm(inst, cmp, with, src);
+    x8664_add_asm(inst, jne, direct_immediate(to));
     return inst;
 }
 
@@ -287,9 +287,9 @@ Instructions r_lt(Storage const& dest,
     x86_64::assembly::Register const& with)
 {
     auto inst = make_empty();
-    x8664_add__asm(inst, mov, with, dest);
-    x8664_add__asm(inst, cmp, with, src);
-    x8664_add__asm(inst, jl, direct_immediate(to));
+    x8664_add_asm(inst, mov, with, dest);
+    x8664_add_asm(inst, cmp, with, src);
+    x8664_add_asm(inst, jl, direct_immediate(to));
     return inst;
 }
 
@@ -299,9 +299,9 @@ Instructions r_gt(Storage const& dest,
     x86_64::assembly::Register const& with)
 {
     auto inst = make_empty();
-    x8664_add__asm(inst, mov, with, dest);
-    x8664_add__asm(inst, cmp, with, src);
-    x8664_add__asm(inst, jg, direct_immediate(to));
+    x8664_add_asm(inst, mov, with, dest);
+    x8664_add_asm(inst, cmp, with, src);
+    x8664_add_asm(inst, jg, direct_immediate(to));
     return inst;
 }
 
@@ -311,9 +311,9 @@ Instructions r_le(Storage const& dest,
     x86_64::assembly::Register const& with)
 {
     auto inst = make_empty();
-    x8664_add__asm(inst, mov, with, dest);
-    x8664_add__asm(inst, cmp, with, src);
-    x8664_add__asm(inst, jle, direct_immediate(to));
+    x8664_add_asm(inst, mov, with, dest);
+    x8664_add_asm(inst, cmp, with, src);
+    x8664_add_asm(inst, jle, direct_immediate(to));
     return inst;
 }
 
@@ -323,40 +323,40 @@ Instructions r_ge(Storage const& dest,
     x86_64::assembly::Register const& with)
 {
     auto inst = make_empty();
-    x8664_add__asm(inst, mov, with, dest);
-    x8664_add__asm(inst, cmp, with, src);
-    x8664_add__asm(inst, jge, direct_immediate(to));
+    x8664_add_asm(inst, mov, with, dest);
+    x8664_add_asm(inst, cmp, with, src);
+    x8664_add_asm(inst, jge, direct_immediate(to));
     return inst;
 }
 
 Instruction_Pair rshift(Storage const& dest, Storage const& src)
 {
-    x8664__make_and_ret(shr, dest, src);
+    x8664_make_and_ret(shr, dest, src);
 }
 
 Instruction_Pair lshift(Storage const& dest, Storage const& src)
 {
-    x8664__make_and_ret(shl, dest, src);
+    x8664_make_and_ret(shl, dest, src);
 }
 
 Instruction_Pair b_and(Storage const& dest, Storage const& src)
 {
-    x8664__make_and_ret(and_, dest, src);
+    x8664_make_and_ret(and_, dest, src);
 }
 
 Instruction_Pair b_or(Storage const& dest, Storage const& src)
 {
-    x8664__make_and_ret(or_, dest, src);
+    x8664_make_and_ret(or_, dest, src);
 }
 
 Instruction_Pair b_xor(Storage const& dest, Storage const& src)
 {
-    x8664__make_and_ret(xor_, dest, src);
+    x8664_make_and_ret(xor_, dest, src);
 }
 
 Instruction_Pair b_not(Storage const& dest)
 {
-    x8664__make_and_ret(not_, dest);
+    x8664_make_and_ret(not_, dest);
 }
 
 /**
@@ -365,19 +365,18 @@ Instruction_Pair b_not(Storage const& dest)
 Instruction_Pair u_not(Storage const& dest)
 {
     auto inst = make_empty();
-    x8664_add__asm(inst, mov, eax, dest);
-    x8664_add__asm(inst, cmp, eax, common::assembly::make_numeric_immediate(0));
-    x8664_add__asm(inst, setne, al);
-    x8664_add__asm(
-        inst, xor_, al, common::assembly::make_numeric_immediate(-1));
-    x8664_add__asm(inst, and_, al, common::assembly::make_numeric_immediate(1));
-    x8664_add__asm(inst, movzx, eax, al);
+    x8664_add_asm(inst, mov, eax, dest);
+    x8664_add_asm(inst, cmp, eax, common::assembly::make_numeric_immediate(0));
+    x8664_add_asm(inst, setne, al);
+    x8664_add_asm(inst, xor_, al, common::assembly::make_numeric_immediate(-1));
+    x8664_add_asm(inst, and_, al, common::assembly::make_numeric_immediate(1));
+    x8664_add_asm(inst, movzx, eax, al);
     return { x64_rr(eax), inst };
 }
 
 Instruction_Pair lea(Storage const& dest, Storage const& src)
 {
-    x8664__make_and_ret(lea, dest, src);
+    x8664_make_and_ret(lea, dest, src);
 }
 
 } // namespace x86_64::detail

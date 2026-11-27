@@ -68,7 +68,7 @@ std::string read_file_from_path(std::filesystem::path const& path)
     const auto sz = fs::file_size(path);
 
     std::string result(sz, '\0');
-    f.read(result.data(), sz);
+    f.read(result.data(), static_cast<std::streamsize>(sz));
 
     return result;
 }

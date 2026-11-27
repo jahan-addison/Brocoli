@@ -253,7 +253,7 @@ void ITA::build_from_global_vector(std::string const& name,
     std::size_t size,
     Node const& values)
 {
-    auto right_child_node = values;
+    auto const& right_child_node = values;
     std::vector<language::literal::Literal> values_at{};
 
     if (std::cmp_not_equal(size, right_child_node.to_deque().size()))
@@ -863,11 +863,11 @@ void detail::emit_to(std::ostream& os, Quadruple const& ita, bool indent)
     // clang-format on
     if (util::range_contains(op, lhs_instruction)) {
         if (op == Instruction::LABEL) {
-            os << std::get<1>(ita) << ":" << std::endl;
+            os << std::get<1>(ita) << ":" << '\n';
         } else {
             if (indent)
                 os << "    ";
-            os << op << " " << std::get<1>(ita) << ";" << std::endl;
+            os << op << " " << std::get<1>(ita) << ";" << '\n';
         }
     } else {
         if (indent) {
@@ -876,24 +876,20 @@ void detail::emit_to(std::ostream& os, Quadruple const& ita, bool indent)
         }
         m::match(op)(
             m::pattern | Instruction::RETURN =
-                [&] {
-                    os << op << " " << std::get<1>(ita) << ";" << std::endl;
-                },
-            m::pattern |
-                Instruction::LEAVE = [&] { os << op << ";" << std::endl; },
+                [&] { os << op << " " << std::get<1>(ita) << ";" << '\n'; },
+            m::pattern | Instruction::LEAVE = [&] { os << op << ";" << '\n'; },
             m::pattern | m::or_(Instruction::IF, Instruction::JMP_E) =
                 [&] {
                     os << op << " " << std::get<1>(ita) << " "
                        << std::get<2>(ita) << " " << std::get<3>(ita) << ";"
-                       << std::endl;
+                       << '\n';
                 },
             m::pattern | m::_ =
                 [&] {
                     os << std::get<1>(ita) << " " << op << " "
-                       << std::get<2>(ita) << std::get<3>(ita) << ";"
-                       << std::endl;
+                       << std::get<2>(ita) << std::get<3>(ita) << ";" << '\n';
                     if (indent and op == Instruction::FUNC_END)
-                        os << std::endl << std::endl;
+                        os << "\n\n";
                 }
 
         );

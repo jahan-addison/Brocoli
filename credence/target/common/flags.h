@@ -64,13 +64,13 @@ using flags = unsigned int;
 enum Instruction_Flag : flags
 {
     None = 0,
-    Address = 1 << 0,
-    Indirect = 1 << 1,
-    Indirect_Source = 1 << 2,
-    Align = 1 << 3,
-    Argument = 1 << 4,
-    QWord_Dest = 1 << 5,
-    Load = 1 << 6,
+    Address = 1U << 0,
+    Indirect = 1U << 1,
+    Indirect_Source = 1U << 2,
+    Align = 1U << 3,
+    Argument = 1U << 4,
+    QWord_Dest = 1U << 5,
+    Load = 1U << 6,
 };
 
 } // namespace flags

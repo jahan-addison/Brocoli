@@ -251,8 +251,7 @@ struct Instruction_Accessor : public ARM64_Instruction_Accessor
 /**
  * @brief The registers of locals, and the stack move register
  *
- * The registers of locals are reset at the end of each function, and the
- * scratch registers of an assignment are held until it is done
+ * The registers of locals are reset at the end of each function
  */
 struct Register_Accessor : public ARM64_Register_Accessor
 {
@@ -279,18 +278,6 @@ struct Register_Accessor : public ARM64_Register_Accessor
         d_size_registers = registers::available_doubleword;
         w_size_registers = registers::available_word;
     }
-
-    /**
-     * @brief Hold a scratch register of an assignment until it is done
-     */
-    void push_scratch_register(Register scratch)
-    {
-        scratch_registers_.emplace_back(scratch);
-    }
-    void clear_scratch_registers() { scratch_registers_.clear(); }
-
-  private:
-    std::deque<Register> scratch_registers_{};
 };
 
 /**
@@ -330,19 +317,8 @@ class Device_Accessor
 
   public:
     bool is_lvalue_allocated_in_memory(LValue const& lvalue);
-    Device get_operand_rvalue_device(RValue const& rvalue);
     Device get_device_by_lvalue(LValue const& lvalue);
-    inline Device get_device_by_lvalue_reference(RValue const& rvalue)
-    {
-        return get_device_by_lvalue(rvalue);
-    }
-    constexpr void set_current_frame_symbol(Label const& label)
-    {
-        frame_symbol = label;
-    }
-    constexpr Label get_current_frame_name() { return frame_symbol; }
 
-  public:
   public:
     inline Operand_Size get_word_size_from_lvalue(LValue const& lvalue)
     {
@@ -351,20 +327,14 @@ class Device_Accessor
     }
 
   public:
-    Register get_available_storage_register(Operand_Size size);
     void insert_lvalue_to_device(LValue const& lvalue, Operand_Size size);
     void insert_lvalue_to_device(LValue const& lvalue,
         std::source_location const& location = std::source_location::current());
-    void set_vector_offset_to_storage_space(LValue const& lvalue);
     bool is_address_taken(LValue const& lvalue);
-    Size get_size_from_rvalue_reference(RValue const& rvalue);
-    Size get_size_from_typed_rvalue(LValue const& lvalue,
-        Immediate const& rvalue);
 
   private:
     void set_word_or_doubleword_register(LValue const& lvalue,
         Operand_Size size);
-    Size get_size_of_address_table();
 
   private:
     Table_Pointer& table_;
@@ -374,13 +344,9 @@ class Device_Accessor
     Stack_Pointer& stack_;
 
   private:
-    Label frame_symbol{ "main" };
-
     Ordered_Map<LValue, Storage> address_table{};
     std::set<unsigned int> register_id{};
     unsigned int id_index{ 0 };
-
-    unsigned int vector_index{ 0 };
 };
 
 /**

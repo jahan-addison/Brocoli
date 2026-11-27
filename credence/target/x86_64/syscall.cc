@@ -82,11 +82,11 @@ get_argument_general_purpose_registers()
  * the argument is in rdi.
  */
 assembly::Register get_storage_register_from_safe_address(
-    assembly::Storage argument,
+    assembly::Storage const& argument,
     std::deque<assembly::Register>& qword_registers,
     std::deque<assembly::Register>& dword_registers,
     [[maybe_unused]] memory::Stack_Frame* stack_frame,
-    memory::Memory_Access* accessor)
+    memory::Memory_Access const* accessor)
 {
     Register storage = Register::rdi;
     if (accessor != nullptr) {
@@ -109,14 +109,14 @@ assembly::Register get_storage_register_from_safe_address(
  */
 bool check_signal_register_from_safe_address(Instructions& instructions,
     assembly::Register storage,
-    memory::Memory_Access* accessor)
+    memory::Memory_Access const* accessor)
 {
     if (accessor != nullptr) {
         auto accessor_ = *accessor;
         if (storage == x64_rr(rsi) and
             accessor_->state().get_signal_register() == Register::rcx) {
             accessor_->state().set_signal_register(Register::eax);
-            x8664_add__asm(instructions, movq_, storage, rcx);
+            x8664_add_asm(instructions, movq_, storage, rcx);
             return false;
         }
     }
@@ -134,20 +134,20 @@ void syscall_operands_to_instructions(Instructions& instructions,
     std::deque<assembly::Register>& qword_registers,
     std::deque<assembly::Register>& dword_registers,
     memory::Stack_Frame* stack_frame,
-    memory::Memory_Access* accessor)
+    memory::Memory_Access const* accessor)
 {
     for (std::size_t i = 0; i < arguments.size(); i++) {
-        auto arg = arguments[i];
+        auto const& arg = arguments[i];
         Register storage = get_storage_register_from_safe_address(
             arg, qword_registers, dword_registers, stack_frame, accessor);
 
         qword_registers.pop_back();
         dword_registers.pop_back();
         if (is_immediate_rip_address_offset(arg))
-            x8664_add__asm(instructions, lea, storage, arg);
+            x8664_add_asm(instructions, lea, storage, arg);
         else if (check_signal_register_from_safe_address(
                      instructions, storage, accessor))
-            x8664_add__asm(instructions, movq_, storage, arg);
+            x8664_add_asm(instructions, movq_, storage, arg);
     }
 }
 
@@ -188,7 +188,7 @@ void make_syscall(
     std::string_view syscall,
     syscall_arguments_t const& arguments,
     memory::Stack_Frame* stack_frame,
-    memory::Memory_Access* accessor)
+    memory::Memory_Access const* accessor)
 {
 
 #if defined(__linux__)
@@ -241,7 +241,7 @@ void make_syscall(
         target::common::assembly::make_numeric_immediate(syscall_entry[0]);
 #endif
 
-    x8664_add__asm(instructions, mov, rax, syscall_number);
+    x8664_add_asm(instructions, mov, rax, syscall_number);
 
     syscall_operands_to_instructions(instructions,
         arguments,
@@ -250,7 +250,7 @@ void make_syscall(
         stack_frame,
         accessor);
 
-    x8664_add__asm(instructions, syscall);
+    x8664_add_asm(instructions, syscall);
 }
 }
 

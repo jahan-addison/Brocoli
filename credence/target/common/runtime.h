@@ -20,6 +20,7 @@
 #include <credence/object/table.h> // for Object_Table
 #include <credence/util.h>         // for AST_Node, range_contains
 #include <cstddef>                 // for size_t
+#include <cstdint>                 // for uint8_t
 #include <deque>                   // for deque
 #include <easyjson.h>              // for object
 #include <fmt/format.h>            // for format
@@ -65,8 +66,8 @@
  ****************************************************************************/
 
 namespace credence::target::common::assembly {
-enum class Arch_Type;
-enum class OS_Type;
+enum class Arch_Type : std::uint8_t;
+enum class OS_Type : std::uint8_t;
 }
 
 namespace credence::target::common::runtime {
@@ -168,11 +169,6 @@ struct Library_Call_Inserter
     virtual void make_library_call(Instructions& instructions,
         std::string_view syscall_function,
         library_arguments_t<Registers> const& arguments) = 0;
-
-    Registers get_available_standard_library_register(
-        std::deque<Registers>& available_registers,
-        memory::Locals& argument_stack,
-        std::size_t index);
 
     virtual bool is_address_device_pointer_to_buffer(
         address_t<Registers>& address) = 0;

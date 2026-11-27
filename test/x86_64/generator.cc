@@ -8,9 +8,13 @@
 #include <sstream>                            // for char_traits, basic_ost...
 #include <string>                             // for basic_string, allocator
 
+// fmt formats a compiled format string at run time under the clang static
+// analyzer, so these immediates are not constant expressions in clang-tidy
+#ifndef __clang_analyzer__
 static_assert(
     credence::target::x86_64::assembly::make_asciz_immediate("._L_str1__")
         .value == "[rip + ._L_str1__]");
+#endif
 
 using namespace credence;
 using namespace credence::target::x86_64;
@@ -23,11 +27,11 @@ namespace fs = std::filesystem;
 
 inline std::string read_file_from_path(std::string_view path)
 {
-    std::ifstream f(path.data(), std::ios::in | std::ios::binary);
+    std::ifstream f(fs::path{ path }, std::ios::in | std::ios::binary);
     const auto sz = fs::file_size(path);
 
     std::string result(sz, '\0');
-    f.read(result.data(), sz);
+    f.read(result.data(), static_cast<std::streamsize>(sz));
 
     return result;
 }

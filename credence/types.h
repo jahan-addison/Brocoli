@@ -165,7 +165,7 @@ inline int integral_from_type_int(std::string const& t)
     return std::stoi(t);
 }
 
-inline int integral_from_type_ulint(std::string const& t)
+inline unsigned long integral_from_type_ulint(std::string const& t)
 {
     return std::stoul(t);
 }
@@ -188,9 +188,7 @@ inline double integral_from_type_double(std::string const& t)
 template<util::Numeric T>
 T integral_from_type(std::string const& t)
 {
-    if constexpr (std::is_same_v<T, int>) {
-        return integral_from_type_int(t);
-    } else if constexpr (std::is_same_v<T, long>) {
+    if constexpr (std::is_same_v<T, long>) {
         return integral_from_type_long(t);
     } else if constexpr (std::is_same_v<T, float>) {
         return integral_from_type_float(t);
@@ -267,7 +265,7 @@ constexpr bool is_relation_binary_operator(RValue_Reference rvalue)
 constexpr bool is_typed_rvalue(semantic::RValue const& rvalue)
 {
     return util::substring_count_of(rvalue, ":") >= 2 and
-           rvalue.starts_with("(") and rvalue.ends_with(")");
+           rvalue.starts_with('(') and rvalue.ends_with(')');
 }
 
 /**
@@ -287,8 +285,7 @@ constexpr semantic::Label get_label_as_human_readable(
     semantic::Label const& label)
 {
     if (util::contains(label, "("))
-        return semantic::Label{ label.begin() + 2,
-            label.begin() + label.find_first_of("(") };
+        return label.substr(2, label.find_first_of('(') - 2);
     else
         return label;
 }
@@ -525,11 +522,10 @@ inline Typed_RValue get_typed_rvalue_from_string(semantic::RValue const& rvalue,
     credence::detail::assert_impl(location,
         is_typed_rvalue(rvalue) == true,
         fmt::format("rvalue \"{}\" is not a typed rvalue", rvalue));
-    auto search = rvalue.find_last_of(":");
-    auto bytes = std::string{ rvalue.begin() + search + 1, rvalue.end() - 1 };
-    auto type_search = rvalue.substr(0, search - 1).find_last_of(":") + 1;
-    auto type =
-        std::string{ rvalue.begin() + type_search, rvalue.begin() + search };
+    auto search = rvalue.find_last_of(':');
+    auto bytes = rvalue.substr(search + 1, rvalue.size() - search - 2);
+    auto type_search = rvalue.substr(0, search - 1).find_last_of(':') + 1;
+    auto type = rvalue.substr(type_search, search - type_search);
 
     auto value = std::ranges::find(rvalue, '"') == rvalue.end()
                      ? rvalue.substr(1, type_search - 2)
@@ -549,30 +545,17 @@ constexpr Binary_Expression from_rvalue_binary_expression(
         return { rvalue, std::string{}, std::string{} };
     auto lhs = offsets.front();
     auto rhs = offsets.back();
-    auto lhs_lvalue = std::string{ rvalue.begin(), rvalue.begin() + lhs };
-    auto rhs_lvalue = std::string{ rvalue.begin() + 1 + rhs, rvalue.end() };
-    auto binary_operator =
-        std::string{ rvalue.begin() + lhs + 1, rvalue.begin() + rhs };
 
-    return { lhs_lvalue, rhs_lvalue, binary_operator };
+    return { rvalue.substr(0, lhs),
+        rvalue.substr(rhs + 1),
+        rvalue.substr(lhs + 1, rhs - lhs - 1) };
 }
 
 constexpr Binary_Expression from_rvalue_binary_expression(
     Typed_RValue const& typed_rvalue)
 {
-    auto rvalue =
-        std::string{ type::get_value_from_typed_rvalue(typed_rvalue) };
-    auto offsets = get_unquoted_space_offsets(rvalue);
-    if (offsets.size() < 2)
-        return { rvalue, std::string{}, std::string{} };
-    auto lhs = offsets.front();
-    auto rhs = offsets.back();
-    auto lhs_lvalue = std::string{ rvalue.begin(), rvalue.begin() + lhs };
-    auto rhs_lvalue = std::string{ rvalue.begin() + 1 + rhs, rvalue.end() };
-    auto binary_operator =
-        std::string{ rvalue.begin() + lhs + 1, rvalue.begin() + rhs };
-
-    return { lhs_lvalue, rhs_lvalue, binary_operator };
+    return from_rvalue_binary_expression(
+        std::string{ type::get_value_from_typed_rvalue(typed_rvalue) });
 }
 
 /**
@@ -712,9 +695,8 @@ constexpr semantic::Size get_size_from_typed_rvalue(
 constexpr semantic::RValue from_lvalue_offset(RValue_Reference rvalue)
 {
     if (!util::contains(rvalue, "]"))
-        return rvalue.data();
-    return std::string{ rvalue.begin(),
-        rvalue.begin() + rvalue.find_first_of("[") };
+        return std::string{ rvalue };
+    return std::string{ rvalue.substr(0, rvalue.find_first_of('[')) };
 }
 
 /**
@@ -725,9 +707,10 @@ constexpr semantic::RValue from_lvalue_offset(RValue_Reference rvalue)
 constexpr semantic::RValue from_decay_offset(RValue_Reference rvalue)
 {
     if (!util::contains(rvalue, "]"))
-        return rvalue.data();
-    return std::string{ rvalue.begin() + rvalue.find_first_of("[") + 1,
-        rvalue.begin() + rvalue.find_first_of("]") };
+        return std::string{ rvalue };
+    auto open = rvalue.find_first_of('[');
+    auto close = rvalue.find_first_of(']');
+    return std::string{ rvalue.substr(open + 1, close - open - 1) };
 }
 
 /**

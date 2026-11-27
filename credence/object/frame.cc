@@ -19,6 +19,7 @@
 #include <credence/util.h>   // for contains
 #include <fmt/format.h>      // for format
 #include <string>            // for basic_string, string
+#include <string_view>       // for basic_string_view, string_view
 
 /****************************************************************************
  * Function Frame
@@ -52,9 +53,9 @@ namespace credence::object {
  */
 void Function::set_parameters_from_symbolic_label(Label const& label)
 {
-    auto search =
-        std::string_view{ label.begin() + label.find_first_of("(") + 1,
-            label.begin() + label.find_first_of(")") };
+    auto open = label.find_first_of('(');
+    auto close = label.find_first_of(')');
+    auto search = std::string_view{ label }.substr(open + 1, close - open - 1);
 
     if (!search.empty()) {
         std::string parameter;
@@ -104,8 +105,8 @@ namespace {
 Size lvalue_size_at_temporary_binary_expression(RValue const& rvalue,
     Function const& stack_frame)
 {
-    auto& locals = stack_frame.locals;
     if (type::is_binary_expression(rvalue)) {
+        auto const& locals = stack_frame.locals;
         auto [left, right, op] = type::from_rvalue_binary_expression(rvalue);
         // a literal operand with a size, the left side and then the right
         if (type::is_typed_rvalue(left) and

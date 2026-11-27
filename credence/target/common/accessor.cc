@@ -98,7 +98,7 @@ const Stack_Frame& Memory_Accessor::get_frame_in_memory() const
 
 struct Buffer_Accessor::impl
 {
-    impl(Table_Pointer& table)
+    explicit impl(Table_Pointer& table)
         : table(table)
         , constant_size_index(0)
     {
@@ -158,27 +158,29 @@ Size Buffer_Accessor::get_size_of_return_string(Stack_Frame const& stack_frame)
 {
     auto& table_ = pimpl->table;
     auto& tail_frame = table_->get_stack_frame(stack_frame.tail);
-    auto return_rvalue = tail_frame.ret->second;
+    auto return_rvalue = tail_frame.ret.value().second;
 
     if (tail_frame.is_parameter(return_rvalue)) {
         credence_assert(
             table_->function_contains(stack_frame.call_stack.back()));
         auto& last_stack_frame =
             table_->get_stack_frame(stack_frame.call_stack.back());
-        if (last_stack_frame.locals.is_pointer(tail_frame.ret->first)) {
+        if (last_stack_frame.locals.is_pointer(tail_frame.ret.value().first)) {
             return type::get_size_from_typed_rvalue(
                 type::get_typed_rvalue_from_string(
                     last_stack_frame.locals.get_pointer_by_name(
-                        tail_frame.ret->first)));
+                        tail_frame.ret.value().first)));
         }
-        if (type::is_typed_rvalue(tail_frame.ret->first))
+        if (type::is_typed_rvalue(tail_frame.ret.value().first))
             return type::get_size_from_typed_rvalue(
-                type::get_typed_rvalue_from_string(tail_frame.ret->first));
+                type::get_typed_rvalue_from_string(
+                    tail_frame.ret.value().first));
         return type::get_size_from_typed_rvalue(
-            last_stack_frame.locals.get_symbol_by_name(tail_frame.ret->first));
+            last_stack_frame.locals.get_symbol_by_name(
+                tail_frame.ret.value().first));
     }
     return type::get_size_from_typed_rvalue(
-        type::get_typed_rvalue_from_string(tail_frame.ret->first));
+        type::get_typed_rvalue_from_string(tail_frame.ret.value().first));
 }
 
 /**
@@ -209,7 +211,7 @@ Size Buffer_Accessor::get_size_in_local_address(LValue const& lvalue,
     if (local_rvalue == "RET") {
         auto& tail_frame = pimpl->table->get_stack_frame(stack_frame.tail);
         return type::get_size_from_typed_rvalue(
-            type::get_typed_rvalue_from_string(tail_frame.ret->first));
+            type::get_typed_rvalue_from_string(tail_frame.ret.value().first));
     }
     return type::get_size_from_typed_rvalue(local_symbol);
 }
@@ -314,7 +316,7 @@ void Buffer_Accessor::set_buffer_size_from_syscall(std::string_view routine,
         return;
     namespace m = matchit;
     m::match(routine)(m::pattern | m::or_(sv("read")) = [&] {
-        auto argument = argument_stack.back();
+        auto const& argument = argument_stack.back();
         if (credence::util::is_numeric(argument))
             pimpl->read_bytes_cache_ = std::stoul(argument);
         else if (type::is_typed_rvalue_a_type(argument, "int"))

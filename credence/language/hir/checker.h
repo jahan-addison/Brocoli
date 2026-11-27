@@ -18,6 +18,7 @@
 #include "types.h"         // for LValue, RValue, Type, Label
 #include <credence/util.h> // for AST_Node, CREDENCE_PRIVATE_UNLESS_TESTED
 #include <cstddef>         // for size_t
+#include <cstdint>         // for uint8_t
 #include <map>             // for map
 #include <optional>        // for optional
 #include <set>             // for set
@@ -54,7 +55,7 @@ namespace credence::language::hir::checking {
 /**
  * @brief The storage of an object or expression value
  */
-enum class Storage
+enum class Storage : std::uint8_t
 {
     SCALAR,
     POINTER
@@ -239,7 +240,7 @@ class Type_Checker
     static bool is_numeric(Type const& type);
 
   private:
-    void type_error(std::string_view message,
+    [[noreturn]] void type_error(std::string_view message,
         std::string_view symbol,
         std::source_location const& location = std::source_location::current());
 

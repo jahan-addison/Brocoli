@@ -730,10 +730,9 @@ Instructions queue_to_ita_instructions(
                         case Operator::XOR:
                             temporary.binary_operands_to_temporary_stack(op);
                             break;
+                        // unary bitwise and logical operators
                         case Operator::U_NOT:
                         case Operator::U_ONES_COMPLEMENT:
-                            temporary.unary_operand_to_temporary_stack(op);
-                            break;
                         // pointer operators
                         case Operator::U_SUBSCRIPT:
                         case Operator::U_INDIRECTION:
@@ -848,7 +847,7 @@ Expression_Instructions ast_to_ita_instructions(Symbol_Table<> const& symbols,
         if (queue_dump_stream)
             *queue_dump_stream
                 << language::precedence::queue_of_expressions_to_string(queue)
-                << std::endl;
+                << '\n';
         auto instructions = queue_to_ita_instructions(
             queue, details, temporary_index, statement);
         return std::make_pair(instructions, queue);
@@ -861,7 +860,7 @@ Expression_Instructions ast_to_ita_instructions(Symbol_Table<> const& symbols,
         if (queue_dump_stream)
             *queue_dump_stream
                 << language::precedence::queue_of_expressions_to_string(queue)
-                << std::endl;
+                << '\n';
         auto instructions = queue_to_ita_instructions(
             queue, details, temporary_index, statement);
         return std::make_pair(instructions, queue);

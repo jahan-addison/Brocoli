@@ -17,6 +17,7 @@
 #include <credence/object/table.h>
 #include <memory>
 #include <string>
+#include <utility>
 
 /****************************************************************************
  * Stack Frame
@@ -73,7 +74,7 @@ using Locals = type::Stack;
 struct Stack_Frame
 {
     explicit Stack_Frame(std::shared_ptr<object::Object_Table const> objects)
-        : objects_(objects)
+        : objects_(std::move(objects))
     {
     }
 
