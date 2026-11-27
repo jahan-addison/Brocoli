@@ -43,15 +43,15 @@ using flags = unsigned int;
 /**
  * @brief Instruction flags shared across architectures
  *
- *  * Address - a stack operand is an address with no size prefix,
- *    `[rbp - 8]`, and the destination takes the size of its storage
+ *  * Address - a stack operand is an address with no size prefix, `[rbp - 8]`,
+ *    and the destination takes its storage size
  *
  *  * Indirect - a register operand is a memory operand, `dword ptr [rax]`
  *
  *  * Indirect_Source - the source register is a memory operand
  *
- *  * Align - the immediate of a stack pointer `sub` or `add` is the aligned
- *    frame size, which is only known at the end of the function
+ *  * Align - a stack pointer `sub` or `add` immediate is the aligned frame
+ *    size, known only at the end of the function
  *
  *  * Argument - a stack operand is a quadword argument slot
  *
@@ -76,7 +76,7 @@ enum Instruction_Flag : flags
 } // namespace flags
 
 /**
- * @brief The flags of each emitted instruction, by instruction index
+ * @brief Flags of each emitted instruction, by instruction index
  *
  * An index with no flags is 0, so the emitter checks any instruction
  */

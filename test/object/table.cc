@@ -13,7 +13,7 @@ using credence::type::Typed_RValue;
 namespace {
 
 /**
- * @brief Make a tuple tag from the elements of a list of typed rvalues
+ * @brief Make a tuple tag from a list of typed rvalues
  */
 Vector make_tuple_tag(std::string const& label,
     std::initializer_list<Typed_RValue> elements)
@@ -135,7 +135,7 @@ TEST_CASE("object/table.cc: Tagged_Union::get_largest_tag_entry")
     scalar.set_tag_entry("large", Typed_RValue{ "0", "long", 8 });
     CHECK(scalar.get_largest_tag_entry() == 8);
 
-    // a string is the size of its pointer and not the length of its literal
+    // a string is its pointer's size, not its literal's length
     Tagged_Union text{ "text_t" };
     text.set_tag_entry("text", Typed_RValue{ "\"\"", "string", 0 });
     CHECK(text.get_largest_tag_entry() == k_pointer_size);

@@ -95,7 +95,7 @@ Vector& Object_Table::set_vector_definition(Label const& label, Address size_of)
 }
 
 /**
- * @brief Set the typed rvalue of a scalar tag in the union
+ * @brief Set a scalar tag's typed rvalue in the union
  */
 void Tagged_Union::set_tag_entry(Label const& label,
     credence::type::Typed_RValue const& entry)
@@ -104,8 +104,7 @@ void Tagged_Union::set_tag_entry(Label const& label,
 }
 
 /**
- * @brief Set the Vector of the elements of a tuple tag, moved into and owned
- * by the union
+ * @brief Set a tuple tag's element Vector, moved into and owned by the union
  */
 void Tagged_Union::set_tag_entry(Label const& label, Vector entry)
 {
@@ -113,8 +112,8 @@ void Tagged_Union::set_tag_entry(Label const& label, Vector entry)
 }
 
 /**
- * @brief Get the unpadded storage size of the largest tag in the union, which
- * along with the active tag is the storage of each union variable
+ * @brief Get the largest tag's unpadded storage size, which with the active tag
+ * is each union variable's storage
  */
 Size Tagged_Union::get_largest_tag_entry() const
 {
@@ -216,7 +215,7 @@ struct Vector_Offset
 };
 
 /**
- * @brief Resolve the rvalue of an element of a vector in the object table
+ * @brief Resolve a vector element's rvalue in the object table
  */
 type::Typed_RValue get_rvalue_at_vector_object_storage(LValue const& lvalue,
     Function const& stack_frame,
@@ -362,8 +361,7 @@ void set_stack_frame_return_value(RValue const& rvalue,
 } // namespace detail
 
 /**
- * @brief Resolve the rvalue of a pointer, a vector element, or a local in a
- * stack frame
+ * @brief Resolve a pointer, vector element, or local's rvalue in a stack frame
  */
 type::Typed_RValue Object_Table::get_rvalue_at_lvalue_object_storage(
     LValue const& lvalue,

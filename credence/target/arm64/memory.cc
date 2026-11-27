@@ -65,23 +65,20 @@
 /****************************************************************************
  * Register selection table:
  *
- *   x0 - x7  = The arguments of a call, and x0 the return value
- *   x6       = The data section address register, and the second operand
- *              of a binary expression in a temporary
+ *   x0 - x7  = call arguments, and x0 the return value
+ *   x6       = data section address register, and the second operand of a
+ *              binary expression in a temporary
  *      s6    = floating point
  *      d6    = double
- *   x7       = The scratch register of the right-hand-side of a binary
- *              expression
- *   x8       = The default "accumulator" register for expression expansion
+ *   x7       = right-hand-side scratch register
+ *   x8       = accumulator for expression expansion
  *   x9, x11 - x14, x16, x17
- *            = If there are no function calls in a stack frame, local scope
- *              variables are stored in these registers, after which the
- *              stack is used
- *   x10      = The stack move register, and the address register of a
- *              pointer on the stack
- *   x15      = The address of a vector element on the stack
- *   x18      = The platform register on Darwin, never used
- *   x19      = The argc, argv scratch register
+ *            = locals in a stack frame with no calls, then the stack
+ *   x10      = stack move register, and address register for a pointer on
+ *              the stack
+ *   x15      = vector element address on the stack
+ *   x18      = platform register on Darwin, never used
+ *   x19      = argc, argv scratch register
  *
  *   A local whose address is taken, vectors, and vector offsets are always
  *   on the stack
@@ -93,7 +90,7 @@ namespace credence::target::arm64::memory {
 namespace m = matchit;
 
 /**
- * @brief Get the second operand register of a binary expression, w6 or x6
+ * @brief Get a binary expression's second operand register, w6 or x6
  */
 Register get_second_register_for_binary_operand(assembly::Operand_Size size)
 {
@@ -117,8 +114,8 @@ Register get_scratch_register(assembly::Operand_Size size)
 /**
  * @brief Get the operand size of a storage device
  *
- * A stack offset has the size of its slot, an immediate the size of its
- * type, and a register its width. A page relative address is a doubleword.
+ * A stack offset is its slot's size, an immediate its type's size, and a
+ * register its width. A page relative address is a doubleword.
  */
 assembly::Operand_Size get_operand_size_from_storage(Storage const& storage,
     memory::Stack_Pointer& stack)
@@ -168,11 +165,11 @@ bool is_doubleword_storage_size(assembly::Storage const& storage,
 }
 
 /**
- * @brief Get the accumulator of a value, or the second operand register
+ * @brief Get the accumulator for a value, or the second operand register
  *
- * A value computed for the temporary of the next instruction, which is not
- * the operand of an assignment, is the second operand of a binary expression,
- * so it is in w6 or x6
+ * A value computed for the next instruction's temporary, when it is not an
+ * assignment's operand, is a binary expression's second operand, so it is in w6
+ * or x6
  */
 Register Memory_Accessor::get_accumulator_with_rvalue_context(
     Storage const& device)
@@ -186,7 +183,7 @@ Register Memory_Accessor::get_accumulator_with_rvalue_context(
 }
 
 /**
- * @brief Get the accumulator of a size, or the second operand register
+ * @brief Get the accumulator for a size, or the second operand register
  */
 Register Memory_Accessor::get_accumulator_with_rvalue_context(
     assembly::Operand_Size size)
@@ -200,7 +197,7 @@ Register Memory_Accessor::get_accumulator_with_rvalue_context(
 namespace detail {
 
 /**
- * @brief Get the accumulator register of a size
+ * @brief Get the accumulator register for a size
  *
  * A byte or halfword is in a word register, since ARM64 has no narrower
  * general purpose registers. A signal register is returned once in place
@@ -223,11 +220,10 @@ Register Accumulator_Accessor::get_accumulator_register_from_size(
 }
 
 /**
- * @brief Get the address and instructions of a vector element
+ * @brief Get a vector element's address and instructions
  *
- * A global vector element is an offset from the page address of the vector
- * in x6, and a local vector element is its address from the stack pointer
- * in x15.
+ * A global vector element is an offset from the vector's page address in x6,
+ * and a local vector element is its address from the stack pointer in x15.
  *
  *  Example:
  *
@@ -296,7 +292,7 @@ Address_Accessor::get_lvalue_address_and_from_unary_and_vectors(
 }
 
 /**
- * @brief Get the address of an lvalue and the instructions that load it
+ * @brief Get an lvalue's address and the instructions that load it
  *
  * A signal register is the address, and is used once. A local on the stack
  * is loaded into the stack move register, so the assignment is a register
@@ -320,8 +316,8 @@ Address_Accessor::get_arm64_lvalue_and_insertion_instructions(
     if (is_variant(common::Stack_Offset, instructions.first)) {
         auto str_r = register_accessor_.get_available_register(
             device_accessor_.get_word_size_from_lvalue(lvalue));
-        // the load is needed by a read-modify-write, such as `++x`, and the
-        // register is stored back after the assignment
+        // load for a read-modify-write, such as `++x`, and store back after the
+        // assignment
         arm64_add_asm(instructions.second, ldr, str_r, instructions.first);
         instructions.first = std::move(str_r);
     }
@@ -343,7 +339,7 @@ void Device_Accessor::set_word_or_doubleword_register(LValue const& lvalue,
 }
 
 /**
- * @brief Get the storage device of an lvalue
+ * @brief Get an lvalue's storage device
  *
  * `argc` is in x19, a local on the stack is its offset, and any other local
  * is its register
@@ -375,7 +371,7 @@ assembly::Storage Register_Accessor::get_available_register(
 /**
  * @brief Allocate a register or stack slot for an lvalue of a size
  *
- * A char is a word, since every load and store of a local is a word or
+ * A char is a word, since a local always loads and stores through a word or
  * doubleword register. A word or doubleword is on the stack when the frame
  * makes a call, no local register is left, or its address is taken.
  */
@@ -391,7 +387,7 @@ void Device_Accessor::insert_lvalue_to_device(LValue const& lvalue,
         case assembly::Operand_Size::Empty:
             stack_->set_address_from_size(lvalue, size);
             break;
-        // a char is loaded and stored with a word register, so it is a word
+        // a char loads and stores through a word register
         case assembly::Operand_Size::Byte:
         case assembly::Operand_Size::Halfword:
             size = assembly::Operand_Size::Word;
@@ -412,7 +408,7 @@ void Device_Accessor::insert_lvalue_to_device(LValue const& lvalue,
 /**
  * @brief Allocate a register or stack slot for an lvalue of its type
  *
- * The size is the size of the value of the lvalue in the object table
+ * The size is the lvalue's value size in the object table
  */
 void Device_Accessor::insert_lvalue_to_device(LValue const& lvalue,
     std::source_location const& location)
@@ -430,10 +426,10 @@ void Device_Accessor::insert_lvalue_to_device(LValue const& lvalue,
 }
 
 /**
- * @brief Check if the address of an lvalue is taken in its stack frame
+ * @brief Check if an lvalue's address is taken in its stack frame
  *
  * A register has no address, so the lvalue is allocated on the stack. The
- * IR of the frame is scanned for an address-of the lvalue.
+ * frame's IR is scanned for an address-of the lvalue.
  *
  *  Example:
  *

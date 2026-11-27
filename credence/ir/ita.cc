@@ -89,8 +89,8 @@ std::pair<std::string, std::string> get_rvalue_from_mov_qaudruple(
 }
 
 /**
- * @brief Construct a set of ita instructions from the definitions and
- * declarations of a program
+ * @brief Construct a set of ita instructions from a program's definitions and
+ * declarations
  *
  *  The definitions are the left-hand-side of the program node, and the
  *  declarations are its right-hand-side.
@@ -719,7 +719,7 @@ Instructions ITA::build_from_return_statement(Node const& node)
     auto return_instructions = ast_to_ita_instructions(
         symbols_, return_statement, internal_symbols_, &temporary, &identifier);
     ir::insert(instructions, return_instructions.first);
-    // the return value of a call, e.g. `return(f(x));`
+    // a call's return value, e.g. `return(f(x));`
     if (!instructions.empty() and
         (std::get<Instruction>(instructions.back()) == Instruction::POP or
             std::get<Instruction>(instructions.back()) == Instruction::CALL))

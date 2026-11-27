@@ -135,10 +135,10 @@ class Binder
     Label frame_symbol_{};
     // the arguments of the next call, pushed by PUSH
     object::Stack stack{};
-    // the address of each function, and of the labels of each function
+    // the address of each function and its labels
     Address_Table address_table{};
     Ordered_Map<Label, Address_Table> label_addresses{};
-    // the size of the locals assigned in each function
+    // the size of each function's assigned locals
     Ordered_Map<Label, type::semantic::Size> allocations{};
 };
 // clang-format on
@@ -147,7 +147,7 @@ bool stack_frame_contains_call_instruction(object::Function const& frame,
     Instructions const& instructions);
 
 /**
- * @brief Binder factory from the symbols and definitions of a program
+ * @brief Binder factory from a program's symbols and definitions
  *
  * Runs semantic analysis on the HIR, constructs the ITA instructions, then
  * binds the instructions onto the object table

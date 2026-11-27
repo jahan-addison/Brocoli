@@ -147,10 +147,10 @@ hir::Data_Kind AST_Lowering::lower_from_node(Node const& node)
 }
 
 /**
- * @brief Move the indirection of a relation chain to its leftmost operand
+ * @brief Move a relation chain's indirection to its leftmost operand
  *
- * The parser nests the indirection of a relation chain around the whole
- * chain, but the indirection binds tighter than any binary operator.
+ * The parser nests a relation chain's indirection around the whole chain, but
+ * the indirection binds tighter than any binary operator.
  *
  *  Example:
  *
@@ -231,11 +231,10 @@ hir::Data_Kind AST_Lowering::from_ternary_expression_node(Node const& node)
 }
 
 /**
- * @brief The relation of a union variable and a tag of its union, `m is
- * data_t.ab`
+ * @brief Relation of a union variable and its union's tag, `m is data_t.ab`
  *
  * A tag with no bindings is its lvalue, and a tag that binds its values to
- * locals is the tag and the lvalue of each local
+ * locals is the tag and each local's lvalue
  *
  *  Examples:
  *
@@ -580,8 +579,8 @@ AST_Lowering::Literal AST_Lowering::from_string_literal_node(Node const& node)
     credence_assert_equal(node["node"].to_string(), "string_literal");
     auto string_literal = util::unescape_string(node["root"].to_string());
     auto value = string_literal.substr(1, string_literal.size() - 2);
-    // The value keeps its escape sequences for the data section, and the
-    // size is the length of the string in memory, so "\n" is 1 byte
+    // The value keeps its escape sequences for the data section, and the size
+    // is the string's length in memory, so "\n" is 1 byte
     return {
         value, { "string", util::unescape_string(value).size() }
     };

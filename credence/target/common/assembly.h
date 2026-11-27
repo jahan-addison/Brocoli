@@ -54,13 +54,13 @@
  ****************************************************************************/
 
 /**
- * The entries of a match on the type of the left-hand-side immediate of a
- * relational expression, so a comparison is made on the C++ type of the
- * immediates. A string is compared by its contents, and a char by its code.
+ * Match entries on a relational expression's left-hand-side immediate type, so
+ * a comparison is made on the immediates' C++ type. A string is compared by its
+ * contents, and a char by its code.
  */
 
-// NOLINTBEGIN(bugprone-macro-parentheses) the operator of a relational entry
-// is a token pasted between its operands, so it cannot be parenthesized
+// NOLINTBEGIN(bugprone-macro-parentheses) a relational entry's operator is a
+// token pasted between its operands, so it cannot be parenthesized
 #define make_integral_relational_entry(T, op)                   \
     m::pattern | std::string{ STRINGIFY(T) } = [&] {            \
         result = credence::type::integral_from_type<T>(lhs_imm) \
@@ -91,7 +91,7 @@
 // NOLINTEND(bugprone-macro-parentheses)
 
 /**
- * Short-form immediates of the instruction inserters. A direct immediate is
+ * Short-form immediates for the instruction inserters. A direct immediate is
  * emitted as is, such as a label or an address operand, `[sp, #16]`.
  */
 #define direct_immediate(imm) \
@@ -107,9 +107,9 @@
     target::common::assembly::make_u32_int_immediate(16)
 
 /**
- * The cases of a switch that prints a register or directive by its
- * enumerator name. A trailing underscore avoids a C++ keyword, `float_`, and
- * is removed, and the `start` directive is printed as `.global`.
+ * Switch cases that print a register or directive by its enumerator name. A
+ * trailing underscore avoids a C++ keyword, `float_`, and is removed, and the
+ * `start` directive is printed as `.global`.
  */
 #define COMMON_REGISTER_OSTREAM(rr, reg) \
     case rr(reg):                        \
@@ -143,7 +143,7 @@ namespace credence::target::common::assembly {
 namespace detail {
 
 /**
- * @brief The mnemonic of an instruction, implicit from a mnemonic enumerator
+ * @brief Instruction mnemonic, implicit from a mnemonic enumerator
  */
 template<Enum_T Mnemonic>
 struct Mnemonic_Resolver
@@ -157,7 +157,7 @@ struct Mnemonic_Resolver
 };
 
 /**
- * @brief An operand of an instruction, implicit from any storage device
+ * @brief Instruction operand, implicit from any storage device
  *
  * A register, stack offset, immediate, or empty operand converts to the
  * storage variant, so an inserter passes each operand as it is
@@ -253,7 +253,7 @@ struct Assembly_Inserter
 };
 
 /**
- * @brief The operating system of the target, BSD is Darwin
+ * @brief Target operating system, where BSD is Darwin
  */
 enum class OS_Type : std::uint8_t
 {
@@ -268,7 +268,7 @@ enum class Arch_Type : std::uint8_t
 };
 
 /**
- * @brief The operating system of the host, which is the default target
+ * @brief Get the host operating system, the default target
  *
  * Windows is not supported, and its syscall table is Linux
  */
@@ -286,7 +286,7 @@ constexpr OS_Type get_os_type()
 }
 
 /**
- * @brief An immediate operand of a directive of an array in the data section
+ * @brief Immediate operand for a data section array directive
  */
 constexpr Immediate make_array_immediate(std::string_view address)
 {
@@ -329,7 +329,7 @@ std::string get_storage_as_string(Storage_T<Registers> const& storage)
 /**
  * @brief Compute an arithmetic expression of two immediates of type T
  *
- * The remainder of a float or double is fmod
+ * A float or double remainder is fmod
  *
  *  Example:
  *
@@ -377,8 +377,8 @@ T trivial_bitwise_from_numeric_table_type(std::string const& lhs,
 {
     T imm_l = type::integral_from_type<T>(lhs);
     T imm_r = type::integral_from_type<T>(rhs);
-    // NOLINTBEGIN(bugprone-signed-bitwise) a bitwise expression of B is the
-    // two's complement arithmetic of its signed type, which C++20 defines
+    // NOLINTBEGIN(bugprone-signed-bitwise) a B bitwise expression is two's
+    // complement arithmetic on its signed type, defined by C++20
     if (op == ">>")
         return imm_l >> imm_r;
     else if (op == "<<")

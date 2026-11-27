@@ -47,10 +47,10 @@
 namespace credence::target::common {
 
 /**
- * @brief The semantic types of the IR, shared by both architectures
+ * @brief IR semantic types, shared by both architectures
  *
- * An immediate is a literal as a typed rvalue, `(5:int:4)`, and a stack
- * offset is the offset of a local in its stack frame
+ * An immediate is a literal as a typed rvalue, `(5:int:4)`, and a stack offset
+ * is a local's offset in its stack frame
  */
 using Label = type::semantic::Label;
 using Type = type::semantic::Type;
@@ -90,7 +90,7 @@ struct is_variant<std::variant<Args...>> : std::true_type
 {};
 
 /**
- * @brief The base of each target's stack, constrained by Stack_T
+ * @brief Base of each target's stack, constrained by Stack_T
  */
 struct base_stack_pointer
 {
@@ -186,7 +186,7 @@ template<Enum_T M, Enum_T R>
 using Instructions = std::deque<Instruction_T<M, R>>;
 
 /**
- * @brief The first enumerator of an enumeration, e.g. the first register
+ * @brief Get an enumeration's first enumerator, e.g. the first register
  */
 template<Enum_T T>
 constexpr T get_first_of_enum_t(int first = 0)

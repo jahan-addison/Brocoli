@@ -80,23 +80,20 @@
 /****************************************************************************
  * Register selection table:
  *
- *   x0 - x7  = The arguments of a call, and x0 the return value
- *   x6       = The data section address register, and the second operand
- *              of a binary expression in a temporary
+ *   x0 - x7  = call arguments, and x0 the return value
+ *   x6       = data section address register, and the second operand of a
+ *              binary expression in a temporary
  *      s6    = floating point
  *      d6    = double
- *   x7       = The scratch register of the right-hand-side of a binary
- *              expression
- *   x8       = The default "accumulator" register for expression expansion
+ *   x7       = right-hand-side scratch register
+ *   x8       = accumulator for expression expansion
  *   x9, x11 - x14, x16, x17
- *            = If there are no function calls in a stack frame, local scope
- *              variables are stored in these registers, after which the
- *              stack is used
- *   x10      = The stack move register, and the address register of a
- *              pointer on the stack
- *   x15      = The address of a vector element on the stack
- *   x18      = The platform register on Darwin, never used
- *   x19      = The argc, argv scratch register
+ *            = locals in a stack frame with no calls, then the stack
+ *   x10      = stack move register, and address register for a pointer on
+ *              the stack
+ *   x15      = vector element address on the stack
+ *   x18      = platform register on Darwin, never used
+ *   x19      = argc, argv scratch register
  *
  *   A local whose address is taken, vectors, and vector offsets are always
  *   on the stack
@@ -143,9 +140,9 @@ void Assembly_Emitter::emit(std::ostream& os)
 }
 
 /**
- * @brief Get the data directive of a value in the data section
+ * @brief Get the data directive for a data section value
  *
- * A string, float, or double is the address of its label
+ * A string, float, or double is its label's address
  *
  *  Example:
  *
@@ -200,7 +197,7 @@ assembly::Directives Data_Emitter::get_instructions_from_directive_type(
 }
 
 /**
- * @brief Get the `.p2align` of a value of a type, the log2 of its alignment
+ * @brief Get the `.p2align` for a type's value, the log2 of its alignment
  */
 std::size_t get_alignment_size_from_typed_rvalue(
     type::semantic::Type const& type)
@@ -270,9 +267,8 @@ void Data_Emitter::set_data_doubles()
 /**
  * @brief Set each global in the data section
  *
- * A global is a vector, and a global with one value, `counter 5;`, is
- * aligned to its type. The offset of each element is recorded for its
- * loads and stores.
+ * A global is a vector, and a global with one value, `counter 5;`, is aligned
+ * to its type. Each element's offset is recorded for its loads and stores.
  */
 void Data_Emitter::set_data_globals()
 {
@@ -431,7 +427,7 @@ void insert_arm64_alignment_directive(assembly::Directives& instructions,
 }
 
 /**
- * @brief Set the data section of the program
+ * @brief Set the program's data section
  */
 void Data_Emitter::set_data_section()
 {
@@ -442,7 +438,7 @@ void Data_Emitter::set_data_section()
 }
 
 /**
- * @brief Get a storage device as a string, with the flags of its instruction
+ * @brief Get a storage device as a string, with its instruction's flags
  */
 std::string Storage_Emitter::get_storage_device_as_string(
     Storage const& storage)
@@ -464,9 +460,9 @@ std::string Storage_Emitter::get_storage_device_as_string(
 /**
  * @brief Resolve an operand that depends on the frame size
  *
- * The frame size of a function is known after it is translated, so an
- * operand flagged during insertion is replaced here, such as the
- * pre-indexed store of the frame record
+ * A function's frame size is known after it is translated, so an operand
+ * flagged during insertion is replaced here, such as the frame record's
+ * pre-indexed store
  *
  *  Example:
  *
@@ -562,7 +558,7 @@ void Storage_Emitter::apply_stack_alignment(Storage& operand,
 }
 
 /**
- * @brief Emit an operand of an instruction
+ * @brief Emit an instruction operand
  *
  * The first operand follows the mnemonic, and a string literal loaded by
  * `ldr` is a literal pool address, `=label`
@@ -589,7 +585,7 @@ void Storage_Emitter::emit_mnemonic_operand(std::ostream& os,
 }
 
 /**
- * @brief Emit an operand of an instruction with its flags applied
+ * @brief Emit an instruction operand with its flags applied
  */
 void Storage_Emitter::emit(std::ostream& os,
     Storage const& storage,
@@ -614,7 +610,7 @@ void Storage_Emitter::emit(std::ostream& os,
 }
 
 /**
- * @brief Emit the jump to the epilogue of the function, `_L1`
+ * @brief Emit the jump to the function epilogue, `_L1`
  */
 void Text_Emitter::emit_epilogue_jump(std::ostream& os)
 {
@@ -626,9 +622,9 @@ void Text_Emitter::emit_epilogue_jump(std::ostream& os)
 /**
  * @brief Emit a function or branch label in the text section
  *
- * A function label emits the epilogue of the last function, and a branch
- * label is local to its function. The `_L1` label is the epilogue, so a
- * jump to it is emitted in its place.
+ * A function label emits the last function's epilogue, and a branch label is
+ * local to its function. The `_L1` label is the epilogue, so a jump to it is
+ * emitted in its place.
  */
 void Text_Emitter::emit_assembly_label(std::ostream& os,
     Label const& s,
@@ -669,7 +665,7 @@ void Text_Emitter::emit_assembly_label(std::ostream& os,
 }
 
 /**
- * @brief Emit a store to an element of a vector on the stack, through x15
+ * @brief Emit a store to a stack vector element, through x15
  *
  * A page relative address is stored after the `add` that computes it
  */
@@ -781,8 +777,7 @@ void Text_Emitter::emit_text_instruction(std::ostream& os,
 /**
  * @brief Emit the epilogue held for the last function
  *
- * The `_L1` label of a function with branches is emitted before its
- * epilogue
+ * A function with branches emits its `_L1` label before its epilogue
  */
 void Text_Emitter::emit_function_epilogue(std::ostream& os)
 {
@@ -805,7 +800,7 @@ void Text_Emitter::emit_function_epilogue(std::ostream& os)
 /**
  * @brief Emit the text section
  *
- * The epilogue of the last function is emitted after its instructions
+ * The last function's epilogue is emitted after its instructions
  */
 void Text_Emitter::emit_text_section(std::ostream& os)
 {
@@ -819,7 +814,7 @@ void Text_Emitter::emit_text_section(std::ostream& os)
 }
 
 /**
- * @brief Emit the directives of the text section and the entry point
+ * @brief Emit the text section directives and the entry point
  */
 void Text_Emitter::emit_text_directives(std::ostream& os)
 {
@@ -839,9 +834,9 @@ void Text_Emitter::emit_text_directives(std::ostream& os)
 }
 
 /**
- * @brief Emit the global directive of each standard library function
+ * @brief Emit each standard library function's global directive
  *
- * A function of the standard library has a leading underscore on Darwin
+ * A standard library function has a leading underscore on Darwin
  */
 void Text_Emitter::emit_stdlib_externs(std::ostream& os)
 {

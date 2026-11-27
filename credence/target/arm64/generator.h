@@ -64,23 +64,20 @@
 /****************************************************************************
  * Register selection table:
  *
- *   x0 - x7  = The arguments of a call, and x0 the return value
- *   x6       = The data section address register, and the second operand
- *              of a binary expression in a temporary
+ *   x0 - x7  = call arguments, and x0 the return value
+ *   x6       = data section address register, and the second operand of a
+ *              binary expression in a temporary
  *      s6    = floating point
  *      d6    = double
- *   x7       = The scratch register of the right-hand-side of a binary
- *              expression
- *   x8       = The default "accumulator" register for expression expansion
+ *   x7       = right-hand-side scratch register
+ *   x8       = accumulator for expression expansion
  *   x9, x11 - x14, x16, x17
- *            = If there are no function calls in a stack frame, local scope
- *              variables are stored in these registers, after which the
- *              stack is used
- *   x10      = The stack move register, and the address register of a
- *              pointer on the stack
- *   x15      = The address of a vector element on the stack
- *   x18      = The platform register on Darwin, never used
- *   x19      = The argc, argv scratch register
+ *            = locals in a stack frame with no calls, then the stack
+ *   x10      = stack move register, and address register for a pointer on
+ *              the stack
+ *   x15      = vector element address on the stack
+ *   x18      = platform register on Darwin, never used
+ *   x19      = argc, argv scratch register
  *
  *   A local whose address is taken, vectors, and vector offsets are always
  *   on the stack
@@ -125,11 +122,10 @@ void insert_arm64_alignment_directive(assembly::Directives& instructions,
 class Assembly_Emitter;
 
 /**
- * @brief Emit the operands of an instruction
+ * @brief Emit an instruction's operands
  *
- * The flags of the instruction are applied to each operand, so an operand
- * that depends on the frame size is resolved here, after the function is
- * translated
+ * The instruction's flags apply to each operand, so an operand that depends on
+ * the frame size is resolved here, after the function is translated
  */
 class Storage_Emitter
 {
@@ -145,7 +141,7 @@ class Storage_Emitter
     {
     }
 
-    // the position of an operand, from the first
+    // operand position, from the first
     enum class Source : std::uint8_t
     {
         s_0,
@@ -155,7 +151,7 @@ class Storage_Emitter
     };
 
     /**
-     * @brief Check if a mnemonic may have an operand of the frame size
+     * @brief Check if a mnemonic may have a frame size operand
      */
     constexpr bool is_alignment_mnemonic(Mnemonic mnemonic)
     {
@@ -194,9 +190,9 @@ class Storage_Emitter
 /**
  * @brief Emit the text section of an ARM64 program
  *
- * The instructions after the `_L1` label of a function are its epilogue,
- * which the IR does not keep at the end, so they are held and emitted after
- * the function's last branch
+ * The instructions after a function's `_L1` label are its epilogue, which the
+ * IR does not keep at the end, so they are held and emitted after the
+ * function's last branch
  */
 class Text_Emitter
 {

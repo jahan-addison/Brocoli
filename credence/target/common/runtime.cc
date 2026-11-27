@@ -77,7 +77,7 @@ bool is_syscall_function(Label const& label,
 }
 
 /**
- * @brief Check if a label is a function of the standard library object
+ * @brief Check if a label is a standard library function
  */
 bool is_library_function(Label const& label)
 {
@@ -131,8 +131,8 @@ bool is_stdlib_function(type::semantic::Label const& label,
  * @brief Check if a call to the standard library or a syscall has a return
  * value, on the host platform
  *
- * `getchar` returns its character, and a syscall returns the result of the
- * kernel, each in the return register
+ * `getchar` returns its character, and a syscall the kernel's result, each in
+ * the return register
  *
  *  Examples:
  *
@@ -202,7 +202,7 @@ void detail::add_syscall_functions_to_symbols(util::AST_Node& symbols,
 {
     auto syscalls =
         syscall_ns::get_platform_syscall_symbols(os_type, arch_type);
-    // a syscall returns the result of the kernel
+    // a syscall returns the kernel's result
     for (auto const& routine : syscalls) {
         add_stdlib_function_to_table_symbols(
             routine, symbols, os_type, arch_type);

@@ -60,7 +60,7 @@
 
 namespace credence::target::common::syscall_ns {
 
-// the number and argument count of a syscall
+// syscall number and argument count
 using syscall_t = std::array<std::size_t, 2>;
 using syscall_list_t = std::map<std::string_view, syscall_t>;
 template<Enum_T Registers>
@@ -411,7 +411,7 @@ const syscall_list_t syscall_list = {
 namespace x86_64::linux_ns {
 
 /**
- * @brief The syscalls of x86-64 Linux
+ * @brief x86-64 Linux syscalls
  *
  * The syscall number is in rax and the arguments are in rdi, rsi, rdx, r10,
  * r8, and r9, then the `syscall` instruction is executed. The return value
@@ -1006,7 +1006,7 @@ const syscall_list_t syscall_list = {
 
 namespace x86_64::bsd_ns {
 
-// the syscall class of a Unix syscall, which is added to its number
+// a Unix syscall's class, added to its number
 constexpr uint32_t SYSCALL_CLASS_UNIX = 0x2000000;
 
 // the BSD syscall numbers are the same on both architectures
@@ -1018,7 +1018,7 @@ std::vector<std::string> get_platform_syscall_symbols(assembly::OS_Type os_type,
     assembly::Arch_Type arch_type);
 
 /**
- * @brief Get the syscall table of a platform
+ * @brief Get a platform's syscall table
  */
 inline syscall_list_t get_syscall_list(assembly::OS_Type os_type,
     assembly::Arch_Type arch_type)

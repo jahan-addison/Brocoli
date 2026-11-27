@@ -66,9 +66,9 @@ namespace {
 /**
  * @brief Check if an rvalue is one literal as a typed rvalue
  *
- * A binary expression of two literals is also in parentheses, so the
- * parenthesis that opens a literal must close at its end. A parenthesis or
- * space in a string literal is part of the string.
+ * A binary expression of two literals is also in parentheses, so a literal's
+ * opening parenthesis must close at its end. A parenthesis or space in a string
+ * literal is part of the string.
  *
  *  Examples:
  *
@@ -164,7 +164,7 @@ void Binder::from_return_instruction(Quadruple const& instruction)
 {
     auto return_rvalue = util::str_trim_ws(std::get<1>(instruction));
     auto& frame = get_stack_frame();
-    // a returned literal, such as a string, is a literal of the data section
+    // a returned literal, such as a string, is a data section literal
     if (is_single_typed_rvalue(return_rvalue))
         objects_->data().insert(
             type::get_typed_rvalue_from_string(return_rvalue));
@@ -291,7 +291,7 @@ void Binder::from_pointer_or_vector_assignment(LValue const& lvalue,
         }
         return;
     }
-    // a literal assigned to a global, `ratio = 2.5;`, is in the data section
+    // a literal assigned to a global, `ratio = 2.5;`, goes in the data section
     if (objects_->vector_contains(lvalue) and type::is_typed_rvalue(rvalue))
         objects_->data().insert(type::get_typed_rvalue_from_string(rvalue));
     // the right-hand-side is an address-of rvalue, `k = &m;`
@@ -463,7 +463,7 @@ void Binder::bind_vector(LValue const& lvalue, RValue const& rvalue)
                 if (vector.data.empty())
                     return;
                 // an offset not known at compile time, e.g. `x[errno]`,
-                // resolves to the type of the first element of the vector
+                // resolves to the vector's first element type
                 if (!vector.data.contains(rvalue_offset))
                     rvalue_offset = vector.data.first().first;
                 locals.set_symbol_by_name(
@@ -482,7 +482,7 @@ void Binder::bind_dereference(LValue const& lvalue, RValue const& rvalue)
 {
     auto& frame = get_stack_frame();
     auto lhs_lvalue = type::get_unary_rvalue_reference(lvalue);
-    // the object a pointer parameter points to has no storage in the table
+    // a pointer parameter's pointee has no storage in the table
     if (!type::is_dereference_expression(lvalue) and
         frame.is_parameter(type::get_unary_rvalue_reference(rvalue))) {
         frame.locals.set_symbol_by_name(lhs_lvalue, { rvalue, "word", 4UL });
@@ -632,8 +632,7 @@ void Binder::from_temporary_assignment(LValue const& lhs, LValue const& rhs)
     frame.temporary[lhs] = rhs;
     if (lhs.starts_with("_p"))
         frame.locals.set_symbol_by_name(lhs, rhs);
-    // each literal operand of a binary expression is a literal of the data
-    // section
+    // each literal operand of a binary expression is a data section literal
     if (is_single_typed_rvalue(rhs)) {
         objects_->data().insert(type::get_typed_rvalue_from_string(rhs));
     } else if (type::is_binary_expression(rhs)) {
@@ -692,7 +691,7 @@ type::Typed_RValue Binder::from_integral_unary_expression(RValue const& lvalue)
 }
 
 /**
- * @brief The stack frame of the function under translation
+ * @brief Get the current function's stack frame
  */
 object::Function& Binder::get_stack_frame()
 {

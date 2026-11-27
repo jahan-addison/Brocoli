@@ -61,23 +61,20 @@
 /****************************************************************************
  * Register selection table:
  *
- *   x0 - x7  = The arguments of a call, and x0 the return value
- *   x6       = The data section address register, and the second operand
- *              of a binary expression in a temporary
+ *   x0 - x7  = call arguments, and x0 the return value
+ *   x6       = data section address register, and the second operand of a
+ *              binary expression in a temporary
  *      s6    = floating point
  *      d6    = double
- *   x7       = The scratch register of the right-hand-side of a binary
- *              expression
- *   x8       = The default "accumulator" register for expression expansion
+ *   x7       = right-hand-side scratch register
+ *   x8       = accumulator for expression expansion
  *   x9, x11 - x14, x16, x17
- *            = If there are no function calls in a stack frame, local scope
- *              variables are stored in these registers, after which the
- *              stack is used
- *   x10      = The stack move register, and the address register of a
- *              pointer on the stack
- *   x15      = The address of a vector element on the stack
- *   x18      = The platform register on Darwin, never used
- *   x19      = The argc, argv scratch register
+ *            = locals in a stack frame with no calls, then the stack
+ *   x10      = stack move register, and address register for a pointer on
+ *              the stack
+ *   x15      = vector element address on the stack
+ *   x18      = platform register on Darwin, never used
+ *   x19      = argc, argv scratch register
  *
  *   A local whose address is taken, vectors, and vector offsets are always
  *   on the stack
@@ -230,11 +227,11 @@ struct Arithemtic_Operator_Inserter : public ARM64_Arithemtic_Operator_Inserter
 };
 
 /**
- * @brief Translate the binary expression of a temporary
+ * @brief Translate a temporary's binary expression
  *
  * The left-hand-side is in the accumulator and the right-hand-side is its
- * operand, and the result is in the accumulator, or a conditional jump when
- * the next instruction is the IF of a relational expression
+ * operand, and the result is in the accumulator, or a conditional jump when the
+ * next instruction is a relational expression's IF
  */
 struct Binary_Operator_Inserter : ARM64_Binary_Operator_Inserter
 {
@@ -245,8 +242,8 @@ struct Binary_Operator_Inserter : ARM64_Binary_Operator_Inserter
     void from_binary_operator_expression(RValue const& rvalue) override;
 
   public:
-    // the register that holds the value of the expression, empty when a
-    // relational expression inserted a conditional jump instead
+    // the expression's register, empty when a relational expression inserted a
+    // conditional jump instead
     std::optional<Register> result{};
 
   private:
@@ -282,8 +279,7 @@ struct Unary_Operator_Inserter : public ARM64_Unary_Operator_Inserter
 };
 
 /**
- * @brief Translate the rvalue of a temporary, a return, or a global vector
- * assignment
+ * @brief Translate a temporary, return, or global vector assignment rvalue
  */
 struct Expression_Inserter : public ARM64_Expression_Inserter
 {
@@ -312,12 +308,12 @@ struct Expression_Inserter : public ARM64_Expression_Inserter
 
   private:
     std::deque<LValue> stack{};
-    // the register that holds the value of the last temporary rvalue
+    // the last temporary rvalue's register
     std::optional<Register> result_{};
 };
 
 /**
- * @brief Translate the IR instructions of a program in order
+ * @brief Translate a program's IR instructions in order
  */
 class Instruction_Inserter : public ARM64_Instruction_Inserter
 {
@@ -335,8 +331,8 @@ class Instruction_Inserter : public ARM64_Instruction_Inserter
 /**
  * @brief Load and store the operands of an assignment
  *
- * An operand is loaded into its device or the accumulator, and the
- * accumulator is stored to an lvalue at the size of its device
+ * An operand is loaded into its device or the accumulator, and the accumulator
+ * is stored to an lvalue at its device's size
  */
 class Operand_Inserter : public ARM64_Operand_Inserter
 {

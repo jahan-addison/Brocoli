@@ -52,26 +52,24 @@
 /****************************************************************************
  * Register selection table:
  *
- *   rax      = The default "accumulator" register for expression expansion,
- *              the return value, and the number of a syscall
+ *   rax      = accumulator for expression expansion, return value, and
+ *              syscall number
  *   rdi, r8, r9, rsi, rdx, rcx
- *            = The arguments of a call to a function of the program
+ *            = arguments to a program function
  *   rdi, rsi, rdx, rcx, r8, r9
- *            = The arguments of a call to the standard library, System V
+ *            = standard library arguments, System V
  *   rdi, rsi, rdx, r10, r8, r9
- *            = The arguments of a syscall
+ *            = syscall arguments
  *   xmm0 - xmm7
- *            = The float and double arguments of the standard library
- *   xmm7     = The store register of a float or double literal
- *   rcx      = The address register of the address-of operator, and the
- *              shift count of a shift by a register, in cl
- *   rdx      = The high half of the dividend and the remainder of `idiv`
- *   r10      = The address register of a dereference
- *   r11      = The scratch register of the right-hand-side of a binary
- *              expression, the divisor of `idiv`, and the value of a
- *              global argument
- *   r15      = The address of argc, argv on the stack
- *   rbp      = The frame pointer
+ *            = standard library float and double arguments
+ *   xmm7     = float and double literal store register
+ *   rcx      = address-of register, and shift count in cl
+ *   rdx      = dividend high half, and `idiv` remainder
+ *   r10      = dereference address register
+ *   r11      = right-hand-side scratch register, `idiv` divisor, and
+ *              global argument value
+ *   r15      = argc, argv address on the stack
+ *   rbp      = frame pointer
  *
  *   Locals, parameters, vectors, and vector offsets are always on the
  *   stack below rbp
@@ -144,7 +142,7 @@ bool Library_Call_Inserter::is_address_device_pointer_to_buffer(
  * @brief Get registers for argument storage
  */
 /**
- * @brief Get the argument register of an argument of a library call
+ * @brief Get a library call argument's register
  *
  * A float or double is the next xmm register, and any other argument the
  * next register of its size
@@ -174,7 +172,7 @@ Library_Call_Inserter::get_available_standard_library_register(
 }
 
 /**
- * @brief Load an argument of a library call into its register
+ * @brief Load a library call argument into its register
  *
  * A string is loaded with `lea`, a float with `movss`, a double with
  * `movsd`, and any other argument is moved
@@ -203,7 +201,7 @@ void Library_Call_Inserter::
                 assembly::Mnemonic::movq_, storage, assembly::Register::rcx });
             return;
         }
-        // a char on the stack is zero extended into its register
+        // zero-extend a char on the stack
         if (is_variant(common::Stack_Offset, argument) and
             accessor_->stack()->get_operand_size_from_offset(
                 std::get<common::Stack_Offset>(argument)) ==
@@ -289,7 +287,7 @@ void Library_Call_Inserter::make_library_call(Instructions& instructions,
     for (std::size_t i = 0; i < arguments.size(); i++) {
         auto const& arg = arguments.at(i);
         Register storage{};
-        // the type of a literal is only its storage while it is a label
+        // a literal's type is its storage only while it is a label
         std::string arg_type =
             locals.size() > i and is_variant(Immediate, arg)
                 ? type::get_type_from_typed_rvalue(locals.at(i))

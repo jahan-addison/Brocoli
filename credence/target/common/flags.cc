@@ -38,7 +38,7 @@
 namespace credence::target::common {
 
 /**
- * @brief Add a flag to the flags of an instruction
+ * @brief Add a flag to an instruction's flags
  */
 void Flag_Accessor::set_instruction_flag(flag::Instruction_Flag set_flag,
     unsigned int index)
@@ -50,7 +50,7 @@ void Flag_Accessor::set_instruction_flag(flag::Instruction_Flag set_flag,
 }
 
 /**
- * @brief Remove one or more flags from the flags of an instruction
+ * @brief Remove one or more flags from an instruction's flags
  */
 void Flag_Accessor::unset_instruction_flag(flag::Instruction_Flag set_flag,
     unsigned int index)
@@ -73,11 +73,10 @@ void Flag_Accessor::unset_instruction_flag(flag::flags unset_flags,
 }
 
 /**
- * @brief Set the flags of an instruction
+ * @brief Set an instruction's flags
  *
- * The flags replace those of the instruction, unless the next instruction
- * has flags, where they are added. The unset functions rely on the
- * replacement.
+ * The flags replace the instruction's, unless the next instruction has flags,
+ * where they are added. The unset functions rely on the replacement.
  */
 void Flag_Accessor::set_instruction_flag(flag::flags flags, unsigned int index)
 {

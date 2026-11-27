@@ -75,11 +75,11 @@ get_argument_general_purpose_registers()
 }
 
 /**
- * @brief Get the syscall register of an argument
+ * @brief Get an argument's syscall register
  *
  * An address is a quadword register and any other argument a doubleword
- * register. With no memory accessor, such as the exit syscall of `main`,
- * the argument is in rdi.
+ * register. With no memory accessor, such as `main`'s exit syscall, the
+ * argument is in rdi.
  */
 assembly::Register get_storage_register_from_safe_address(
     assembly::Storage const& argument,
@@ -103,9 +103,9 @@ assembly::Register get_storage_register_from_safe_address(
 /**
  * @brief Move a value in rcx to its syscall register
  *
- * A value computed into rcx for a syscall signals that the result is in
- * eax after the syscall, for the assignment of the next lvalue. It returns
- * false when the move is made, so the caller moves any other argument.
+ * A value computed into rcx for a syscall signals that the result is in eax
+ * after the syscall, for the next lvalue's assignment. It returns false when
+ * the move is made, so the caller moves any other argument.
  */
 bool check_signal_register_from_safe_address(Instructions& instructions,
     assembly::Register storage,
@@ -165,7 +165,7 @@ void exit_syscall(Instructions& instructions, int exit_status)
 }
 
 /**
- * @brief Insert a syscall of the host platform
+ * @brief Insert a host platform syscall
  *
  * The syscall number is moved to rax, in the Unix syscall class on Darwin,
  * then the arguments are loaded into rdi, rsi, rdx, r10, r8, and r9

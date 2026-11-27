@@ -96,7 +96,7 @@ RValue lvalue_at_temporary_object_address(LValue const& lvalue,
 namespace {
 
 /**
- * @brief Resolve the size of a binary expression in a stack frame
+ * @brief Resolve a binary expression's size in a stack frame
  *
  * Note: the size is from the first operand that has one, the left and then
  * the right, since both sides are assumed to be the same size - see

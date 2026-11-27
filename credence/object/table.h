@@ -63,8 +63,8 @@ namespace credence::object {
 constexpr Size k_pointer_size{ 8 };
 
 /**
- * @brief Get the storage size of a typed rvalue, where a string is the size of
- * its pointer and not the length of its literal
+ * @brief Get a typed rvalue's storage size, where a string is its pointer's
+ * size and not its literal's length
  *
  *  Examples:
  *
@@ -108,8 +108,8 @@ class Vector
 
   public:
     /**
-     * @brief Get the unpadded storage size of the vector data, since
-     * alignment is left to each backend
+     * @brief Get the vector data's unpadded storage size, since each backend
+     * aligns it
      */
     [[nodiscard]] constexpr Size size_of_data() const
     {
@@ -131,8 +131,8 @@ class Vector
 static_assert(std::equality_comparable<Vector>);
 
 /**
- * @brief Tagged union definition with the value of each of its tags, a typed
- * rvalue for a scalar tag or a Vector of the elements of a tuple tag
+ * @brief Tagged union definition with each tag's value, a typed rvalue for a
+ * scalar tag or a Vector of a tuple tag's elements
  */
 class Tagged_Union
 {
@@ -181,7 +181,7 @@ using Tagged_Unions =
     Ordered_Map<std::string, std::reference_wrapper<Tagged_Union>>;
 
 /**
- * @brief The string, float, and double literals of the data section
+ * @brief Data section string, float, and double literals
  *
  * Each literal that is addressed relative to the program counter, rather
  * than as an immediate, is stored once.
@@ -197,8 +197,8 @@ struct Data_Section
 };
 
 /**
- * @brief The functions, vectors, unions, symbols, and data section of a
- * program, where each is private and read through the queries of the table
+ * @brief A program's functions, vectors, unions, symbols, and data section,
+ * each private and read through the table's queries
  */
 class Object_Table
 {
@@ -216,7 +216,7 @@ class Object_Table
 
   public:
     /**
-     * @brief Whether a vector is defined in the object table
+     * @brief Check if a vector is defined in the object table
      */
     [[nodiscard]] constexpr bool vector_contains(LValue const& lvalue) const
     {
@@ -232,7 +232,7 @@ class Object_Table
     }
 
     /**
-     * @brief Get the vector definition of a label in the object table
+     * @brief Get a label's vector definition in the object table
      */
     [[nodiscard]] Vector& get_vector(Label const& label)
     {
@@ -246,7 +246,7 @@ class Object_Table
     }
 
     /**
-     * @brief The stack frame of a function by its label
+     * @brief Get a function's stack frame by its label
      */
     [[nodiscard]] constexpr Function& get_stack_frame(Label const& label)
     {
@@ -260,12 +260,12 @@ class Object_Table
     }
 
     /**
-     * @brief Get the union of a variable from the union table of the frame,
-     * and then from the union globals
+     * @brief Get a variable's union from the frame's union table, then the
+     * union globals
      */
     /**
-     * @brief Check if an rvalue, or the vector of an element such as
-     * `v[2]`, is a vector of the program
+     * @brief Check if an rvalue, or an element's vector such as `v[2]`, is a
+     * program vector
      */
     [[nodiscard]] bool is_vector(RValue const& rvalue) const
     {
@@ -290,10 +290,9 @@ class Object_Table
     /**
      * @brief Query the storage of an rvalue in a stack frame
      *
-     * Each query resolves an lvalue or rvalue against the stack frame under
-     * translation and the vectors of the program, where an element may be
-     * resolved, so the frame is an argument of the stage that walks the
-     * program.
+     * Each query resolves an lvalue or rvalue against the current stack frame
+     * and the program's vectors, so the frame is an argument from the stage
+     * that walks the program.
      */
     type::Typed_RValue get_rvalue_at_lvalue_object_storage(LValue const& lvalue,
         Function const& stack_frame,
@@ -317,8 +316,8 @@ class Object_Table
     }
 
     /**
-     * @brief Check if an lvalue is the tag of a union variable, such as
-     * `v.text` or `v.pair[0]`
+     * @brief Check if an lvalue is a union variable's tag, such as `v.text` or
+     * `v.pair[0]`
      */
     [[nodiscard]] constexpr bool is_union_variable(LValue const& lvalue,
         Function const& frame) const
@@ -339,8 +338,8 @@ class Object_Table
 
   public:
     /**
-     * @brief Check if a vector is a global, a pointer in the globals of the
-     * object table
+     * @brief Check if a vector is a global, a pointer in the object table's
+     * globals
      */
     [[nodiscard]] bool is_global_vector(Label const& label) const
     {
@@ -356,7 +355,7 @@ class Object_Table
     }
 
     /**
-     * @brief Get the union definition of a label in the object table
+     * @brief Get a label's union definition in the object table
      */
     [[nodiscard]] Tagged_Union& get_union(Label const& label)
     {
@@ -365,8 +364,7 @@ class Object_Table
     }
 
     /**
-     * @brief Set the union of a global variable, such as `union value_t
-     * last;`
+     * @brief Set a global variable's union, such as `union value_t last;`
      */
     void set_union_global(LValue const& variable, Label const& label)
     {
@@ -374,9 +372,9 @@ class Object_Table
     }
 
     /**
-     * @brief Check if an rvalue is the tag of a union type such as
-     * `value_t.text`, where the tag of a union variable like `v.text` is
-     * checked by is_union_variable instead
+     * @brief Check if an rvalue is a union type's tag, such as `value_t.text`,
+     * where a union variable's tag like `v.text` is checked by
+     * is_union_variable
      */
     [[nodiscard]] bool is_union(RValue const& rvalue) const
     {
@@ -389,14 +387,14 @@ class Object_Table
 
   public:
     /**
-     * @brief Get the functions and the vectors of the program, read-only
-     * and in insertion order
+     * @brief Get the program's functions and vectors, read-only and in
+     * insertion order
      */
     [[nodiscard]] Functions const& get_functions() const { return functions_; }
     [[nodiscard]] Vectors const& get_vectors() const { return vectors_; }
 
     /**
-     * @brief Get the symbols and the data section of the program
+     * @brief Get the program's symbols and data section
      */
     util::AST_Node& hoisted_symbols() { return hoisted_symbols_; }
     util::AST_Node const& hoisted_symbols() const { return hoisted_symbols_; }

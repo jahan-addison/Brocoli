@@ -130,10 +130,10 @@ struct Bitwise_Operator_Inserter
 /**
  * @brief Translate a call and its arguments
  *
- * The arguments are on the argument stack of the frame, pushed by PUSH, and
- * are loaded into the argument registers before the call. A call is to a
- * function of the program, the standard library, or a syscall, and the
- * arguments of `print` and `printf` are type checked as buffers.
+ * The arguments are on the frame's argument stack, pushed by PUSH, and loaded
+ * into the argument registers before the call. A call is to a program function,
+ * the standard library, or a syscall, and `print` and `printf` arguments are
+ * type checked as buffers.
  *
  *  Example:
  *
@@ -206,7 +206,7 @@ struct Arithemtic_Operator_Inserter
 };
 
 /**
- * @brief Translate the binary expression of a temporary
+ * @brief Translate a temporary's binary expression
  *
  * The left-hand-side is loaded into the accumulator and the right-hand-side
  * is its operand, and an expression of two immediates is folded into one
@@ -276,11 +276,10 @@ struct Unary_Operator_Inserter
 };
 
 /**
- * @brief Translate the rvalue of a temporary or a return
+ * @brief Translate a temporary's or return's rvalue
  *
- * The rvalue is a literal of the data section, an element of a global
- * vector, the return value of a call, or an expression whose result is
- * stored at the address of its temporary
+ * The rvalue is a data section literal, a global vector element, a call's
+ * return value, or an expression stored at its temporary's address
  *
  *  Example:
  *
@@ -322,10 +321,10 @@ struct Expression_Inserter
 };
 
 /**
- * @brief Translate the IR instructions of a program in order
+ * @brief Translate a program's IR instructions in order
  *
- * Each IR instruction is passed to its visitor, and the stack frame of a
- * function is set up at its `BeginFunc`
+ * Each IR instruction is passed to its visitor, and a function's stack frame is
+ * set up at its `BeginFunc`
  */
 template<memory::Memory_Accessor_T Accessor, typename Visitor>
 class Instruction_Inserter
@@ -351,9 +350,9 @@ class Instruction_Inserter
 /**
  * @brief Load and store the operands of an assignment
  *
- * An operand is resolved to its storage device: a parameter register, a
- * stack offset, the return register, or an immediate. An assignment of a
- * string, float, or double literal stores the address of its label.
+ * An operand is resolved to its storage device: a parameter register, a stack
+ * offset, the return register, or an immediate. Assigning a string, float, or
+ * double literal stores its label's address.
  *
  *  Example:
  *

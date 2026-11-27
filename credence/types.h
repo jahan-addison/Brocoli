@@ -78,11 +78,10 @@ struct Typed_RValue
 using RValue_Reference = std::string_view;
 
 /**
- * @brief Get the offsets of the spaces outside the string and char literals
- * of an rvalue
+ * @brief Get an rvalue's space offsets outside its string and char literals
  *
- * The operands and operator of a binary expression are separated by
- * spaces, and a literal may contain a space, `"m is %d"` or `' '`
+ * A binary expression's operands and operator are separated by spaces, and a
+ * literal may contain a space, `"m is %d"` or `' '`
  *
  *  Examples:
  *
@@ -110,8 +109,8 @@ constexpr std::vector<std::size_t> get_unquoted_space_offsets(
 }
 
 /**
- * @brief Get the operator of a binary expression, the token between its
- * operands, or empty when the rvalue is not a binary expression
+ * @brief Get a binary expression's operator, the token between its operands, or
+ * empty when the rvalue is not a binary expression
  */
 constexpr RValue_Reference get_binary_expression_operator(
     RValue_Reference rvalue)
@@ -413,9 +412,8 @@ constexpr bool is_valid_identifier(std::string_view id)
 }
 
 /**
- * @brief Split an lvalue into its object and the offset of its subscript,
- * where the offset is empty if there's no subscript or it isn't a single
- * offset at the end
+ * @brief Split an lvalue into its object and subscript offset, where the offset
+ * is empty with no subscript, or when it isn't a single offset at the end
  *
  *  Examples:
  *
@@ -476,8 +474,7 @@ constexpr bool is_dot_notation_object_identifier(std::string_view rvalue)
 }
 
 /**
- * @brief Get the object and the tag of a dot notation identifier, without its
- * offset
+ * @brief Get a dot notation identifier's object and tag, without its offset
  *
  *  Examples:
  *
@@ -495,8 +492,7 @@ get_union_identifier_sections(std::string_view identifier)
 }
 
 /**
- * @brief Get the offset of an element of a tuple tag, or an empty offset for a
- * scalar tag
+ * @brief Get a tuple tag element's offset, or an empty offset for a scalar tag
  *
  *  Examples:
  *
@@ -587,7 +583,7 @@ constexpr semantic::RValue get_binary_operator(RValue_Reference rvalue)
 }
 
 /**
- * @brief Get the value of a typed rvalue
+ * @brief Get a typed rvalue's value
  */
 constexpr semantic::RValue get_value_from_typed_rvalue(
     Typed_RValue const& rvalue)

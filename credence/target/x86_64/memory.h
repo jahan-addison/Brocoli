@@ -57,26 +57,24 @@
 /****************************************************************************
  * Register selection table:
  *
- *   rax      = The default "accumulator" register for expression expansion,
- *              the return value, and the number of a syscall
+ *   rax      = accumulator for expression expansion, return value, and
+ *              syscall number
  *   rdi, r8, r9, rsi, rdx, rcx
- *            = The arguments of a call to a function of the program
+ *            = arguments to a program function
  *   rdi, rsi, rdx, rcx, r8, r9
- *            = The arguments of a call to the standard library, System V
+ *            = standard library arguments, System V
  *   rdi, rsi, rdx, r10, r8, r9
- *            = The arguments of a syscall
+ *            = syscall arguments
  *   xmm0 - xmm7
- *            = The float and double arguments of the standard library
- *   xmm7     = The store register of a float or double literal
- *   rcx      = The address register of the address-of operator, and the
- *              shift count of a shift by a register, in cl
- *   rdx      = The high half of the dividend and the remainder of `idiv`
- *   r10      = The address register of a dereference
- *   r11      = The scratch register of the right-hand-side of a binary
- *              expression, the divisor of `idiv`, and the value of a
- *              global argument
- *   r15      = The address of argc, argv on the stack
- *   rbp      = The frame pointer
+ *            = standard library float and double arguments
+ *   xmm7     = float and double literal store register
+ *   rcx      = address-of register, and shift count in cl
+ *   rdx      = dividend high half, and `idiv` remainder
+ *   r10      = dereference address register
+ *   r11      = right-hand-side scratch register, `idiv` divisor, and
+ *              global argument value
+ *   r15      = argc, argv address on the stack
+ *   rbp      = frame pointer
  *
  *   Locals, parameters, vectors, and vector offsets are always on the
  *   stack below rbp
@@ -142,7 +140,7 @@ using Stack_Frame = common::memory::Stack_Frame;
 using X8664_Memory_Accessor = common::memory::Memory_Accessor;
 
 /**
- * @brief Get the Intel syntax size prefix of a memory operand
+ * @brief Get a memory operand's Intel syntax size prefix
  *
  *  Examples:
  *
@@ -195,7 +193,7 @@ using Operand_Lambda = std::function<bool(RValue)>;
 using Flag_Accessor = common::Flag_Accessor;
 
 /**
- * @brief The accumulator register of x86-64, al, ax, eax, or rax
+ * @brief x86-64 accumulator register, al, ax, eax, or rax
  *
  * A signal register set by an inserter is returned once in place of the
  * accumulator, and the signal register is eax when it is not set
@@ -227,7 +225,7 @@ struct Accumulator_Accessor : public X8664_Accumulator_Accessor
 };
 
 /**
- * @brief The address of an lvalue and the instructions that load it
+ * @brief Lvalue address and the instructions that load it
  *
  * A local is its offset below rbp, a global is relative to rip with its
  * size prefix, and a dereference is the address loaded into rax
@@ -267,8 +265,7 @@ struct Address_Accessor : public X8664_Address_Accessor
 };
 
 /**
- * @brief The offset and operand size of an element of a global vector on
- * x86-64
+ * @brief Global vector element offset and operand size on x86-64
  */
 struct Vector_Accessor : public X8664_Vector_Accessor
 {
@@ -284,13 +281,13 @@ struct Vector_Accessor : public X8664_Vector_Accessor
 };
 
 /**
- * @brief The x86-64 instructions of the program
+ * @brief The program's x86-64 instructions
  */
 struct Instruction_Accessor : public X8664_Instruction_Accessor
 {};
 
 /**
- * @brief The argument registers of a call to a function of the program
+ * @brief Argument registers for a call to a program function
  *
  * Each argument takes the next register of its size, and the registers are
  * reset after the call
@@ -313,7 +310,7 @@ struct Register_Accessor : public X8664_Register_Accessor
     }
 
     /**
-     * @brief Get the second operand register of a size, edi or rdi
+     * @brief Get the second operand register for a size, edi or rdi
      */
     static constexpr Register get_second_register_from_size(Operand_Size size)
     {
@@ -327,11 +324,11 @@ struct Register_Accessor : public X8664_Register_Accessor
 };
 
 /**
- * @brief The storage device of each local of the function
+ * @brief Storage device of each local in the function
  *
- * Every local of x86-64 is a stack slot below rbp, where a pointer is an
- * aligned quadword and any other local is the size of its type, and the
- * devices are reset at each `BeginFunc`
+ * Every x86-64 local is a stack slot below rbp, where a pointer is an aligned
+ * quadword and any other local is its type's size. The devices are reset at
+ * each `BeginFunc`
  *
  *  Example:
  *
@@ -386,20 +383,20 @@ class Device_Accessor
 } // namespace detail
 
 /**
- * @brief The Memory_Accessor of the x86-64 target, a Layered Aggregate
+ * @brief x86-64 Memory_Accessor, a Layered Aggregate
  *
- * The inserters, visitor, and emitter share one Memory_Accessor, where its
- * layers are private and declared in dependency order with the device below
- * the address, and each is reached through its role such as `ir()`,
- * `devices()`, or `state()`
+ * The inserters, visitor, and emitter share one Memory_Accessor. Its layers are
+ * private and declared in dependency order, with the device below the address,
+ * and each is reached through its role, such as `ir()`, `devices()`, or
+ * `state()`
  */
 class Memory_Accessor final : public X8664_Memory_Accessor
 {
   public:
     Memory_Accessor() = delete;
 
-    // the layers refer to members of this object, so a copy or a move
-    // would refer to the members of its source
+    // the layers refer to this object's members, so a copy or move would refer
+    // to its source's
     Memory_Accessor(Memory_Accessor const&) = delete;
     Memory_Accessor& operator=(Memory_Accessor const&) = delete;
     Memory_Accessor(Memory_Accessor&&) = delete;
@@ -417,7 +414,7 @@ class Memory_Accessor final : public X8664_Memory_Accessor
 
   public:
     /**
-     * @brief Get each private layer of the aggregate by its role
+     * @brief Get each private layer by its role
      */
     detail::Instruction_State& state() { return state_; }
     detail::Table_Accessor& ir() { return table_accessor_; }

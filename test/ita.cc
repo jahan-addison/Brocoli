@@ -1099,7 +1099,7 @@ inline std::string emit_ir_from_source(std::string const& source)
 
 TEST_CASE("ir/temporary.cc: indirection in a relation chain")
 {
-    // the dereference is an operand of the binary expression, `*p + 1`
+    // the dereference is a binary expression operand, `*p + 1`
     REQUIRE(emit_ir_from_source(
                 "main() { auto x, *p; x = 1; p = &x; x = *p + 1; }") ==
             R"ita(__main():
@@ -1120,7 +1120,7 @@ _L1:
 
 TEST_CASE("ir/temporary.cc: post-increment and decrement value")
 {
-    // the value of a post-increment is the operand before the increment
+    // a post-increment's value is the operand before the increment
     REQUIRE(emit_ir_from_source("main() { auto x, y; x = 1; y = x++; x--; }") ==
             R"ita(__main():
  BeginFunc ;
@@ -1140,7 +1140,7 @@ _L1:
 
 TEST_CASE("ir/temporary.cc: binary operand order")
 {
-    // the left-hand-side of a binary expression stays on the left
+    // a binary expression's left-hand-side stays on the left
     REQUIRE(emit_ir_from_source("main() { auto x, y; x = 1; y = -x - 1; }") ==
             R"ita(__main():
  BeginFunc ;
@@ -1155,7 +1155,7 @@ _L1:
  EndFunc ;
 
 )ita");
-    // each operand of a logical chain is its own temporary
+    // each logical chain operand is its own temporary
     REQUIRE(
         emit_ir_from_source("main() { auto x; x = 1 + 1 || f(1) || 3 + 3; } "
                             "f(a) { return(a); }") ==
@@ -1190,7 +1190,7 @@ _L1:
 
 TEST_CASE("ir/temporary.cc: insert_expression_value")
 {
-    // the value of a return is the whole expression, `-x - 1`
+    // a return's value is the whole expression, `-x - 1`
     REQUIRE(emit_ir_from_source("f(x) { return(-x - 1); } main() { }") ==
             R"ita(__f(x):
  BeginFunc ;
@@ -1210,7 +1210,7 @@ _L1:
  EndFunc ;
 
 )ita");
-    // the value of a return of a call is the return value of the call
+    // returning a call returns the call's return value
     REQUIRE(emit_ir_from_source("f(x) { return(f(x)); } main() { }") ==
             R"ita(__f(x):
  BeginFunc ;

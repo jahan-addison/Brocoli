@@ -17,7 +17,7 @@ struct Type_Checker_Fixture
     using Storage = credence::language::hir::checking::Storage;
 
     /**
-     * @brief The semantic error of a B program, or empty if it has none
+     * @brief Get a B program's semantic error, or empty if it has none
      */
     static inline std::string get_semantic_error(std::string const& source)
     {
@@ -74,7 +74,7 @@ TEST_CASE("is_numeric")
 TEST_CASE_FIXTURE(Type_Checker_Fixture, "assign_to_scalar")
 {
     CHECK(is_valid("main() { auto x, y; x = 5; y = x; }"));
-    // a literal does not change the type of a scalar
+    // a literal does not change a scalar's type
     CHECK(has_semantic_error("main() { auto x; x = 10; x = 3.14; }",
         "right-hand-side '3.14' with type 'double' is not the same type "
         "(int)"));
@@ -148,7 +148,7 @@ TEST_CASE_FIXTURE(Type_Checker_Fixture, "assign_to_pointer: pointer type")
 
 TEST_CASE_FIXTURE(Type_Checker_Fixture, "assign_to_dereference: null pointer")
 {
-    // an assignment through a null pointer sets the type it points to
+    // an assignment through a null pointer sets its pointee type
     CHECK(is_valid("main() { auto *m, x; *m = 5; x = *m; }"));
     CHECK(has_semantic_error("main() { auto *m; *m = 5; *m = 2.5; }",
         "'*m' with type 'int' is not the same type (double)"));
@@ -199,7 +199,7 @@ TEST_CASE_FIXTURE(Type_Checker_Fixture, "get_vector_at_offset")
         "main() { auto x; x = v[1]; }", "identifier does not exist"));
     CHECK(has_semantic_error(
         "main() { auto v[3]; v[i] = 1; }", "invalid vector offset 'i'"));
-    // the constant of a scalar offset is bounds checked
+    // a scalar offset's constant is bounds checked
     CHECK(has_semantic_error(R"b(
 main() {
   auto x, y;
@@ -219,7 +219,7 @@ TEST_CASE_FIXTURE(Type_Checker_Fixture, "from_vector_offset")
     CHECK(is_valid("main() { auto x; extrn v; x = v[1]; } v [2] 1, 2;"));
     CHECK(has_semantic_error(
         "main() { auto x, v[3]; x = v[1]; }", "element at '1' does not exist"));
-    // an offset not known at compile time is the type of the first element
+    // an offset not known at compile time is the first element's type
     CHECK(is_valid(
         "main() { } f(i) { auto x; extrn v; x = v[i]; } v [2] \"a\", \"b\";"));
     CHECK(is_valid(R"b(

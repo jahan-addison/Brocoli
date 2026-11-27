@@ -62,26 +62,24 @@ enum class Register : std::uint8_t;
 /****************************************************************************
  * Register selection table:
  *
- *   rax      = The default "accumulator" register for expression expansion,
- *              the return value, and the number of a syscall
+ *   rax      = accumulator for expression expansion, return value, and
+ *              syscall number
  *   rdi, r8, r9, rsi, rdx, rcx
- *            = The arguments of a call to a function of the program
+ *            = arguments to a program function
  *   rdi, rsi, rdx, rcx, r8, r9
- *            = The arguments of a call to the standard library, System V
+ *            = standard library arguments, System V
  *   rdi, rsi, rdx, r10, r8, r9
- *            = The arguments of a syscall
+ *            = syscall arguments
  *   xmm0 - xmm7
- *            = The float and double arguments of the standard library
- *   xmm7     = The store register of a float or double literal
- *   rcx      = The address register of the address-of operator, and the
- *              shift count of a shift by a register, in cl
- *   rdx      = The high half of the dividend and the remainder of `idiv`
- *   r10      = The address register of a dereference
- *   r11      = The scratch register of the right-hand-side of a binary
- *              expression, the divisor of `idiv`, and the value of a
- *              global argument
- *   r15      = The address of argc, argv on the stack
- *   rbp      = The frame pointer
+ *            = standard library float and double arguments
+ *   xmm7     = float and double literal store register
+ *   rcx      = address-of register, and shift count in cl
+ *   rdx      = dividend high half, and `idiv` remainder
+ *   r10      = dereference address register
+ *   r11      = right-hand-side scratch register, `idiv` divisor, and
+ *              global argument value
+ *   r15      = argc, argv address on the stack
+ *   rbp      = frame pointer
  *
  *   Locals, parameters, vectors, and vector offsets are always on the
  *   stack below rbp
@@ -89,8 +87,8 @@ enum class Register : std::uint8_t;
  *****************************************************************************/
 
 /**
- * Short-form names of the enumerations, and the declarations of the
- * instruction and directive constructors by their number of operands
+ * Short-form enumeration names, and instruction and directive constructor
+ * declarations by operand count
  */
 
 #define x64_mn(n) x86_64::assembly::Mnemonic::n
@@ -128,9 +126,8 @@ enum class Register : std::uint8_t;
     x86_64::assembly::Directives name(type::semantic::RValue const& rvalue)
 
 /**
- * `x8664_add_asm` appends an instruction with the enumerators in scope,
- * and the bodies of the instruction constructors return the register of
- * their result and their instructions
+ * `x8664_add_asm` appends an instruction with the enumerators in scope, and the
+ * instruction constructor bodies return their result register and instructions
  */
 
 #define x8664_add_asm(inst, op, ...)                                 \
@@ -154,9 +151,8 @@ enum class Register : std::uint8_t;
     } while (false)
 
 /**
- * The cases of the switches that print registers, directives, and
- * mnemonics by their enumerator names. A trailing underscore that avoids a
- * C++ keyword is removed.
+ * Switch cases that print registers, directives, and mnemonics by their
+ * enumerator names. A trailing underscore that avoids a C++ keyword is removed.
  *
  */
 
@@ -195,7 +191,7 @@ inline void newline(std::ostream& os, std::size_t amount = 1)
 }
 
 /**
- * @brief The general purpose and SSE registers of x86-64
+ * @brief x86-64 general purpose and SSE registers
  *
  * A 64-bit register, `rax`, has its 32-bit, 16-bit, and 8-bit parts, `eax`,
  * `ax`, and `al`, and `xmm0` to `xmm7` hold a float or double
@@ -366,7 +362,7 @@ enum class Directive : std::uint8_t
 // clang-format on
 
 /**
- * @brief The size of an operand in bytes
+ * @brief Operand size in bytes
  */
 enum class Operand_Size : std::uint8_t
 {
@@ -377,7 +373,7 @@ enum class Operand_Size : std::uint8_t
     Empty = 0
 };
 
-// the AT&T suffix of each operand size
+// AT&T suffix of each operand size
 const std::map<Operand_Size, std::string> suffix = {
     { Operand_Size::Byte,  "b" },
     { Operand_Size::Word,  "w" },
@@ -398,7 +394,7 @@ constexpr bool is_dword_register(Register r)
 }
 
 /**
- * @brief Get the dword register of a qword register
+ * @brief Get a qword register's dword register
  */
 constexpr Register get_dword_register_from_qword(Register r)
 {
@@ -437,7 +433,7 @@ constexpr Register get_dword_register_from_qword(Register r)
 }
 
 /**
- * @brief Get the qword register of a dword register
+ * @brief Get a dword register's qword register
  */
 constexpr Register get_qword_register_from_dword(Register r)
 {
@@ -724,8 +720,8 @@ constexpr std::ostream& operator<<(std::ostream& os, Mnemonic mnemonic)
 }
 
 /**
- * The x86-64 instances of the common instruction types. An instruction has
- * up to two operands, `mov eax, dword ptr [rbp - 4]`.
+ * x86-64 instances of the common instruction types. An instruction has up to
+ * two operands, `mov eax, dword ptr [rbp - 4]`.
  */
 
 using Storage = common::Storage_T<Register>;
@@ -776,7 +772,7 @@ constexpr std::string tabwidth(unsigned int t)
 }
 
 /**
- * @brief Get the value of a literal of the data section as a string
+ * @brief Get a data section literal's value as a string
  */
 constexpr std::string literal_type_to_string(Literal_Type const& literal)
 {
@@ -789,7 +785,7 @@ constexpr std::string literal_type_to_string(Literal_Type const& literal)
 }
 
 /**
- * @brief Get the label of a function, `main` is the entry point `_start`
+ * @brief Get a function's label, where `main` is the entry point `_start`
  */
 constexpr std::string make_label(type::semantic::Label const& label)
 {
@@ -799,7 +795,7 @@ constexpr std::string make_label(type::semantic::Label const& label)
 }
 
 /**
- * @brief Get the label of a branch in a function
+ * @brief Get a branch label in a function
  *
  *  Example:
  *
@@ -824,7 +820,7 @@ Immediate get_result_from_trivial_bitwise_expression(Immediate const& lhs,
     Immediate const& rhs);
 
 /**
- * @brief Get the data directive of a value of a type
+ * @brief Get the data directive for a type's value
  *
  *  Examples:
  *
@@ -866,7 +862,7 @@ inline void inserter(assembly::Directives& to, assembly::Directives const& from)
 }
 
 /**
- * @brief Construct an immediate of the label of a literal
+ * @brief Construct an immediate of a literal's label
  */
 constexpr x86_64::assembly::Immediate make_asciz_immediate(
     std::string_view address)

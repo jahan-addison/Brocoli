@@ -81,26 +81,24 @@
 /****************************************************************************
  * Register selection table:
  *
- *   rax      = The default "accumulator" register for expression expansion,
- *              the return value, and the number of a syscall
+ *   rax      = accumulator for expression expansion, return value, and
+ *              syscall number
  *   rdi, r8, r9, rsi, rdx, rcx
- *            = The arguments of a call to a function of the program
+ *            = arguments to a program function
  *   rdi, rsi, rdx, rcx, r8, r9
- *            = The arguments of a call to the standard library, System V
+ *            = standard library arguments, System V
  *   rdi, rsi, rdx, r10, r8, r9
- *            = The arguments of a syscall
+ *            = syscall arguments
  *   xmm0 - xmm7
- *            = The float and double arguments of the standard library
- *   xmm7     = The store register of a float or double literal
- *   rcx      = The address register of the address-of operator, and the
- *              shift count of a shift by a register, in cl
- *   rdx      = The high half of the dividend and the remainder of `idiv`
- *   r10      = The address register of a dereference
- *   r11      = The scratch register of the right-hand-side of a binary
- *              expression, the divisor of `idiv`, and the value of a
- *              global argument
- *   r15      = The address of argc, argv on the stack
- *   rbp      = The frame pointer
+ *            = standard library float and double arguments
+ *   xmm7     = float and double literal store register
+ *   rcx      = address-of register, and shift count in cl
+ *   rdx      = dividend high half, and `idiv` remainder
+ *   r10      = dereference address register
+ *   r11      = right-hand-side scratch register, `idiv` divisor, and
+ *              global argument value
+ *   r15      = argc, argv address on the stack
+ *   rbp      = frame pointer
  *
  *   Locals, parameters, vectors, and vector offsets are always on the
  *   stack below rbp
@@ -234,9 +232,9 @@ inline void insert_alignment_directive(assembly::Directives& instructions,
 }
 
 /**
- * @brief Get the data directive of a value in the data section
+ * @brief Get the data directive for a data section value
  *
- * A string, float, or double is the address of its label
+ * A string, float, or double is its label's address
  */
 Directives Data_Emitter::get_instructions_from_directive_type(
     Directive directive,
@@ -275,7 +273,7 @@ Directives Data_Emitter::get_instructions_from_directive_type(
 }
 
 /**
- * @brief Set the data section of the program
+ * @brief Set the program's data section
  */
 void Data_Emitter::set_data_section()
 {
@@ -335,7 +333,7 @@ void Data_Emitter::set_data_doubles()
 }
 
 /**
- * @brief Get the `.p2align` of a value of a type, the log2 of its alignment
+ * @brief Get the `.p2align` for a type's value, the log2 of its alignment
  */
 std::size_t get_alignment_size_from_typed_rvalue(
     type::semantic::Type const& type)
@@ -352,9 +350,8 @@ std::size_t get_alignment_size_from_typed_rvalue(
 /**
  * @brief Set each global in the data section
  *
- * A global is a vector, and a global with one value, `counter 5;`, is
- * aligned to its type. The offset of each element is recorded for its
- * loads and stores.
+ * A global is a vector, and a global with one value, `counter 5;`, is aligned
+ * to its type. Each element's offset is recorded for its loads and stores.
  */
 void Data_Emitter::set_data_globals()
 {
@@ -422,7 +419,7 @@ void Data_Emitter::emit_data_section(std::ostream& os)
 }
 
 /**
- * @brief Get a storage device as a string, with the flags of its instruction
+ * @brief Get a storage device as a string, with its instruction's flags
  */
 std::string Storage_Emitter::get_storage_device_as_string(
     assembly::Storage const& storage,
@@ -448,11 +445,10 @@ std::string Storage_Emitter::get_storage_device_as_string(
 }
 
 /**
- * @brief Emit an operand of an instruction with its flags applied
+ * @brief Emit an instruction operand with its flags applied
  *
- * The size of a memory operand is the size of the other operand, and the
- * immediate of a stack pointer `sub` or `add` is the frame size, which is
- * known after the function is translated
+ * A memory operand is the other operand's size, and a stack pointer `sub` or
+ * `add` immediate is the frame size, known after the function is translated
  *
  *  Example:
  *
@@ -512,7 +508,7 @@ void Storage_Emitter::emit(std::ostream& os,
 }
 
 /**
- * @brief Emit the jump to the epilogue of the function, `_L1`
+ * @brief Emit the jump to the function epilogue, `_L1`
  */
 void Text_Emitter::emit_epilogue_jump(std::ostream& os)
 {
@@ -524,9 +520,9 @@ void Text_Emitter::emit_epilogue_jump(std::ostream& os)
 /**
  * @brief Emit a function or branch label in the text section
  *
- * A function label emits the epilogue of the last function, and a branch
- * label is local to its function. The `_L1` label is the epilogue, so a
- * jump to it is emitted in its place.
+ * A function label emits the last function's epilogue, and a branch label is
+ * local to its function. The `_L1` label is the epilogue, so a jump to it is
+ * emitted in its place.
  */
 void Text_Emitter::emit_assembly_label(std::ostream& os,
     Label const& s,
@@ -576,8 +572,8 @@ void Text_Emitter::emit_assembly_instruction(std::ostream& os,
 {
     auto flags = accessor_->flags().get_instruction_flags_at_index(index);
     auto [mnemonic, dest, src] = s;
-    // a memory operand is the size of a register destination, except for
-    // the extending moves
+    // a memory operand is a register destination's size, except for the
+    // extending moves
     auto is_extended = mnemonic == assembly::Mnemonic::movzx or
                        mnemonic == assembly::Mnemonic::movsxd;
     auto& operand_size_storage =
@@ -627,8 +623,7 @@ void Text_Emitter::emit_text_instruction(std::ostream& os,
 /**
  * @brief Emit the epilogue held for the last function
  *
- * The `_L1` label of a function with branches is emitted before its
- * epilogue
+ * A function with branches emits its `_L1` label before its epilogue
  */
 void Text_Emitter::emit_function_epilogue(std::ostream& os)
 {
@@ -651,7 +646,7 @@ void Text_Emitter::emit_function_epilogue(std::ostream& os)
 /**
  * @brief Emit the text section
  *
- * The epilogue of the last function is emitted after its instructions
+ * The last function's epilogue is emitted after its instructions
  */
 void Text_Emitter::emit_text_section(std::ostream& os)
 {
@@ -678,7 +673,7 @@ void Text_Emitter::emit_text_directives(std::ostream& os)
 }
 
 /**
- * @brief Emit the global directive of each standard library function
+ * @brief Emit each standard library function's global directive
  */
 void Text_Emitter::emit_stdlib_externs(std::ostream& os)
 {

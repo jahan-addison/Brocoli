@@ -72,23 +72,20 @@
 /****************************************************************************
  * Register selection table:
  *
- *   x0 - x7  = The arguments of a call, and x0 the return value
- *   x6       = The data section address register, and the second operand
- *              of a binary expression in a temporary
+ *   x0 - x7  = call arguments, and x0 the return value
+ *   x6       = data section address register, and the second operand of a
+ *              binary expression in a temporary
  *      s6    = floating point
  *      d6    = double
- *   x7       = The scratch register of the right-hand-side of a binary
- *              expression
- *   x8       = The default "accumulator" register for expression expansion
+ *   x7       = right-hand-side scratch register
+ *   x8       = accumulator for expression expansion
  *   x9, x11 - x14, x16, x17
- *            = If there are no function calls in a stack frame, local scope
- *              variables are stored in these registers, after which the
- *              stack is used
- *   x10      = The stack move register, and the address register of a
- *              pointer on the stack
- *   x15      = The address of a vector element on the stack
- *   x18      = The platform register on Darwin, never used
- *   x19      = The argc, argv scratch register
+ *            = locals in a stack frame with no calls, then the stack
+ *   x10      = stack move register, and address register for a pointer on
+ *              the stack
+ *   x15      = vector element address on the stack
+ *   x18      = platform register on Darwin, never used
+ *   x19      = argc, argv scratch register
  *
  *   A local whose address is taken, vectors, and vector offsets are always
  *   on the stack
@@ -100,9 +97,9 @@ namespace credence::target::arm64 {
 namespace {
 
 /**
- * @brief Check if the return value of a function is a doubleword
+ * @brief Check if a function returns a doubleword
  *
- * A pointer, a pointer parameter, or a string is a doubleword
+ * A pointer, pointer parameter, or string is a doubleword
  */
 bool is_doubleword_return_value(object::Function const& frame)
 {
@@ -120,9 +117,9 @@ bool is_doubleword_return_value(object::Function const& frame)
 namespace m = matchit;
 
 /**
- * @brief Set up the stack frame of a function at its `BeginFunc`
+ * @brief Set up a function's stack frame at `BeginFunc`
  *
- * The label of the function is the IR instruction before `BeginFunc`
+ * The function's label is the instruction before `BeginFunc`
  */
 void Instruction_Inserter::setup_stack_frame_in_function(
     ir::Instructions const& ir_instructions,
@@ -137,11 +134,10 @@ void Instruction_Inserter::setup_stack_frame_in_function(
 }
 
 /**
- * @brief Type check the argument of `print`, and add its length
+ * @brief Type check the `print` argument, and add its length
  *
- * The argument must be a string or a buffer address, and its length is the
- * size of the string in the object table, or the length of the last
- * `read(2)` into the buffer
+ * The argument must be a string or buffer address. Its length is the string's
+ * size in the object table, or the last `read(2)` into the buffer.
  *
  *  Example:
  *
@@ -208,10 +204,10 @@ void Invocation_Inserter::insert_type_check_stdlib_printf_arguments(
 }
 
 /**
- * @brief Insert the address of an lvalue into its pointer slot
+ * @brief Insert an lvalue's address into its pointer slot
  *
- * The address is stored in a doubleword slot of the frame, whose offset is
- * resolved from the top of the frame when the frame has no calls
+ * The address is stored in a doubleword frame slot, with its offset from the
+ * top of the frame when the frame has no calls
  */
 common::Stack_Offset Unary_Operator_Inserter::from_lvalue_address_of_expression(
     RValue const& expr)
@@ -251,8 +247,7 @@ common::Stack_Offset Unary_Operator_Inserter::from_lvalue_address_of_expression(
 /**
  * @brief Translate each IR instruction with the visitor
  *
- * The visitor of each instruction is called in order, and a temporary held
- * in the accumulator is released after the instruction that follows it
+ * A temporary held in the accumulator is released after the next instruction
  */
 void Instruction_Inserter::from_ir_instructions(
     ir::Instructions const& ir_instructions)
@@ -328,7 +323,7 @@ void Binary_Operator_Inserter::from_binary_operator_expression(
     auto [lhs, rhs, op] = type::from_rvalue_binary_expression(rvalue);
     Operand_Inserter operand_inserter{ accessor_ };
 
-    // the value of an expression of two immediates is folded
+    // fold an expression of two immediates
     if (is_immediate(lhs) and is_immediate(rhs)) {
         auto [lhs_i, rhs_i] = get_rvalue_pair_as_immediate(lhs, rhs);
         auto immediate =
@@ -365,7 +360,7 @@ void Binary_Operator_Inserter::from_binary_operator_expression(
         rhs_s =
             operand_inserter.get_operand_storage_from_expression_operand(rhs);
 
-    // the operands of an instruction are the same size
+    // operands are the same size
     if (is_variant(Register, rhs_s)) {
         auto rhs_r = std::get<Register>(rhs_s);
         if (assembly::is_doubleword_register(rhs_r) and
@@ -393,7 +388,7 @@ void Binary_Operator_Inserter::from_binary_operator_expression(
     } else if (type::is_relation_binary_operator(op)) {
         insert_from_relational_operands(accumulator, rhs_s, op);
     } else {
-        // the logical immediates of `and`, `orr`, and `eor` are bitmasks
+        // `and`, `orr`, and `eor` logical immediates are bitmasks
         if (is_variant(Immediate, rhs_s)) {
             auto scratch = assembly::is_doubleword_register(accumulator)
                                ? Register::x7
@@ -411,7 +406,7 @@ void Binary_Operator_Inserter::from_binary_operator_expression(
 }
 
 /**
- * @brief Inserter of the remainder of a signed division
+ * @brief Inserter of a signed division remainder
  *
  *  Example:
  *
@@ -444,8 +439,8 @@ void Binary_Operator_Inserter::insert_from_modulo_operands(Register accumulator,
 /**
  * @brief Inserter of a relational expression
  *
- * The comparison jumps to the label of the next IF instruction when it is
- * the condition, otherwise its value is 0 or 1 in the accumulator
+ * As a condition, the comparison jumps to the next IF's label, and otherwise
+ * its value is 0 or 1 in the accumulator
  *
  *  Example:
  *
@@ -540,10 +535,9 @@ void Binary_Operator_Inserter::insert_from_logical_operands(
 }
 
 /**
- * @brief Get the operand size of the lvalue of a unary expression
+ * @brief Get the operand size of a unary expression's lvalue
  *
- * A vector element is loaded to find its size, and a literal has the size
- * of its type
+ * A vector element is loaded to find its size, and a literal is its type's size
  */
 Operand_Size Unary_Operator_Inserter::get_operand_size_from_lvalue_reference(
     LValue const& lvalue)
@@ -578,7 +572,7 @@ Operand_Size Unary_Operator_Inserter::get_operand_size_from_lvalue_reference(
 }
 
 /**
- * @brief Get the accumulator of the value of a unary expression
+ * @brief Get the accumulator for a unary expression's value
  */
 Storage Unary_Operator_Inserter::get_temporary_storage_from_temporary_expansion(
     RValue const& rvalue)
@@ -657,10 +651,10 @@ Storage Unary_Operator_Inserter::insert_from_unary_operator_rvalue(
 }
 
 /**
- * @brief Insert the instruction of a unary operator
+ * @brief Insert a unary operator instruction
  *
- * The increment and decrement are in place, `&` stores an address, and `*`
- * stores through the address in the destination
+ * Increment and decrement are in place, `&` stores an address, and `*` stores
+ * through the destination's address
  */
 void Unary_Operator_Inserter::insert_from_unary_operator_operands(
     std::string const& op,
@@ -727,10 +721,10 @@ void Unary_Operator_Inserter::insert_from_unary_operator_operands(
 }
 
 /**
- * @brief Insert the value of a temporary into the accumulator
+ * @brief Insert a temporary's value into the accumulator
  *
- * The expression of the temporary is in the object table, and the
- * accumulator holds its value until the next instruction
+ * The temporary's expression is in the object table, and the accumulator holds
+ * its value until the next instruction
  *
  *  Example:
  *
@@ -746,8 +740,7 @@ void Expression_Inserter::insert_lvalue_at_temporary_object_address(
     LValue const& lvalue)
 {
     auto& frame = stack_frame_.get_stack_frame();
-    // a copy of a temporary, e.g. `_t3 = _t2;`, is the value of `_t2`
-    // when it was computed, not its expression computed again
+    // a copy, `_t3 = _t2;`, is `_t2`'s computed value, not its expression
     if (frame.temporary.contains(lvalue) and
         type::is_temporary(frame.temporary.at(lvalue))) {
         auto operand_inserter = Operand_Inserter{ accessor_ };
@@ -764,7 +757,7 @@ void Expression_Inserter::insert_lvalue_at_temporary_object_address(
 }
 
 /**
- * @brief Move the value of a return statement to the return register
+ * @brief Move a return statement's value to the return register
  *
  * The return register is x0 for a doubleword, such as a pointer, and w0
  * otherwise
@@ -787,7 +780,7 @@ void Expression_Inserter::insert_from_return_rvalue(
     auto immediate =
         operand_inserter.get_operand_storage_from_expression_operand(
             ret.value().second);
-    // a string literal is the address of its label
+    // a string literal is its label's address
     if (assembly::is_immediate_relative_address(immediate)) {
         auto label =
             type::get_value_from_typed_rvalue(std::get<Immediate>(immediate));
@@ -810,11 +803,10 @@ void Expression_Inserter::insert_from_return_rvalue(
 }
 
 /**
- * @brief Insert the address of an lvalue into the accumulator
+ * @brief Insert an lvalue's address into the accumulator
  *
- * A global vector element is its page address plus its offset, and a local
- * vector element or a local on the stack is its offset from the stack
- * pointer
+ * A global vector element is its page address plus offset, and a local vector
+ * element or stack local is its offset from the stack pointer
  *
  *  Example:
  *
@@ -832,7 +824,7 @@ void Expression_Inserter::insert_from_address_of_rvalue(RValue const& rvalue)
     auto operand_inserter = Operand_Inserter{ accessor_ };
     auto lvalue = type::get_unary_rvalue_reference(rvalue);
     auto label = type::from_lvalue_offset(lvalue);
-    // the address of a global vector element is from its page address
+    // global vector element, from its page address
     if (is_vector_offset(lvalue) and table->is_global_vector(label)) {
         auto offset =
             accessor_->vectors()
@@ -852,7 +844,7 @@ void Expression_Inserter::insert_from_address_of_rvalue(RValue const& rvalue)
         result_ = Register::x8;
         return;
     }
-    // the address of an element of a vector on the stack
+    // vector element on the stack
     if (operand_inserter.is_local_vector_offset(lvalue)) {
         auto offset = std::get<common::Stack_Offset>(
             operand_inserter.get_operand_storage_from_local_vector_offset(
@@ -861,8 +853,7 @@ void Expression_Inserter::insert_from_address_of_rvalue(RValue const& rvalue)
         result_ = Register::x8;
         return;
     }
-    // the address of a local, which is on the stack when its address is
-    // taken
+    // a local whose address is taken is on the stack
     if (accessor_->stack()->is_allocated(lvalue)) {
         auto offset = accessor_->stack()->get(lvalue).first;
         arm64_add_asm(instructions, add, x8, sp, u32_int_immediate(offset));
@@ -907,11 +898,11 @@ void Expression_Inserter::insert_from_address_of_rvalue(RValue const& rvalue)
 }
 
 /**
- * @brief Insert the value of the rvalue of a temporary
+ * @brief Insert a temporary's rvalue
  *
- * The rvalue is a binary or unary expression, a literal, the operand of a
- * comparison, or the return value of the last call, `RET`. The register
- * that holds the value is the result.
+ * The rvalue is a binary or unary expression, a literal, a comparison operand,
+ * or the last call's return value, `RET`. Returns the register that holds the
+ * value.
  */
 void Expression_Inserter::insert_from_temporary_rvalue(RValue const& rvalue)
 {
@@ -971,7 +962,7 @@ void Expression_Inserter::insert_from_temporary_rvalue(RValue const& rvalue)
                         common::flag::Address, instruction_accessor->size());
                 result_ = acc;
             },
-        // the truth value of a comparator is the value of its operand
+        // a comparator's truth value is its operand
         m::pattern | m::app(is_comparator, true) =
             [&] {
                 auto operand = util::str_trim_ws(rvalue.substr(4));
@@ -1011,10 +1002,10 @@ void Expression_Inserter::insert_from_temporary_rvalue(RValue const& rvalue)
 }
 
 /**
- * @brief Inserter of the value of a unary expression into the accumulator
+ * @brief Inserter of a unary expression's value into the accumulator
  *
- * The increment, decrement, and dereference operators are inserted by the
- * unary operator inserter, so there is no value to return
+ * Increment, decrement, and dereference are inserted by the unary operator
+ * inserter, so there is no value to return
  *
  *  Example:
  *
@@ -1084,8 +1075,8 @@ void Expression_Inserter::insert_from_global_vector_assignment(
         insert_to_global_vector(lhs, rhs);
         return;
     }
-    // a local with no size at its LOCL, `u = unit;`, is allocated at its
-    // first assignment with the size of the global element
+    // a local with no size at its LOCL, `u = unit;`, is allocated at its first
+    // assignment, sized by the global element
     auto& frame = accessor_->get_frame_in_memory().get_stack_frame();
     if (!type::is_unary_expression(lhs) and frame.locals.is_defined(lhs) and
         not accessor_->devices().is_lvalue_allocated_in_memory(lhs)) {
@@ -1110,8 +1101,7 @@ void Expression_Inserter::insert_from_global_vector_assignment(
 }
 
 /**
- * @brief Store a value to a global, from a register of the size of its
- * element
+ * @brief Store a value to a global, from a register of its element size
  *
  *  Example:
  *
@@ -1130,8 +1120,8 @@ void Expression_Inserter::insert_to_global_vector(LValue const& lhs,
     auto& instructions = accessor_->instructions()->get_instructions();
     auto operand_inserter = Operand_Inserter{ accessor_ };
     Register value{ Register::x8 };
-    // a string, float, or double global is the address of its literal in
-    // the data section
+    // a string, float, or double global is its literal's address in the data
+    // section
     auto type = type::is_typed_rvalue(rhs)
                     ? type::get_type_from_typed_rvalue(rhs)
                     : type::semantic::Type{};
@@ -1175,9 +1165,9 @@ void Expression_Inserter::insert_to_global_vector(LValue const& lhs,
 /**
  * @brief Insert an arithmetic or relational expression of two operands
  *
- * An immediate left-hand-side is swapped to the right-hand-side, since the
- * first operand of an ARM64 instruction is a register, and a relational
- * expression jumps to the label of the IF that follows it
+ * An immediate left-hand-side is swapped to the right, since an ARM64
+ * instruction's first operand is a register. A relational expression jumps to
+ * the next IF's label.
  */
 void Operand_Inserter::insert_from_binary_operands(
     assembly::Assignment_Operands& operands,
@@ -1237,11 +1227,10 @@ void Operand_Inserter::insert_from_binary_operands(
 }
 
 /**
- * @brief Insert the value of an expression of two immediates
+ * @brief Insert an expression of two immediates
  *
- * The expression is computed at compile time and moved to the accumulator,
- * and the result of a relational expression is passed to the next
- * assignment with the signal register
+ * The expression is folded at compile time and moved to the accumulator, and a
+ * relational result goes to the next assignment through the signal register
  */
 void Operand_Inserter::insert_from_immediate_rvalues(Immediate const& lhs,
     std::string const& op,
@@ -1273,8 +1262,7 @@ void Operand_Inserter::insert_from_immediate_rvalues(Immediate const& lhs,
                 auto imm = common::assembly::
                     get_result_from_trivial_bitwise_expression(lhs, op, rhs);
                 auto acc = accessor_->get_accumulator_with_rvalue_context(imm);
-                // a temporary of two immediates is resolved from the IR
-                // table by the instruction that reads it
+                // a folded temporary is resolved by its reader
                 if (!accessor_->ir().is_ir_instruction_temporary())
                     arm64_add_asm(instructions, mov, acc, imm);
             },
@@ -1282,11 +1270,11 @@ void Operand_Inserter::insert_from_immediate_rvalues(Immediate const& lhs,
 }
 
 /**
- * @brief Store the return value of the last call in an lvalue
+ * @brief Store the last call's return value in an lvalue
  *
- * The return register is x0 or w0 by the return value of the callee. A
- * standard library function has no return value, except `getchar`, which
- * returns its character in w0.
+ * The return register is x0 or w0 by the callee's return value. A standard
+ * library function returns nothing, except `getchar`, which returns its
+ * character in w0.
  *
  *  Example:
  *
@@ -1346,13 +1334,13 @@ void Expression_Inserter::insert_lvalue_from_return_rvalue(LValue const& lvalue)
 }
 
 /**
- * @brief Insert an assignment of an rvalue to an lvalue
+ * @brief Insert an assignment to an lvalue
  *
  * The rvalue selects the instructions:
  *
  *  * A dereference, `b = *a`, loads through the pointer
  *
- *  * A pointer increment, `p++`, steps over the object it points to
+ *  * A pointer increment, `p++`, steps over its pointee
  *
  *  * A parameter is copied from its argument register
  *
@@ -1360,8 +1348,8 @@ void Expression_Inserter::insert_lvalue_from_return_rvalue(LValue const& lvalue)
  *
  *  * A binary or unary expression is computed, then stored
  *
- *  * A temporary is the value in the accumulator, or the return value of
- *    the last call
+ *  * A temporary is the value in the accumulator, or the last call's return
+ *    value
  *
  *  * A local is moved through the accumulator
  *
@@ -1392,7 +1380,7 @@ void Operand_Inserter::insert_from_mnemonic_operand(LValue const& lhs,
             lhs, insert_operand_into_accumulator(rhs));
         return;
     }
-    // a pointer increment or decrement steps over the object it points to
+    // pointer increment or decrement steps over its pointee
     if (type::is_unary_expression(rhs) and
         (type::get_unary_operator(rhs) == "++" or
             type::get_unary_operator(rhs) == "--") and
@@ -1407,15 +1395,14 @@ void Operand_Inserter::insert_from_mnemonic_operand(LValue const& lhs,
         insert_from_accumulator_to_lvalue(lhs, pointer);
         return;
     }
-    // a copy of a parameter, `b = a`, is from its argument register, or the
-    // stack for `argc`
+    // a parameter, `b = a`, is from its argument register, or the stack for
+    // `argc`
     if (stack_frame_.get_stack_frame().is_parameter(rhs)) {
         insert_from_accumulator_to_lvalue(
             lhs, insert_operand_into_accumulator(rhs));
         return;
     }
-    // an assignment to a parameter, `s = 1`, is to its argument register or
-    // its slot
+    // to a parameter, `s = 1`, through its argument register or slot
     if (stack_frame_.get_stack_frame().is_parameter(lhs) and
         not type::is_dereference_expression(lhs)) {
         insert_from_accumulator_to_lvalue(
@@ -1536,11 +1523,10 @@ void Operand_Inserter::insert_from_mnemonic_operand(LValue const& lhs,
 }
 
 /**
- * @brief Insert the value in the accumulator into an lvalue
+ * @brief Store the accumulator into an lvalue
  *
- * The accumulator is narrowed or sign-extended to the size of the lvalue,
- * and an lvalue on the stack is stored from the stack move register after
- * the instruction
+ * The accumulator is narrowed or sign-extended to the lvalue's size, and a
+ * stack lvalue is stored from the stack move register after the instruction
  */
 void Operand_Inserter::insert_from_accumulator_to_lvalue(LValue const& lhs,
     Register accumulator)
@@ -1590,7 +1576,7 @@ void Operand_Inserter::insert_from_accumulator_to_lvalue(LValue const& lhs,
 }
 
 /**
- * @brief Get the return register of the last call, x0 or w0
+ * @brief Get the last call's return register, x0 or w0
  */
 inline Storage Operand_Inserter::get_operand_storage_from_return()
 {
@@ -1606,8 +1592,8 @@ inline Storage Operand_Inserter::get_operand_storage_from_return()
 /**
  * @brief Get the storage device of a literal operand
  *
- * A string, float, or double is the label of its literal in the data
- * section, and any other literal is an immediate
+ * A string, float, or double is its label in the data section, and any other
+ * literal is an immediate
  */
 Storage Operand_Inserter::get_operand_storage_from_immediate(
     RValue const& rvalue)
@@ -1639,11 +1625,11 @@ Storage Operand_Inserter::get_operand_storage_from_immediate(
 }
 
 /**
- * @brief Get the argument register of a parameter
+ * @brief Get a parameter's argument register
  *
- * A pointer parameter is a doubleword register. `argc` of `main` is on the
- * stack on Darwin and its address is in x19 on Linux, and an element of
- * `argv` must have an integer index.
+ * A pointer parameter is a doubleword register. `main`'s `argc` is on the stack
+ * on Darwin and its address in x19 on Linux, and an `argv` element must have an
+ * integer index.
  */
 Storage Operand_Inserter::get_operand_storage_from_parameter(
     RValue const& rvalue)
@@ -1651,7 +1637,7 @@ Storage Operand_Inserter::get_operand_storage_from_parameter(
     auto& frame = stack_frame_.get_stack_frame();
     auto index_of = frame.get_index_of_parameter(rvalue);
     credence_assert_nequal(index_of, -1);
-    // a parameter of a frame with calls is in its slot
+    // in its slot in a frame with calls
     auto slot = fmt::format("__parameter_{}",
         type::get_unary_rvalue_reference(
             frame.parameters.at(static_cast<std::size_t>(index_of))));
@@ -1688,12 +1674,11 @@ Storage Operand_Inserter::get_operand_storage_from_parameter(
 }
 
 /**
- * @brief Get the storage device of an rvalue, and insert its address
- * instructions
+ * @brief Get an rvalue's storage device, and insert its address instructions
  *
- * A parameter is its register, `RET` the return register, a unary
- * expression is inserted, a literal is an immediate, and an lvalue is
- * loaded from its address
+ * A parameter is its register, `RET` the return register, a literal an
+ * immediate, and an lvalue is loaded from its address. A unary expression is
+ * inserted.
  */
 Storage Operand_Inserter::get_operand_storage_from_rvalue(RValue const& rvalue)
 {
@@ -1736,11 +1721,10 @@ Storage Operand_Inserter::get_operand_storage_from_rvalue(RValue const& rvalue)
 }
 
 /**
- * @brief Get the storage device of an rvalue, without its address
- * instructions
+ * @brief Get an rvalue's storage device, without its address instructions
  *
- * The device of an argument is resolved before it is loaded into its
- * register, so the address instructions are left out
+ * An argument's device is resolved before it is loaded, so the address
+ * instructions are left out
  */
 Storage Operand_Inserter::get_operand_storage_from_rvalue_no_instructions(
     RValue const& rvalue)
@@ -1782,16 +1766,15 @@ Storage Operand_Inserter::get_operand_storage_from_rvalue_no_instructions(
 }
 
 /**
- * @brief Get the storage of an expression operand, an immediate or a register
+ * @brief Get an expression operand's storage, an immediate or register
  *
- *  * A temporary is in the accumulator after it's computed, or in its stack
- *    slot
+ *  * A temporary is in the accumulator once computed, or in its stack slot
  *
  *  * A parameter is in its argument register
  *
- *  * A dereference, `*p`, loads from the address in the pointer
+ *  * A dereference, `*p`, loads through the pointer
  *
- *  * An lvalue on the stack is loaded into the stack move register
+ *  * A stack lvalue loads into the stack move register
  */
 Storage Operand_Inserter::get_operand_storage_from_expression_operand(
     RValue const& rvalue)
@@ -1859,8 +1842,7 @@ Storage Operand_Inserter::get_operand_storage_from_expression_operand(
     if (type::is_temporary(rvalue)) {
         auto expression_inserter = Expression_Inserter{ accessor_ };
         expression_inserter.insert_lvalue_at_temporary_object_address(rvalue);
-        // the held temporary is a reference to the instruction state, so it
-        // is the temporary the insertion above holds
+        // updated by the insertion above
         return held.has_value() ? held->second : Register::w8;
     }
     auto [operand, operand_inst] =
@@ -1879,7 +1861,7 @@ Storage Operand_Inserter::get_operand_storage_from_expression_operand(
 }
 
 /**
- * @brief Check if an rvalue is an offset of a vector on the stack
+ * @brief Check if an rvalue is a stack vector offset
  */
 bool Operand_Inserter::is_local_vector_offset(RValue const& rvalue)
 {
@@ -1891,7 +1873,7 @@ bool Operand_Inserter::is_local_vector_offset(RValue const& rvalue)
 }
 
 /**
- * @brief Get the stack offset of an element of a vector on the stack
+ * @brief Get a stack vector element's offset
  *
  * The address accessor flags the next instruction as a vector store, so
  * an element that's read is addressed here instead
@@ -1915,7 +1897,7 @@ Storage Operand_Inserter::get_operand_storage_from_local_vector_offset(
 }
 
 /**
- * @brief Load an expression operand into the accumulator of its size
+ * @brief Load an expression operand into an accumulator of its size
  */
 Register Operand_Inserter::insert_operand_into_accumulator(RValue const& rvalue)
 {
@@ -1934,7 +1916,7 @@ Register Operand_Inserter::insert_operand_into_accumulator(RValue const& rvalue)
 }
 
 /**
- * @brief Get the size of the object a pointer points to
+ * @brief Get the size of a pointer's pointee
  *
  * A parameter points to a word
  */
@@ -1966,12 +1948,12 @@ Size Operand_Inserter::get_pointer_stride(LValue const& pointer)
 }
 
 /**
- * @brief Resolve the device of each argument of the next call
+ * @brief Resolve the storage device of each argument to the next call
  *
- * The devices are resolved before any argument is loaded into its
- * register, so an argument that would be overwritten, such as a global in
- * x6 or a parameter in an argument register, is stored in an argument slot.
- * The return value of the last call is in x0 or w0.
+ * Devices are resolved before any argument is loaded, so an argument that would
+ * be overwritten, such as a global in x6 or a parameter in an argument
+ * register, is stored in a slot first. The last call's return value is in x0 or
+ * w0.
  */
 Invocation_Inserter::arguments_t
 Invocation_Inserter::get_operands_storage_from_argument_stack()
@@ -2051,8 +2033,7 @@ Invocation_Inserter::get_operands_storage_from_argument_stack()
 }
 
 /**
- * @brief Check if an argument of a call is a global or a global vector
- * element
+ * @brief Check if a call argument is a global or global vector element
  */
 bool Invocation_Inserter::is_global_argument(RValue const& rvalue)
 {
@@ -2062,11 +2043,10 @@ bool Invocation_Inserter::is_global_argument(RValue const& rvalue)
 }
 
 /**
- * @brief Store the value of a global argument in an argument slot
+ * @brief Store a global argument in an argument slot
  *
- * A global is addressed from its page in x6, and each argument of a call is
- * loaded after all of them are resolved, so the value of each global is
- * stored in its own slot
+ * A global is addressed from its page in x6, and call arguments are loaded
+ * after all are resolved, so each global is stored in its own slot
  *
  *  Example:
  *
@@ -2090,7 +2070,7 @@ common::Stack_Offset Invocation_Inserter::insert_global_argument_to_stack(
     auto key = is_vector_offset(rvalue) ? type::from_decay_offset(rvalue)
                                         : std::string{ "0" };
     auto offset = accessor_->vectors().get_offset_address(rvalue, key).first;
-    // a string element is the address of the string
+    // a string element is the string's address
     auto type = type::get_type_from_typed_rvalue(
         table->get_rvalue_at_lvalue_object_storage(
             rvalue, stack_frame_.get_stack_frame()));
@@ -2168,7 +2148,7 @@ Storage Invocation_Inserter::insert_parameter_argument_to_stack(
 /**
  * @brief Insert a syscall
  *
- * The length of the buffer of a `read(2)` is cached for a later `print`
+ * The buffer length of a `read(2)` is cached for a later `print`
  */
 void Invocation_Inserter::insert_from_syscall_function(std::string_view routine,
     Instructions& instructions)
@@ -2185,11 +2165,11 @@ void Invocation_Inserter::insert_from_syscall_function(std::string_view routine,
 }
 
 /**
- * @brief Insert a call to a function of the program
+ * @brief Insert a call to a program function
  *
- * Each argument is loaded into its argument register: a string from its
- * page address, a float or double from its label, an element of `argv`
- * from x19, and any other argument from its device
+ * Each argument loads into its argument register: a string from its page
+ * address, a float or double from its label, an `argv` element from x19, and
+ * any other argument from its device
  *
  *  Example:
  *
@@ -2209,7 +2189,7 @@ void Invocation_Inserter::insert_from_user_defined_function(
     for (std::size_t i = 0; i < operands.size(); i++) {
         auto const& operand = operands[i];
         auto argument = stack_frame_.argument_stack.at(i);
-        // the type of a literal is only its storage while it is a label
+        // a literal's type is its storage only while it is a label
         auto arg_type = is_variant(Immediate, operand)
                             ? type::get_type_from_typed_rvalue(argument)
                             : std::string{};
@@ -2305,7 +2285,7 @@ void Invocation_Inserter::insert_from_standard_library_function(
 }
 
 /**
- * @brief Get the instruction of an arithmetic operator on two operands
+ * @brief Get the instruction for an arithmetic operator
  */
 Instruction_Pair
 Arithemtic_Operator_Inserter::from_arithmetic_expression_operands(
@@ -2338,7 +2318,7 @@ Arithemtic_Operator_Inserter::from_arithmetic_expression_operands(
 }
 
 /**
- * @brief Get the instruction of a bitwise operator on three operands
+ * @brief Get the instruction for a bitwise operator on three operands
  *
  *  Example:
  *
@@ -2368,7 +2348,7 @@ Instruction_Pair Bitwise_Operator_Inserter::from_bitwise_expression_operands(
 }
 
 /**
- * @brief Get the comparison and conditional jump of a relational operator
+ * @brief Get a relational operator's comparison and conditional jump
  *
  * The comparison is made in a doubleword register when either operand is
  * a doubleword
@@ -2445,10 +2425,10 @@ Instructions Relational_Operator_Inserter::from_relational_expression_operands(
 }
 
 /**
- * @brief Insert the label of a float or double literal into a device
+ * @brief Insert a float or double literal's label into a device
  *
- * A float or double is loaded from its label by the argument that uses it,
- * so an assignment of one emits nothing
+ * A float or double is loaded from its label by the argument that uses it, so
+ * assigning one emits nothing
  */
 void Operand_Inserter::insert_from_float_address_operand(
     [[maybe_unused]] LValue const& lhs,
@@ -2465,7 +2445,7 @@ void Operand_Inserter::insert_from_double_address_operand(
 }
 
 /**
- * @brief Insert the page address of a string literal into a device
+ * @brief Insert a string literal's page address into a device
  */
 void Operand_Inserter::insert_from_string_address_operand(
     [[maybe_unused]] LValue const& lhs,
@@ -2486,7 +2466,7 @@ void Operand_Inserter::insert_from_string_address_operand(
 }
 
 /**
- * @brief Insert the page address of a string literal into x6
+ * @brief Insert a string literal's page address into x6
  *
  *  Example:
  *

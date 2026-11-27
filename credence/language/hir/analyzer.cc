@@ -65,8 +65,8 @@ using checking::Storage;
 using checking::Value;
 
 /**
- * @brief Construct the object table from the definitions and declarations
- * of a program
+ * @brief Construct the object table from a program's definitions and
+ * declarations
  *
  *  The definitions are the left-hand-side of the program node, and the
  *  declarations are its right-hand-side.
@@ -154,7 +154,7 @@ void Analyzer::set_pointer_parameters_from_call_arguments()
 }
 
 /**
- * @brief Global vector definition and the types of its values
+ * @brief Global vector definition and its value types
  *
  * A vector defined with empty brackets is the size of its values
  *
@@ -180,7 +180,7 @@ void Analyzer::build_from_vector_definition(Node const& node)
 }
 
 /**
- * @brief A global vector of a size and the types of its values
+ * @brief Global vector of a size, and its value types
  */
 void Analyzer::build_global_vector(Label const& name,
     std::size_t size,
@@ -222,7 +222,7 @@ void Analyzer::build_global_vector(Label const& name,
 }
 
 /**
- * @brief Union definition and the values of each of its tags
+ * @brief Union definition and each tag's values
  *
  *  Examples:
  *
@@ -324,7 +324,7 @@ void Analyzer::build_from_function_definition(Node const& node)
 }
 
 /**
- * @brief Global variables and global union variables of the declarations
+ * @brief Global variables and global union variables from the declarations
  */
 void Analyzer::build_from_declarations(Node const& node)
 {
@@ -339,10 +339,10 @@ void Analyzer::build_from_declarations(Node const& node)
 }
 
 /**
- * @brief A global variable, a vector of its one initial value
+ * @brief Global variable, a vector of its one initial value
  *
- * A global variable with no initial value is unset, and its type is the
- * type of its first assignment
+ * A global with no initial value is unset, and takes its first assignment's
+ * type
  *
  *  Examples:
  *
@@ -370,11 +370,11 @@ void Analyzer::build_from_variable_declaration(Node const& node)
 }
 
 /**
- * @brief The value of each unset global variable, the zero of its type
+ * @brief Set each unset global variable to its type's zero
  *
- * The type of an unset global is the type of its first assignment in any
- * function, so its value is set after every function is built. A global
- * that is never assigned is a zero int.
+ * An unset global takes its first assignment's type in any function, so its
+ * value is set after every function is built. A global never assigned is a zero
+ * int.
  *
  *  Examples:
  *
@@ -459,7 +459,7 @@ void Analyzer::build_vector_definitions_from_globals()
 }
 
 /**
- * @brief Semantic analysis of a statement in the current stack frame
+ * @brief Analyze a statement in the current stack frame
  */
 void Analyzer::build_from_statement(Node const& node)
 {
@@ -479,7 +479,7 @@ void Analyzer::build_from_statement(Node const& node)
 }
 
 /**
- * @brief Semantic analysis of each statement in a block statement
+ * @brief Analyze each statement in a block
  */
 void Analyzer::build_from_block_statement(Node const& node)
 {
@@ -578,7 +578,7 @@ void Analyzer::build_from_extrn_statement(Node const& node)
 }
 
 /**
- * @brief Semantic analysis of an if statement and its else statement
+ * @brief Analyze an if statement and its else
  */
 void Analyzer::build_from_if_statement(Node const& node)
 {
@@ -590,7 +590,7 @@ void Analyzer::build_from_if_statement(Node const& node)
 }
 
 /**
- * @brief Semantic analysis of a while statement
+ * @brief Analyze a while statement
  */
 void Analyzer::build_from_while_statement(Node const& node)
 {
@@ -599,7 +599,7 @@ void Analyzer::build_from_while_statement(Node const& node)
 }
 
 /**
- * @brief Semantic analysis of a switch statement and each of its cases
+ * @brief Analyze a switch statement and its cases
  */
 void Analyzer::build_from_switch_statement(Node const& node)
 {
@@ -625,7 +625,7 @@ void Analyzer::build_from_label_statement(Node const& node)
 }
 
 /**
- * @brief Check that the label of a goto statement exists
+ * @brief Check that a goto statement's label exists
  */
 void Analyzer::build_from_goto_statement(Node const& node)
 {
@@ -636,7 +636,7 @@ void Analyzer::build_from_goto_statement(Node const& node)
 }
 
 /**
- * @brief Type check the return value of a return statement
+ * @brief Type check a return statement's value
  *
  * A function may return from more than one statement, but each return
  * value must be the same type
@@ -714,8 +714,8 @@ checking::Frame& Analyzer::get_stack_frame()
 /**
  * @brief Declare a union variable in the current stack frame
  *
- * Each tag of the variable, `m.ab`, is a member of its symbol, and is
- * resolved by the type checker
+ * Each tag, `m.ab`, is a member of the variable's symbol, resolved by the type
+ * checker
  */
 void Analyzer::set_union_variable(LValue const& name, Label const& label)
 {
@@ -724,10 +724,10 @@ void Analyzer::set_union_variable(LValue const& name, Label const& label)
 }
 
 /**
- * @brief Declare the label of each union definition in the current function
+ * @brief Declare each union definition's label in the current function
  *
- * A tag of a union definition, `data_t.ab`, is a member of its label, and
- * is the right-hand-side of an `is` expression
+ * A union definition's tag, `data_t.ab`, is a member of its label, and the
+ * right-hand-side of an `is` expression
  */
 void Analyzer::set_union_tag_symbols()
 {

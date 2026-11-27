@@ -139,11 +139,10 @@ Table_Accessor::Table_Accessor(Table_Pointer& table,
 Table_Accessor::~Table_Accessor() = default;
 
 /**
- * @brief Get the size of the value returned by the last call
+ * @brief Get the size of the last call's return value
  *
- * A function that returns its parameter returns the argument of the caller,
- * so the size is from the caller's local, or the pointee of the local when
- * it is a pointer
+ * A function that returns its parameter returns the caller's argument, so the
+ * size is the caller's local, or its pointee when it is a pointer
  *
  *  Example:
  *
@@ -184,10 +183,10 @@ Size Buffer_Accessor::get_size_of_return_string(Stack_Frame const& stack_frame)
 }
 
 /**
- * @brief Get the size of the value of a local
+ * @brief Get the size of a local's value
  *
- * The size of a pointer is the size of its pointee, and a local assigned the
- * return value of a call, `RET`, is the size of the value the callee returns
+ * A pointer is its pointee's size, and a local assigned a call's return value,
+ * `RET`, is the size the callee returns
  */
 Size Buffer_Accessor::get_size_in_local_address(LValue const& lvalue,
     Stack_Frame const& stack_frame)
@@ -220,9 +219,9 @@ Size Buffer_Accessor::get_size_in_local_address(LValue const& lvalue,
  * @brief Get the size of a string in the object table at compile-time
  *
  * The size is the length argument of a buffer passed to a library call or
- * syscall. It is resolved from where the string is: the return value of the
- * last call, a local, a dereferenced pointer, an element of a global or
- * local vector, or a string literal.
+ * syscall, resolved from where the string is: the last call's return value, a
+ * local, a dereferenced pointer, a global or local vector element, or a string
+ * literal.
  *
  *  Example:
  *
@@ -294,10 +293,10 @@ Size Buffer_Accessor::get_size_of_string_lvalue_buffer_address(
 }
 
 /**
- * @brief Cache the length of the buffer filled by a `read(2)` syscall
+ * @brief Cache the buffer length of a `read(2)` syscall
  *
- * The buffer of `read(2)` is filled at runtime, so the length of a later
- * `print` of the buffer is the length argument of the read
+ * A `read(2)` buffer is filled at runtime, so a later `print` of it uses the
+ * read's length argument
  *
  *  Example:
  *
@@ -328,8 +327,8 @@ void Buffer_Accessor::set_buffer_size_from_syscall(std::string_view routine,
 /**
  * @brief Check if a `read(2)` length is cached
  *
- * When it is, the size of the next buffer is the cached length from
- * read_bytes(), otherwise it is from the object table
+ * When it is, the next buffer's size is read_bytes(), and otherwise it is from
+ * the object table
  */
 bool Buffer_Accessor::has_read_bytes()
 {
@@ -346,10 +345,10 @@ std::size_t Buffer_Accessor::read_bytes()
     return read_bytes;
 }
 /**
- * @brief Map a literal to the label of its directive in the data section
+ * @brief Map a literal to its directive's label in the data section
  *
- * The data emitter inserts each string, float, and double literal once, and
- * an operand of the literal is loaded from its label
+ * The data emitter inserts each string, float, and double literal once, and an
+ * operand loads it from its label
  */
 void Buffer_Accessor::insert_string_literal(RValue const& key,
     Label const& asciz_address)
@@ -367,7 +366,7 @@ void Buffer_Accessor::insert_double_literal(RValue const& key,
     pimpl->double_literals.insert_or_assign(key, doublez_address);
 }
 /**
- * @brief Get the label of a literal in the data section
+ * @brief Get a literal's label in the data section
  */
 RValue Buffer_Accessor::get_string_address_offset(RValue const& string)
 {
@@ -397,7 +396,7 @@ bool Buffer_Accessor::is_allocated_double(RValue const& rvalue)
     return pimpl->double_literals.contains(rvalue);
 }
 /**
- * @brief The counter of literal labels in the data section, e.g. `._L_str1__`
+ * @brief Get the literal label counter of the data section, e.g. `._L_str1__`
  */
 std::size_t* Buffer_Accessor::get_constant_size_index()
 {
@@ -531,7 +530,7 @@ unsigned int Table_Accessor::get_index() const
 /**
  * @brief Get the offset of a vector element indexed by a local
  *
- * The value of the local is known at compile time from the object table
+ * The local's value is known at compile time from the object table
  *
  *  Example:
  *
@@ -560,7 +559,7 @@ auto Vector_Accessor<Entry>::get_offset_from_hoisted_symbols(
 }
 
 /**
- * @brief Type check the index of a vector element
+ * @brief Type check a vector element's index
  *
  * The index must be an integer literal or a symbol of the program
  */

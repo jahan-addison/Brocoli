@@ -55,23 +55,20 @@
 /****************************************************************************
  * Register selection table:
  *
- *   x0 - x7  = The arguments of a call, and x0 the return value
- *   x6       = The data section address register, and the second operand
- *              of a binary expression in a temporary
+ *   x0 - x7  = call arguments, and x0 the return value
+ *   x6       = data section address register, and the second operand of a
+ *              binary expression in a temporary
  *      s6    = floating point
  *      d6    = double
- *   x7       = The scratch register of the right-hand-side of a binary
- *              expression
- *   x8       = The default "accumulator" register for expression expansion
+ *   x7       = right-hand-side scratch register
+ *   x8       = accumulator for expression expansion
  *   x9, x11 - x14, x16, x17
- *            = If there are no function calls in a stack frame, local scope
- *              variables are stored in these registers, after which the
- *              stack is used
- *   x10      = The stack move register, and the address register of a
- *              pointer on the stack
- *   x15      = The address of a vector element on the stack
- *   x18      = The platform register on Darwin, never used
- *   x19      = The argc, argv scratch register
+ *            = locals in a stack frame with no calls, then the stack
+ *   x10      = stack move register, and address register for a pointer on
+ *              the stack
+ *   x15      = vector element address on the stack
+ *   x18      = platform register on Darwin, never used
+ *   x19      = argc, argv scratch register
  *
  *   A local whose address is taken, vectors, and vector offsets are always
  *   on the stack
@@ -85,8 +82,8 @@ enum class Register : std::uint8_t;
 }
 
 /**
- * Short-form names of the enumerations, and the declarations of the
- * instruction and directive constructors by their number of operands
+ * Short-form enumeration names, and instruction and directive constructor
+ * declarations by operand count
  */
 
 #define arm_mn(n) arm64::assembly::Mnemonic::n
@@ -128,9 +125,9 @@ enum class Register : std::uint8_t;
     arm64::assembly::Directives name(type::semantic::RValue const& rvalue)
 
 /**
- * The bodies of the instruction constructors. An immediate right-hand-side
- * is moved to w7 or x7 first, since most ARM64 instructions take a register,
- * and `arm64_add_asm` appends an instruction with the enumerators in scope.
+ * Instruction constructor bodies. An immediate right-hand-side moves to w7 or
+ * x7 first, since most ARM64 instructions take a register, and `arm64_add_asm`
+ * appends an instruction with the enumerators in scope.
  */
 
 #define arm64_first_storage_device(first, ...) first
@@ -173,9 +170,9 @@ enum class Register : std::uint8_t;
     } while (false)
 
 /**
- * The cases of the switches that print registers, directives, and
- * mnemonics. A conditional branch, `b_eq`, is printed as `b.eq`, and a
- * trailing underscore that avoids a C++ keyword is removed.
+ * Switch cases that print registers, directives, and mnemonics. A conditional
+ * branch, `b_eq`, prints as `b.eq`, and a trailing underscore that avoids a C++
+ * keyword is removed.
  */
 
 #define ARM64_REGISTER_OSTREAM(reg) COMMON_REGISTER_OSTREAM(arm_rr, reg)
@@ -211,10 +208,10 @@ inline void newline(std::ostream& os, std::size_t amount = 1)
 }
 
 /**
- * @brief The general purpose, floating point, and SIMD registers of ARM64
+ * @brief ARM64 general purpose, floating point, and SIMD registers
  *
- * An `x` register is a doubleword and its `w` register is the lower word of
- * it. An `s` register is a float and a `d` register is a double.
+ * An `x` register is a doubleword and its `w` register its lower word. An `s`
+ * register is a float and a `d` register is a double.
  */
 enum class Register : std::uint8_t
 {
@@ -632,7 +629,7 @@ enum class Directive : std::uint8_t
     arm64::assembly::Directives name(type::semantic::RValue const& rvalue)
 
 /**
- * @brief The size of an operand in bytes
+ * @brief Operand size in bytes
  */
 enum class Operand_Size : std::uint8_t
 {
@@ -660,7 +657,7 @@ constexpr bool is_vector_register(Register r)
 }
 
 /**
- * @brief Get the doubleword register of a word register, w8 is x8
+ * @brief Get a word register's doubleword register, w8 is x8
  *
  * Any other register is returned as it is
  */
@@ -736,8 +733,7 @@ constexpr Register get_doubleword_register_from_word(Register r)
     }
 }
 /**
- * @brief Get the double register at the index of a doubleword register,
- * x0 is d0
+ * @brief Get the double register at a doubleword register's index, x0 is d0
  */
 constexpr Register get_double_register_from_doubleword(Register r)
 {
@@ -810,8 +806,7 @@ constexpr Register get_double_register_from_doubleword(Register r)
 }
 
 /**
- * @brief Get the float register at the index of a doubleword register,
- * x0 is s0
+ * @brief Get the float register at a doubleword register's index, x0 is s0
  */
 constexpr Register get_float_register_from_doubleword(Register r)
 {
@@ -884,7 +879,7 @@ constexpr Register get_float_register_from_doubleword(Register r)
 }
 
 /**
- * @brief Get the word register of a doubleword register, x8 is w8
+ * @brief Get a doubleword register's word register, x8 is w8
  *
  * Any other register is returned as it is
  */
@@ -977,9 +972,9 @@ constexpr Operand_Size get_operand_size_from_register(Register acc)
 }
 
 /**
- * @brief Get the operand size of a value of a type
+ * @brief Get the operand size of a type's value
  *
- * A string is the address of the string, so it is a doubleword
+ * A string is its address, so it is a doubleword
  *
  *  Examples:
  *
@@ -1018,7 +1013,7 @@ constexpr Operand_Size get_operand_size_from_type(type::semantic::Type type)
 }
 
 /**
- * @brief Get the size in bytes of an operand size
+ * @brief Get an operand size in bytes
  */
 constexpr std::size_t get_size_from_operand_size(Operand_Size size)
 {
@@ -1480,8 +1475,8 @@ constexpr std::ostream& operator<<(std::ostream& os, Mnemonic mnemonic)
     return os;
 }
 /**
- * The ARM64 instances of the common instruction types. An instruction has
- * up to four operands, `ldp x29, x30, [sp], #32`.
+ * ARM64 instances of the common instruction types. An instruction has up to
+ * four operands, `ldp x29, x30, [sp], #32`.
  */
 
 using Storage = common::Storage_T<Register>;
@@ -1557,7 +1552,7 @@ constexpr Immediate page_offset_upper_immediate(std::string_view str)
 }
 
 /**
- * @brief Get the offset of a label in its page for `add`
+ * @brief Get a label's offset in its page for `add`
  *
  *  Examples:
  *
@@ -1575,7 +1570,7 @@ inline Immediate page_offset_lower_immediate(std::string_view str)
 }
 
 /**
- * @brief Get the memory operand of a label from its page in a register
+ * @brief Get a label's memory operand from its page in a register
  *
  *  Example:
  *
@@ -1625,7 +1620,7 @@ constexpr bool is_equal_storage_devices(Storage const& lhs, Storage const& rhs)
 }
 
 /**
- * @brief Get the value of a literal of the data section as a string
+ * @brief Get a data section literal's value as a string
  */
 constexpr std::string literal_type_to_string(Literal_Type const& literal)
 {
@@ -1638,10 +1633,10 @@ constexpr std::string literal_type_to_string(Literal_Type const& literal)
 }
 
 /**
- * @brief Get the memory operand of an element of `argv` from x19
+ * @brief Get an `argv` element's memory operand from x19
  *
- * On Darwin x19 is `argv`, and on Linux it is the address of `argc` at the
- * top of the stack, with the pointers of `argv` after it
+ * On Darwin x19 is `argv`, and on Linux the address of `argc` at the top of the
+ * stack, followed by the `argv` pointers
  *
  *  Examples:
  *
@@ -1661,7 +1656,7 @@ constexpr Immediate make_argv_offset_immediate(std::size_t index)
 }
 
 /**
- * @brief Get the argument register of an argument index, x0 to x7
+ * @brief Get the argument register for an index, x0 to x7
  */
 constexpr Register get_register_from_integer_argument(std::size_t index)
 {
@@ -1688,7 +1683,7 @@ constexpr Register get_register_from_integer_argument(std::size_t index)
 }
 
 /**
- * @brief Get the label of a function, `main` is the entry point `_start`
+ * @brief Get a function's label, where `main` is the entry point `_start`
  */
 constexpr std::string make_label(type::semantic::Label const& label)
 {
@@ -1698,7 +1693,7 @@ constexpr std::string make_label(type::semantic::Label const& label)
 }
 
 /**
- * @brief Get the label of a branch in a function
+ * @brief Get a branch label in a function
  *
  *  Example:
  *
@@ -1713,7 +1708,7 @@ constexpr std::string make_label(type::semantic::Label const& label,
 }
 
 /**
- * @brief Get the data directive of a value of a type
+ * @brief Get the data directive for a type's value
  *
  *  Examples:
  *
@@ -1752,7 +1747,7 @@ inline void inserter(assembly::Directives& to, assembly::Directives const& from)
 }
 
 /**
- * @brief Construct an immediate of the label of a literal
+ * @brief Construct an immediate of a literal's label
  */
 constexpr arm64::assembly::Immediate make_asciz_immediate(
     std::string_view address)
@@ -1761,7 +1756,7 @@ constexpr arm64::assembly::Immediate make_asciz_immediate(
 }
 
 /**
- * @brief Check if an operand is the label of a string literal
+ * @brief Check if an operand is a string literal's label
  */
 constexpr bool is_immediate_relative_address(Storage const& immediate)
 {
@@ -1890,7 +1885,7 @@ constexpr bool is_valid_size(Size size)
 }
 
 /**
- * @brief Get the size in bytes of a value of a type in a register
+ * @brief Get the size in bytes of a type's value in a register
  */
 constexpr common::Size get_size_from_type(Type const& type_)
 {

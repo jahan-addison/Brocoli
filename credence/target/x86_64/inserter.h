@@ -60,26 +60,24 @@
 /****************************************************************************
  * Register selection table:
  *
- *   rax      = The default "accumulator" register for expression expansion,
- *              the return value, and the number of a syscall
+ *   rax      = accumulator for expression expansion, return value, and
+ *              syscall number
  *   rdi, r8, r9, rsi, rdx, rcx
- *            = The arguments of a call to a function of the program
+ *            = arguments to a program function
  *   rdi, rsi, rdx, rcx, r8, r9
- *            = The arguments of a call to the standard library, System V
+ *            = standard library arguments, System V
  *   rdi, rsi, rdx, r10, r8, r9
- *            = The arguments of a syscall
+ *            = syscall arguments
  *   xmm0 - xmm7
- *            = The float and double arguments of the standard library
- *   xmm7     = The store register of a float or double literal
- *   rcx      = The address register of the address-of operator, and the
- *              shift count of a shift by a register, in cl
- *   rdx      = The high half of the dividend and the remainder of `idiv`
- *   r10      = The address register of a dereference
- *   r11      = The scratch register of the right-hand-side of a binary
- *              expression, the divisor of `idiv`, and the value of a
- *              global argument
- *   r15      = The address of argc, argv on the stack
- *   rbp      = The frame pointer
+ *            = standard library float and double arguments
+ *   xmm7     = float and double literal store register
+ *   rcx      = address-of register, and shift count in cl
+ *   rdx      = dividend high half, and `idiv` remainder
+ *   r10      = dereference address register
+ *   r11      = right-hand-side scratch register, `idiv` divisor, and
+ *              global argument value
+ *   r15      = argc, argv address on the stack
+ *   rbp      = frame pointer
  *
  *   Locals, parameters, vectors, and vector offsets are always on the
  *   stack below rbp
@@ -240,11 +238,11 @@ struct Arithemtic_Operator_Inserter : public X8664_Arithemtic_Operator_Inserter
 };
 
 /**
- * @brief Translate the binary expression of a temporary
+ * @brief Translate a temporary's binary expression
  *
  * The left-hand-side is in the accumulator and the right-hand-side is its
- * operand, and the result is in the accumulator, or a conditional jump when
- * the next instruction is the IF of a relational expression
+ * operand, and the result is in the accumulator, or a conditional jump when the
+ * next instruction is a relational expression's IF
  */
 struct Binary_Operator_Inserter : X8664_Binary_Operator_Inserter
 {
@@ -255,8 +253,8 @@ struct Binary_Operator_Inserter : X8664_Binary_Operator_Inserter
     void from_binary_operator_expression(RValue const& rvalue) override;
 
   public:
-    // the register that holds the value of the expression, empty when a
-    // relational expression inserted a conditional jump instead
+    // the expression's register, empty when a relational expression inserted a
+    // conditional jump instead
     std::optional<Register> result{};
 
   private:
@@ -297,8 +295,7 @@ struct Unary_Operator_Inserter : public X8664_Unary_Operator_Inserter
 };
 
 /**
- * @brief Translate the rvalue of a temporary, a return, or a global vector
- * assignment
+ * @brief Translate a temporary, return, or global vector assignment rvalue
  */
 struct Expression_Inserter : public X8664_Expression_Inserter
 {
@@ -327,12 +324,12 @@ struct Expression_Inserter : public X8664_Expression_Inserter
     std::optional<Register> insert_from_address_of_value(RValue const& rvalue);
 
   private:
-    // the register that holds the value of the last temporary rvalue
+    // the last temporary rvalue's register
     std::optional<Register> result_{};
 };
 
 /**
- * @brief Translate the IR instructions of a program in order
+ * @brief Translate a program's IR instructions in order
  */
 class Instruction_Inserter : public X8664_Instruction_Inserter
 {
@@ -350,8 +347,8 @@ class Instruction_Inserter : public X8664_Instruction_Inserter
 /**
  * @brief Load and store the operands of an assignment
  *
- * An operand is loaded into its device or the accumulator, and the
- * accumulator is stored to an lvalue at the size of its slot
+ * An operand is loaded into its device or the accumulator, and the accumulator
+ * is stored to an lvalue at its slot's size
  */
 class Operand_Inserter : public X8664_Operand_Inserter
 {

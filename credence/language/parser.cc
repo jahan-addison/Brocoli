@@ -95,7 +95,7 @@ Parser::Node Parser::parse(std::string source)
 }
 
 /**
- * @brief The token at the current parse position
+ * @brief Get the token at the current parse position
  */
 Token const& Parser::current() const
 {
@@ -103,7 +103,7 @@ Token const& Parser::current() const
 }
 
 /**
- * @brief The token `ahead` positions past the current one, clamped to EOF
+ * @brief Get the token `ahead` positions past the current one, clamped to EOF
  */
 Token const& Parser::peek(std::size_t ahead) const
 {
@@ -358,7 +358,7 @@ Parser::Node Parser::parse_call_arguments_or_parameters()
 }
 
 /**
- * @brief Parse one initial value of a global, a constant
+ * @brief Parse a global's initial value, a constant
  */
 Parser::Node Parser::parse_vector_symbol()
 {
@@ -433,7 +433,7 @@ Parser::Node Parser::parse_function_body()
 }
 
 /**
- * @brief Whether the current token starts a keyword statement
+ * @brief Check if the current token starts a keyword statement
  *
  * 'case' and 'else' are not statements on their own -- 'case' only appears
  * inside a switch body, and 'else' is consumed directly by
@@ -458,7 +458,7 @@ bool Parser::at_statement_keyword() const
 }
 
 /**
- * @brief Whether the current token is a NAME immediately followed by ':'
+ * @brief Check if the current token is a NAME immediately followed by ':'
  */
 bool Parser::at_label() const
 {
@@ -664,7 +664,7 @@ Parser::Node Parser::parse_return_statement()
 }
 
 /**
- * @brief Whether another expression can start here within a rvalue_statement
+ * @brief Check if another expression can start here within an rvalue_statement
  */
 bool Parser::at_expression_start() const
 {
@@ -742,7 +742,7 @@ Parser::Node Parser::parse_break_statement()
 }
 
 /**
- * @brief Whether the current token is one of the flat "binary" operators
+ * @brief Check if the current token is a flat "binary" operator
  */
 bool Parser::at_binary_operator() const
 {
@@ -829,8 +829,8 @@ Parser::Node Parser::parse_rvalue()
 }
 
 /**
- * @brief Parse the tag of an `is` expression and the locals that bind its
- * values, NAME ( "(" NAME ( "," NAME ) * ")" ) ?
+ * @brief Parse an `is` expression's tag and the locals that bind its values,
+ * NAME ( "(" NAME ( "," NAME ) * ")" ) ?
  *
  *  Example:
  *

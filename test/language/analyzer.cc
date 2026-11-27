@@ -40,7 +40,7 @@ struct Analyzer_Fixture
     }
 
     /**
-     * @brief The semantic error of a B program, or empty if it has none
+     * @brief Get a B program's semantic error, or empty if it has none
      */
     static inline std::string get_semantic_error(std::string const& source)
     {
@@ -142,7 +142,7 @@ TEST_CASE_FIXTURE(Analyzer_Fixture, "build_global_vector")
 {
     CHECK(has_semantic_error("main() { } v [2] 1, 2; v [1] 3;",
         "identifier is already defined in global scope"));
-    // a vector with empty brackets is the size of its values
+    // a vector with empty brackets is sized by its values
     Node ast{};
     auto analyzer = make_analyzer("main() { } v [] 1, 2, 3;", ast);
     REQUIRE(analyzer.vectors_.at("v").size == 3);

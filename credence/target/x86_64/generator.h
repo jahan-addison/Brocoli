@@ -63,26 +63,24 @@
 /****************************************************************************
  * Register selection table:
  *
- *   rax      = The default "accumulator" register for expression expansion,
- *              the return value, and the number of a syscall
+ *   rax      = accumulator for expression expansion, return value, and
+ *              syscall number
  *   rdi, r8, r9, rsi, rdx, rcx
- *            = The arguments of a call to a function of the program
+ *            = arguments to a program function
  *   rdi, rsi, rdx, rcx, r8, r9
- *            = The arguments of a call to the standard library, System V
+ *            = standard library arguments, System V
  *   rdi, rsi, rdx, r10, r8, r9
- *            = The arguments of a syscall
+ *            = syscall arguments
  *   xmm0 - xmm7
- *            = The float and double arguments of the standard library
- *   xmm7     = The store register of a float or double literal
- *   rcx      = The address register of the address-of operator, and the
- *              shift count of a shift by a register, in cl
- *   rdx      = The high half of the dividend and the remainder of `idiv`
- *   r10      = The address register of a dereference
- *   r11      = The scratch register of the right-hand-side of a binary
- *              expression, the divisor of `idiv`, and the value of a
- *              global argument
- *   r15      = The address of argc, argv on the stack
- *   rbp      = The frame pointer
+ *            = standard library float and double arguments
+ *   xmm7     = float and double literal store register
+ *   rcx      = address-of register, and shift count in cl
+ *   rdx      = dividend high half, and `idiv` remainder
+ *   r10      = dereference address register
+ *   r11      = right-hand-side scratch register, `idiv` divisor, and
+ *              global argument value
+ *   r15      = argc, argv address on the stack
+ *   rbp      = frame pointer
  *
  *   Locals, parameters, vectors, and vector offsets are always on the
  *   stack below rbp
@@ -114,11 +112,10 @@ void emit_x86_64_assembly_intel_prologue(std::ostream& os);
 class Assembly_Emitter;
 
 /**
- * @brief Emit the operands of an instruction
+ * @brief Emit an instruction's operands
  *
- * The flags of the instruction are applied to each operand, so an operand
- * that depends on the frame size is resolved here, after the function is
- * translated
+ * The instruction's flags apply to each operand, so an operand that depends on
+ * the frame size is resolved here, after the function is translated
  */
 class Storage_Emitter
 {
@@ -159,9 +156,9 @@ class Storage_Emitter
 /**
  * @brief Emit the text section of an x86-64 program
  *
- * The instructions after the `_L1` label of a function are its epilogue,
- * which the IR does not keep at the end, so they are held and emitted after
- * the function's last branch
+ * The instructions after a function's `_L1` label are its epilogue, which the
+ * IR does not keep at the end, so they are held and emitted after the
+ * function's last branch
  */
 class Text_Emitter
 {

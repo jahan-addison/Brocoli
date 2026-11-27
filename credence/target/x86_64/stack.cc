@@ -78,12 +78,12 @@ class Stack::Stack_IMPL
         return stack_address.contains(lvalue) and not empty_at(lvalue);
     }
     /**
-     * @brief Get the offset and size of the slot of an lvalue
+     * @brief Get an lvalue's slot offset and size
      */
     constexpr Entry get(LValue const& lvalue) { return stack_address[lvalue]; }
 
     /**
-     * @brief Get the offset and size of the slot at an offset
+     * @brief Get the slot offset and size at an offset
      *
      * An offset with no slot is empty
      */
@@ -99,7 +99,7 @@ class Stack::Stack_IMPL
     }
 
     /**
-     * @brief Set the operand size of an offset with no lvalue, such as a
+     * @brief Set an offset's operand size when it has no lvalue, such as a
      * vector element
      */
     constexpr void set(Offset offset, Operand_Size operand)
@@ -126,7 +126,7 @@ class Stack::Stack_IMPL
     }
 
     /**
-     * @brief Get the operand size of the slot at an offset
+     * @brief Get the slot's operand size at an offset
      */
     constexpr assembly::Operand_Size get_operand_size_from_offset(
         Offset offset) const
@@ -142,7 +142,7 @@ class Stack::Stack_IMPL
     }
 
     /**
-     * @brief Allocate a slot for an lvalue of the size of an immediate
+     * @brief Allocate an lvalue slot the size of an immediate
      *
      * An lvalue that has a slot keeps it
      */
@@ -158,7 +158,7 @@ class Stack::Stack_IMPL
     }
 
     /**
-     * @brief Allocate a slot for an lvalue of the size of a register
+     * @brief Allocate an lvalue slot the size of a register
      */
     constexpr void set_address_from_accumulator(LValue const& lvalue,
         assembly::Register acc)
@@ -172,7 +172,7 @@ class Stack::Stack_IMPL
     }
 
     /**
-     * @brief Allocate a slot for an lvalue of the size of a type
+     * @brief Allocate an lvalue slot the size of a type
      */
     constexpr void set_address_from_type(LValue const& lvalue, Type const& type)
     {
@@ -223,10 +223,10 @@ class Stack::Stack_IMPL
     }
 
     /**
-     * @brief Get the offset of an element of a vector on the stack
+     * @brief Get a stack vector element's offset
      *
-     * The vector is allocated in one chunk, and each element is below the
-     * one before it by the size of its value
+     * The vector is allocated in one chunk, and each element is below the last
+     * by its value's size
      */
     Size get_stack_offset_from_table_vector_index(LValue const& lvalue,
         std::string const& key,
@@ -250,10 +250,10 @@ class Stack::Stack_IMPL
     }
 
     /**
-     * @brief Get the allocation of a vector on the stack
+     * @brief Get a stack vector's allocation
      *
-     * The allocation is the sum of the sizes of its elements, aligned to 16
-     * bytes when it is larger than 16
+     * The allocation is the sum of its element sizes, aligned to 16 bytes when
+     * larger than 16
      */
     Size get_stack_size_from_table_vector(object::Vector const& vector)
     {
@@ -275,7 +275,7 @@ class Stack::Stack_IMPL
     }
 
     /**
-     * @brief Allocate a slot of a size for an lvalue
+     * @brief Allocate an lvalue slot of a size
      *
      * An lvalue that has a slot keeps it
      */
@@ -290,7 +290,7 @@ class Stack::Stack_IMPL
     }
 
     /**
-     * @brief Get the lvalue of the slot at an offset, or empty
+     * @brief Get the slot's lvalue at an offset, or empty
      */
     constexpr std::string get_lvalue_from_offset(Offset offset) const
     {

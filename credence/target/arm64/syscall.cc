@@ -53,7 +53,7 @@
 namespace credence::target::arm64::syscall_ns {
 
 /**
- * @brief Get the argument register of a syscall argument
+ * @brief Get a syscall argument's register
  *
  * An address is a doubleword register, a float or double local is a float
  * or double register, and any other argument is a word register
@@ -86,9 +86,9 @@ Register Syscall_Invocation_Inserter::get_storage_register_from_safe_address(
 /**
  * @brief Move a value in x6 to its argument register
  *
- * A value computed into x6 for a syscall signals that the result is in w0
- * after the syscall, for the assignment of the next lvalue. It returns
- * false when the move is made, so the caller moves any other argument.
+ * A value computed into x6 for a syscall signals that the result is in w0 after
+ * the syscall, for the next lvalue's assignment. It returns false when the move
+ * is made, so the caller moves any other argument.
  */
 bool Syscall_Invocation_Inserter::check_signal_register_from_safe_address(
     Instructions& instructions,
@@ -116,7 +116,7 @@ void Syscall_Invocation_Inserter::exit_syscall(
 }
 
 /**
- * @brief Insert a syscall of the host platform
+ * @brief Insert a host platform syscall
  *
  * The arguments are loaded into their registers, then the syscall number
  * into x8 or x16, then the supervisor call

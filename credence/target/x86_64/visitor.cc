@@ -65,26 +65,24 @@
 /****************************************************************************
  * Register selection table:
  *
- *   rax      = The default "accumulator" register for expression expansion,
- *              the return value, and the number of a syscall
+ *   rax      = accumulator for expression expansion, return value, and
+ *              syscall number
  *   rdi, r8, r9, rsi, rdx, rcx
- *            = The arguments of a call to a function of the program
+ *            = arguments to a program function
  *   rdi, rsi, rdx, rcx, r8, r9
- *            = The arguments of a call to the standard library, System V
+ *            = standard library arguments, System V
  *   rdi, rsi, rdx, r10, r8, r9
- *            = The arguments of a syscall
+ *            = syscall arguments
  *   xmm0 - xmm7
- *            = The float and double arguments of the standard library
- *   xmm7     = The store register of a float or double literal
- *   rcx      = The address register of the address-of operator, and the
- *              shift count of a shift by a register, in cl
- *   rdx      = The high half of the dividend and the remainder of `idiv`
- *   r10      = The address register of a dereference
- *   r11      = The scratch register of the right-hand-side of a binary
- *              expression, the divisor of `idiv`, and the value of a
- *              global argument
- *   r15      = The address of argc, argv on the stack
- *   rbp      = The frame pointer
+ *            = standard library float and double arguments
+ *   xmm7     = float and double literal store register
+ *   rcx      = address-of register, and shift count in cl
+ *   rdx      = dividend high half, and `idiv` remainder
+ *   r10      = dereference address register
+ *   r11      = right-hand-side scratch register, `idiv` divisor, and
+ *              global argument value
+ *   r15      = argc, argv address on the stack
+ *   rbp      = frame pointer
  *
  *   Locals, parameters, vectors, and vector offsets are always on the
  *   stack below rbp
@@ -135,8 +133,8 @@ void IR_Instruction_Visitor::from_func_start_ita(Label const& name)
     x8664_add_asm(inst, sub, rsp, imm);
     if (name == "main")
         return;
-    // a call overwrites the argument registers, so each parameter of a
-    // frame with calls is stored in its slot
+    // a call overwrites the argument registers, so store each parameter in its
+    // slot
     for (std::size_t index = 0; index < frame.parameters.size(); index++) {
         auto const& parameter = frame.parameters.at(index);
         auto value =
@@ -170,9 +168,8 @@ void IR_Instruction_Visitor::from_func_end_ita()
 /**
  * @brief IR Instruction Instruction::LOCL
  *
- * Every local is allocated on the stack: a pointer is an aligned quadword,
- * a vector is one chunk of its elements, and any other local is the size of
- * its type
+ * Every local is allocated on the stack: a pointer is an aligned quadword, a
+ * vector is one chunk of its elements, and any other local is its type's size
  *
  *  Example:
  *
@@ -214,9 +211,9 @@ void IR_Instruction_Visitor::from_locl_ita(ir::Quadruple const& inst)
 /**
  * @brief IR Instruction Instruction::PUSH
  *
- * The arguments of a call are pushed in reverse order, so each is added to
- * the front of the argument stack, and the first argument is at the front.
- * An argument stored in a slot before the call is loaded from its slot.
+ * Call arguments are pushed in reverse order, so each is added to the front of
+ * the argument stack. An argument stored in a slot before the call is loaded
+ * from its slot.
  */
 void IR_Instruction_Visitor::from_push_ita(ir::Quadruple const& inst)
 {
@@ -231,8 +228,8 @@ void IR_Instruction_Visitor::from_push_ita(ir::Quadruple const& inst)
 /**
  * @brief IR Instruction Instruction::POP
  *
- * The arguments of the call are in registers, so the argument stack and
- * slots are cleared and nothing is emitted
+ * The call's arguments are in registers, so the argument stack and slots are
+ * cleared and nothing is emitted
  */
 void IR_Instruction_Visitor::from_pop_ita()
 {
@@ -245,9 +242,8 @@ void IR_Instruction_Visitor::from_pop_ita()
 /**
  * @brief IR Instruction Instruction::CALL
  *
- * A call is to a syscall, a function of the standard library, or a
- * function of the program, and its arguments are loaded from the argument
- * stack into the argument registers
+ * A call is to a syscall, a standard library function, or a program function,
+ * with its arguments loaded from the argument stack into the argument registers
  *
  *  Example:
  *
@@ -322,14 +318,14 @@ void IR_Instruction_Visitor::from_call_ita(ir::Quadruple const& inst)
  *
  * The lvalue and rvalue select the inserter:
  *
- *  * An argument slot, `_p1_1`, of a temporary or dereference is stored on
- *    the stack, since the accumulator is overwritten before the call
+ *  * A temporary or dereference argument slot, `_p1_1`, is stored on the stack,
+ *    since the accumulator is overwritten before the call
  *
- *  * A temporary is the value of its expression in the accumulator
+ *  * A temporary is its expression's value in the accumulator
  *
  *  * A dereference to a dereference, `*a = *b`, is a load then a store
  *
- *  * An element of a global vector is a load or store relative to rip
+ *  * A global vector element is a load or store relative to rip
  *
  *  * Any other assignment is a mov between storage devices
  *
@@ -360,8 +356,8 @@ void IR_Instruction_Visitor::from_mov_ita(ir::Quadruple const& inst)
     };
 
     m::match(lhs, rhs)(
-        // an argument of a computed value is stored before the next
-        // instruction, otherwise it's resolved when it's pushed
+        // a computed argument is stored before the next instruction, otherwise
+        // it's resolved when pushed
         m::pattern | m::ds(m::app(is_parameter, true), m::_) =
             [&] {
                 auto const& held = accessor_->state().get_held_temporary();
@@ -431,7 +427,7 @@ bool IR_Instruction_Visitor::is_temporary_used_after_next_instruction(
 }
 
 /**
- * @brief Store the value of a temporary in a stack slot
+ * @brief Store a temporary's value in a stack slot
  *
  *  Example:
  *
@@ -493,8 +489,8 @@ void IR_Instruction_Visitor::from_if_ita(ir::Quadruple const& inst)
 /**
  * @brief IR Instruction Instruction::JMP_E
  *
- * A case of a switch statement, the jump is taken when the operand of its
- * CMP temporary is equal to the case
+ * A switch statement case, where the jump is taken when its CMP temporary's
+ * operand equals the case
  *
  *  Example:
  *
@@ -547,8 +543,8 @@ void IR_Instruction_Visitor::from_goto_ita(ir::Quadruple const& inst)
 /**
  * @brief IR Instruction Instruction::RETURN
  *
- * The value of the return statement is moved to the return register, eax or
- * rax. A function may return from more than one statement.
+ * The return value is moved to the return register, eax or rax. A function may
+ * return from more than one statement.
  */
 void IR_Instruction_Visitor::from_return_ita(ir::Quadruple const& inst)
 {
@@ -595,7 +591,7 @@ void IR_Instruction_Visitor::from_leave_ita()
         }
         syscall_ns::common::exit_syscall(instructions, 0);
     } else {
-        // `leave` restores the stack pointer of a frame with calls
+        // `leave` restores the stack pointer in a frame with calls
         x8664_add_asm(instructions, leave);
         x8664_add_asm(instructions, ret);
     }

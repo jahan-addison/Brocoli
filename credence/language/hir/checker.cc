@@ -59,7 +59,7 @@ using type::Operator;
 namespace {
 
 /**
- * @brief Get the innermost expression of a chain of HIR pointers
+ * @brief Get the innermost expression of an HIR pointer chain
  */
 Data_Kind::Kind const& unwrap(Data_Kind::Kind const& expression)
 {
@@ -68,13 +68,13 @@ Data_Kind::Kind const& unwrap(Data_Kind::Kind const& expression)
     return expression;
 }
 
-// the innermost expression of a temporary would not outlive the call
+// a temporary's innermost expression would not outlive the call
 Data_Kind::Kind const& unwrap(Data_Kind::Kind&& expression) = delete;
 
 } // namespace
 
 /**
- * @brief The human-readable symbol of an expression for error messages
+ * @brief Get an expression's human-readable symbol for error messages
  */
 RValue get_symbol_from_expression(Data_Kind::Kind const& expression)
 {
@@ -95,7 +95,7 @@ RValue get_symbol_from_expression(Data_Kind::Kind const& expression)
 }
 
 /**
- * @brief Whether an lvalue is a tag of a union, e.g. `m.ab` or `data_t.ab`
+ * @brief Check if an lvalue is a union tag, e.g. `m.ab` or `data_t.ab`
  */
 bool is_union_member(LValue const& lvalue)
 {
@@ -103,7 +103,7 @@ bool is_union_member(LValue const& lvalue)
 }
 
 /**
- * @brief The value of a literal and its constant
+ * @brief Evaluate a literal and its constant
  *
  * A string literal is a pointer
  */
@@ -119,7 +119,7 @@ Value get_value_from_literal(literal::Literal const& literal)
 }
 
 /**
- * @brief Type equality of a left-hand-side and right-hand-side type
+ * @brief Check if a left-hand-side and right-hand-side type agree
  *
  * An unassigned "null" type or an untyped "word" agrees with every type
  */
@@ -140,7 +140,7 @@ bool Type_Checker::is_numeric(Type const& type)
 }
 
 /**
- * @brief Evaluate the storage and type of an HIR expression
+ * @brief Evaluate an HIR expression's storage and type
  */
 Value Type_Checker::from_expression(Data_Kind::Kind const& expression)
 {
@@ -206,7 +206,7 @@ void Type_Checker::from_return_expression(Data_Kind::Kind const& expression)
 }
 
 /**
- * @brief The value of a literal, where a string literal is a pointer
+ * @brief Evaluate a literal, where a string literal is a pointer
  */
 Value Type_Checker::from_literal(literal::Literal const& literal)
 {
@@ -214,11 +214,11 @@ Value Type_Checker::from_literal(literal::Literal const& literal)
 }
 
 /**
- * @brief The value of a local, parameter, vector, or vector offset lvalue
+ * @brief Evaluate a local, parameter, vector, or vector offset lvalue
  *
  *  * A vector name is its first element, e.g. the vector `unit 10;`
  *
- *  * An indirect lvalue, `*p`, is the dereference of its pointer
+ *  * An indirect lvalue, `*p`, dereferences its pointer
  */
 Value Type_Checker::from_lvalue(LValue const& lvalue)
 {
@@ -253,10 +253,10 @@ Value Type_Checker::from_lvalue(LValue const& lvalue)
 }
 
 /**
- * @brief The value of a tag of a union variable
+ * @brief Evaluate a union variable's tag
  *
- * A tag is the type of its initial value. The values of a tuple tag are
- * read by binding them to locals in an `is` expression.
+ * A tag is its initial value's type. A tuple tag's values are read by binding
+ * them to locals in an `is` expression.
  *
  *  Examples:
  *
@@ -284,9 +284,9 @@ Value Type_Checker::from_union_member(LValue const& lvalue)
 }
 
 /**
- * @brief The value of an element at a vector offset
+ * @brief Evaluate an element at a vector offset
  *
- *  * An offset not known at compile time is the type of the first element
+ *  * An offset not known at compile time is the first element's type
  *
  *  * An element that was never assigned is an error
  */
@@ -310,7 +310,7 @@ Value Type_Checker::from_vector_offset(LValue const& lvalue)
 }
 
 /**
- * @brief The value of a unary expression
+ * @brief Evaluate a unary expression
  */
 Value Type_Checker::from_unary_expression(Data_Kind::Unary const& unary)
 {
@@ -335,7 +335,7 @@ Value Type_Checker::from_unary_expression(Data_Kind::Unary const& unary)
 }
 
 /**
- * @brief The value of an address-of expression
+ * @brief Evaluate an address-of expression
  *
  *  Examples:
  *
@@ -362,7 +362,7 @@ Value Type_Checker::from_address_of_expression(Data_Kind::Kind const& operand)
 }
 
 /**
- * @brief The value of a dereference expression
+ * @brief Evaluate a dereference expression
  *
  *  * The operand must be a pointer
  *
@@ -375,7 +375,7 @@ Value Type_Checker::from_dereference_expression(Data_Kind::Kind const& operand)
 }
 
 /**
- * @brief The value of the object a pointer value points to
+ * @brief Evaluate a pointer's pointee
  */
 Value Type_Checker::from_dereference(Value const& value, RValue const& symbol)
 {
@@ -404,7 +404,7 @@ Value Type_Checker::from_dereference(Value const& value, RValue const& symbol)
 }
 
 /**
- * @brief The value of an increment or decrement expression
+ * @brief Evaluate an increment or decrement expression
  *
  *  Examples:
  *
@@ -434,7 +434,7 @@ Value Type_Checker::from_increment_expression(Data_Kind::Kind const& operand)
 }
 
 /**
- * @brief The value of a binary or ternary relation is a word
+ * @brief Evaluate a binary or ternary relation, a word
  */
 Value Type_Checker::from_relation_expression(
     Data_Kind::Relation const& relation)
@@ -447,10 +447,10 @@ Value Type_Checker::from_relation_expression(
 }
 
 /**
- * @brief The value of an `is` expression is a word
+ * @brief Evaluate an `is` expression, a word
  *
- * The left-hand-side is a union variable, and the right-hand-side is a tag
- * of its union
+ * The left-hand-side is a union variable, and the right-hand-side a tag of its
+ * union
  *
  *  Examples:
  *
@@ -468,7 +468,7 @@ Value Type_Checker::from_is_expression(Data_Kind::Relation const& relation)
     auto const& lhs = unwrap(relation.second.front()->value);
     auto const& pattern = unwrap(relation.second.back()->value);
     auto lhs_symbol = get_symbol_from_expression(lhs);
-    // a tag that binds its values is the tag and the lvalue of each local
+    // a binding tag is the tag and each local's lvalue
     auto const* bindings = std::holds_alternative<Data_Kind::Function>(pattern)
                                ? &std::get<Data_Kind::Function>(pattern).second
                                : nullptr;
@@ -499,10 +499,10 @@ Value Type_Checker::from_is_expression(Data_Kind::Relation const& relation)
 }
 
 /**
- * @brief Assign the values of a union tag to the locals of an `is` pattern
+ * @brief Assign a union tag's values to the locals of an `is` pattern
  *
- * Each value of the tag is assigned to its local, so a local is the type of
- * its value, and a string value is bound to a pointer
+ * Each value is assigned to its local, so a local takes its value's type, and a
+ * string binds to a pointer
  *
  *  Examples:
  *
@@ -539,11 +539,10 @@ void Type_Checker::bind_union_tag(LValue const& tag,
 }
 
 /**
- * @brief The value of a function call is a word
+ * @brief Evaluate a function call, a word
  *
- * Each argument is recorded, so a parameter that is passed a pointer is a
- * pointer. A string, a string element of a vector, and an element of `argv`
- * are addresses.
+ * Each argument is recorded, so a parameter passed a pointer is a pointer. A
+ * string, a vector's string element, and an `argv` element are addresses.
  */
 Value Type_Checker::from_function_expression(
     Data_Kind::Function const& function)
@@ -793,10 +792,10 @@ void Type_Checker::assign_to_vector(LValue const& lvalue,
 }
 
 /**
- * @brief Type check an assignment to a tag of a union variable
+ * @brief Type check an assignment to a union variable's tag
  *
- * The right-hand-side must be the type of the tag. Each value of a tuple tag
- * is assigned at a constant offset, and must be the type of that value.
+ * The right-hand-side must be the tag's type. A tuple tag's values are assigned
+ * at a constant offset, each of its value's type.
  *
  *  Examples:
  *
@@ -870,8 +869,8 @@ void Type_Checker::assign_to_union_member(LValue const& lvalue,
 /**
  * @brief Check the boundary of a vector offset and get its vector
  *
- * Returns nullptr for an offset of a pointer or a parameter, which has no
- * size at compile time.
+ * Returns nullptr for a pointer or parameter offset, which has no size at
+ * compile time.
  */
 Vector* Type_Checker::get_vector_at_offset(LValue const& lvalue)
 {
@@ -914,7 +913,7 @@ Vector* Type_Checker::get_vector_at_offset(LValue const& lvalue)
 }
 
 /**
- * @brief The offset of a vector lvalue, or the constant of its scalar offset
+ * @brief Get a vector lvalue's offset, or its scalar offset's constant
  *
  *  Examples:
  *
@@ -932,10 +931,9 @@ RValue Type_Checker::get_constant_offset(LValue const& lvalue)
 }
 
 /**
- * @brief The type a pointer value points to
+ * @brief Get the type a pointer points to
  *
- * The type of a pointer from an address-of expression is the current type
- * of the object it points to
+ * A pointer from an address-of expression is its pointee's current type
  */
 Type Type_Checker::get_pointer_type(Value const& value)
 {
@@ -971,7 +969,7 @@ bool Type_Checker::is_parameter_or_pointer(LValue const& label)
 }
 
 /**
- * @brief The values of the tag of a union variable, e.g. `m.ab`
+ * @brief Get a union variable tag's values, e.g. `m.ab`
  *
  * A tag of a union definition, `data_t.ab`, is only the right-hand-side of
  * an `is` expression

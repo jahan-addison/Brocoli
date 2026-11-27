@@ -64,23 +64,20 @@
 /****************************************************************************
  * Register selection table:
  *
- *   x0 - x7  = The arguments of a call, and x0 the return value
- *   x6       = The data section address register, and the second operand
- *              of a binary expression in a temporary
+ *   x0 - x7  = call arguments, and x0 the return value
+ *   x6       = data section address register, and the second operand of a
+ *              binary expression in a temporary
  *      s6    = floating point
  *      d6    = double
- *   x7       = The scratch register of the right-hand-side of a binary
- *              expression
- *   x8       = The default "accumulator" register for expression expansion
+ *   x7       = right-hand-side scratch register
+ *   x8       = accumulator for expression expansion
  *   x9, x11 - x14, x16, x17
- *            = If there are no function calls in a stack frame, local scope
- *              variables are stored in these registers, after which the
- *              stack is used
- *   x10      = The stack move register, and the address register of a
- *              pointer on the stack
- *   x15      = The address of a vector element on the stack
- *   x18      = The platform register on Darwin, never used
- *   x19      = The argc, argv scratch register
+ *            = locals in a stack frame with no calls, then the stack
+ *   x10      = stack move register, and address register for a pointer on
+ *              the stack
+ *   x15      = vector element address on the stack
+ *   x18      = platform register on Darwin, never used
+ *   x19      = argc, argv scratch register
  *
  *   A local whose address is taken, vectors, and vector offsets are always
  *   on the stack
@@ -121,9 +118,8 @@ namespace registers {
 
 using general_purpose = std::deque<Register>;
 
-// the registers of locals in a frame with no calls, without the stack move
-// register x10, the vector address register x15, and the Darwin platform
-// register x18
+// local registers in a frame with no calls, without the stack move register
+// x10, vector address register x15, and Darwin platform register x18
 const general_purpose available_doubleword = {
     Register::x9,
     Register::x11,
@@ -220,7 +216,7 @@ using Operand_Lambda = std::function<bool(RValue)>;
 using Flag_Accessor = common::Flag_Accessor;
 
 /**
- * @brief The accumulator register of ARM64, w8 or x8
+ * @brief ARM64 accumulator register, w8 or x8
  *
  * A signal register set by an inserter is returned once in place of the
  * accumulator
@@ -243,15 +239,15 @@ struct Accumulator_Accessor : public ARM64_Accumulator_Accessor
 };
 
 /**
- * @brief The ARM64 instructions of the program
+ * @brief The program's ARM64 instructions
  */
 struct Instruction_Accessor : public ARM64_Instruction_Accessor
 {};
 
 /**
- * @brief The registers of locals, and the stack move register
+ * @brief Local registers, and the stack move register
  *
- * The registers of locals are reset at the end of each function
+ * Local registers are reset at the end of each function
  */
 struct Register_Accessor : public ARM64_Register_Accessor
 {
@@ -281,11 +277,11 @@ struct Register_Accessor : public ARM64_Register_Accessor
 };
 
 /**
- * @brief The storage device of each local of the function
+ * @brief Storage device of each local in the function
  *
- * A local is assigned a register from the local registers when its frame
- * makes no calls, there is a register left, and its address is not taken,
- * and a stack slot otherwise. The devices are reset at each `BeginFunc`.
+ * A local gets a local register when its frame makes no calls, a register is
+ * left, and its address is not taken, and a stack slot otherwise. The devices
+ * are reset at each `BeginFunc`.
  */
 class Device_Accessor
 {
@@ -350,11 +346,10 @@ class Device_Accessor
 };
 
 /**
- * @brief The address of an lvalue and the instructions that load it
+ * @brief Lvalue address and the instructions that load it
  *
- * A global vector element is addressed from its page, a local vector
- * element from the stack pointer, and a local on the stack is loaded into
- * the stack move register
+ * A global vector element is addressed from its page, a local vector element
+ * from the stack pointer, and a stack local loads into the stack move register
  *
  *  Example:
  *
@@ -402,7 +397,7 @@ struct Address_Accessor : public ARM64_Address_Accessor
 };
 
 /**
- * @brief The offset and size of an element of a global vector on ARM64
+ * @brief Global vector element offset and size on ARM64
  */
 struct Vector_Accessor : public ARM64_Vector_Accessor
 {
@@ -420,20 +415,20 @@ struct Vector_Accessor : public ARM64_Vector_Accessor
 } // namespace detail
 
 /**
- * @brief The Memory_Accessor of the ARM64 target, a Layered Aggregate
+ * @brief ARM64 Memory_Accessor, a Layered Aggregate
  *
- * The inserters, visitor, and emitter share one Memory_Accessor, where its
- * layers are private and declared in dependency order with the device below
- * the address, and each is reached through its role such as `ir()`,
- * `devices()`, or `state()`
+ * The inserters, visitor, and emitter share one Memory_Accessor. Its layers are
+ * private and declared in dependency order, with the device below the address,
+ * and each is reached through its role, such as `ir()`, `devices()`, or
+ * `state()`
  */
 class Memory_Accessor final : public ARM64_Memory_Accessor
 {
   public:
     Memory_Accessor() = delete;
 
-    // the layers refer to members of this object, so a copy or a move
-    // would refer to the members of its source
+    // the layers refer to this object's members, so a copy or move would refer
+    // to its source's
     Memory_Accessor(Memory_Accessor const&) = delete;
     Memory_Accessor& operator=(Memory_Accessor const&) = delete;
     Memory_Accessor(Memory_Accessor&&) = delete;
@@ -451,7 +446,7 @@ class Memory_Accessor final : public ARM64_Memory_Accessor
 
   public:
     /**
-     * @brief Get each private layer of the aggregate by its role
+     * @brief Get each private layer by its role
      */
     detail::Instruction_State& state() { return state_; }
     detail::Table_Accessor& ir() { return table_accessor_; }
@@ -470,8 +465,7 @@ class Memory_Accessor final : public ARM64_Memory_Accessor
 
   public:
     /**
-     * @brief Queries of the aggregate that are answered from more than one
-     * layer
+     * @brief Queries answered from more than one layer
      */
     Register get_accumulator_with_rvalue_context(Storage const& device);
     Register get_accumulator_with_rvalue_context(assembly::Operand_Size size);

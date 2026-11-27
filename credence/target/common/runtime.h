@@ -76,10 +76,10 @@ using library_t = std::array<std::size_t, 1>;
 using library_list_t = std::map<std::string_view, library_t>;
 
 /**
- * @brief The standard library functions and their register argument count
+ * @brief Standard library functions and their register argument count
  *
- * The count of `print` includes the length of its buffer, which is added at
- * compile time, and the count of a variadic function is its maximum
+ * The `print` count includes its buffer length, added at compile time, and a
+ * variadic function's count is its maximum
  */
 inline const library_list_t library_list = {
     { "printf",  { 10 } },
@@ -158,8 +158,8 @@ constexpr bool is_variadic_library_function(std::string_view const& label)
 /**
  * @brief Translate a call to a standard library function
  *
- * Each target loads the arguments into the registers of its calling
- * convention, and checks the argument count of each call
+ * Each target loads the arguments into its calling convention's registers, and
+ * checks each call's argument count
  */
 template<Enum_T Registers, Stack_T Stack, Deque_T Instructions>
 struct Library_Call_Inserter
@@ -174,7 +174,7 @@ struct Library_Call_Inserter
         address_t<Registers>& address) = 0;
 
     /**
-     * @brief Check the argument count of a call to a library function
+     * @brief Check a library function call's argument count
      *
      * A variadic function takes at most its count, and any other function
      * takes exactly its count

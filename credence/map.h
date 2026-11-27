@@ -48,7 +48,7 @@
 namespace credence {
 
 /**
- * @brief A type comparable with the keys of a map in both directions
+ * @brief Type comparable with a map's keys in both directions
  *
  * Examples:
  *
@@ -119,8 +119,8 @@ class Ordered_Map
     }
 
     /**
-     * @brief The value of a key, inserted at the end with a default value
-     * when the key is new
+     * @brief Get a key's value, inserting a default at the end when the key is
+     * new
      */
     template<Comparable_Key<Key, Compare> K = Key>
     requires std::constructible_from<Key, K&&>
@@ -133,7 +133,7 @@ class Ordered_Map
     }
 
     /**
-     * @brief The value of an existing key
+     * @brief Get an existing key's value
      *
      * Throws std::out_of_range when the key does not exist, like std::map::at.
      */
@@ -150,7 +150,7 @@ class Ordered_Map
     }
 
     /**
-     * @brief The entry of a key, or end() when the key does not exist
+     * @brief Find a key's entry, or end() when the key does not exist
      */
     template<Comparable_Key<Key, Compare> K = Key>
     [[nodiscard]] constexpr iterator find(K const& key)
@@ -174,7 +174,7 @@ class Ordered_Map
 
   public:
     /**
-     * @brief The first, last, and second to last entries in insertion order
+     * @brief Get the first, last, and second to last entries in insertion order
      *
      * The map must not be empty. prev() of a map with one entry is that
      * entry. Like an iterator, the reference is invalid after an insertion.
@@ -253,7 +253,7 @@ class Ordered_Map
 
   private:
     /**
-     * @brief The first position in the index whose key is not less than key
+     * @brief Get the first index position whose key is not less than key
      */
     template<typename K>
     constexpr typename Index::const_iterator lower_bound(K const& key) const

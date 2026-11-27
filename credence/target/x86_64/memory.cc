@@ -59,26 +59,24 @@
 /****************************************************************************
  * Register selection table:
  *
- *   rax      = The default "accumulator" register for expression expansion,
- *              the return value, and the number of a syscall
+ *   rax      = accumulator for expression expansion, return value, and
+ *              syscall number
  *   rdi, r8, r9, rsi, rdx, rcx
- *            = The arguments of a call to a function of the program
+ *            = arguments to a program function
  *   rdi, rsi, rdx, rcx, r8, r9
- *            = The arguments of a call to the standard library, System V
+ *            = standard library arguments, System V
  *   rdi, rsi, rdx, r10, r8, r9
- *            = The arguments of a syscall
+ *            = syscall arguments
  *   xmm0 - xmm7
- *            = The float and double arguments of the standard library
- *   xmm7     = The store register of a float or double literal
- *   rcx      = The address register of the address-of operator, and the
- *              shift count of a shift by a register, in cl
- *   rdx      = The high half of the dividend and the remainder of `idiv`
- *   r10      = The address register of a dereference
- *   r11      = The scratch register of the right-hand-side of a binary
- *              expression, the divisor of `idiv`, and the value of a
- *              global argument
- *   r15      = The address of argc, argv on the stack
- *   rbp      = The frame pointer
+ *            = standard library float and double arguments
+ *   xmm7     = float and double literal store register
+ *   rcx      = address-of register, and shift count in cl
+ *   rdx      = dividend high half, and `idiv` remainder
+ *   r10      = dereference address register
+ *   r11      = right-hand-side scratch register, `idiv` divisor, and
+ *              global argument value
+ *   r15      = argc, argv address on the stack
+ *   rbp      = frame pointer
  *
  *   Locals, parameters, vectors, and vector offsets are always on the
  *   stack below rbp
@@ -92,8 +90,8 @@ namespace m = matchit;
 namespace detail {
 
 /**
- * @brief Take the next argument register of a size, or a stack slot when
- * none is left
+ * @brief Take the next argument register for a size, or a stack slot when none
+ * is left
  *
  * The quadword and doubleword lists are the same registers, so both are
  * taken together, and the next argument after `rdi` is `r8d`, not `edi`
@@ -112,9 +110,9 @@ assembly::Storage Register_Accessor::get_available_register(
 }
 
 /**
- * @brief Allocate the stack slot of a local of its type
+ * @brief Allocate a local's stack slot for its type
  *
- * The size is the size of the value of the local in the object table
+ * The size is the local's value size in the object table
  */
 void Device_Accessor::insert_lvalue_to_device(LValue const& lvalue)
 {
@@ -124,7 +122,7 @@ void Device_Accessor::insert_lvalue_to_device(LValue const& lvalue)
 }
 
 /**
- * @brief Allocate the stack slot of a pointer, an aligned quadword
+ * @brief Allocate a pointer's stack slot, an aligned quadword
  */
 void Device_Accessor::insert_pointer_to_device(LValue const& lvalue)
 {
@@ -132,12 +130,12 @@ void Device_Accessor::insert_pointer_to_device(LValue const& lvalue)
 }
 
 /**
- * @brief Get the address of an lvalue and the instructions that load it
+ * @brief Get an lvalue's address and the instructions that load it
  *
- * A dereference loads the pointer into rax and flags the next instruction
- * as indirect, a global vector element is relative to rip, a local vector
- * element is its offset in the vector, and a local is its stack slot. The
- * size prefix of a global is left out for an address, such as `lea`.
+ * A dereference loads the pointer into rax and flags the next instruction as
+ * indirect, a global vector element is relative to rip, a local vector element
+ * is its offset in the vector, and a local is its stack slot. A global's size
+ * prefix is left out for an address, such as `lea`.
  */
 Address_Accessor::Address
 Address_Accessor::get_lvalue_address_and_insertion_instructions(

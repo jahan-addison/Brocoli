@@ -53,7 +53,7 @@
 namespace credence::language::hir::checking {
 
 /**
- * @brief The storage of an object or expression value
+ * @brief Storage of an object or expression value
  */
 enum class Storage : std::uint8_t
 {
@@ -62,14 +62,14 @@ enum class Storage : std::uint8_t
 };
 
 /**
- * @brief The storage and type of an object or expression value
+ * @brief Storage and type of an object or expression value
  *
- * A pointer's type is the type of the object it points to, and "null" until
- * it's assigned. A pointer from an address-of expression also keeps the
- * lvalue it points to, so a dereference resolves to that object's current
- * type. A scalar from a literal keeps its constant, so a vector offset of
- * that scalar is bounds checked. A "word" is a machine word with no narrower
- * type, such as a parameter, a call result, or a binary expression.
+ * A pointer's type is its pointee's type, and "null" until it's assigned. A
+ * pointer from an address-of expression also keeps the lvalue it points to, so
+ * a dereference resolves to that object's current type. A scalar from a literal
+ * keeps its constant, so a vector offset of that scalar is bounds checked. A
+ * "word" is a machine word with no narrower type, such as a parameter, a call
+ * result, or a binary expression.
  */
 struct Value
 {
@@ -80,7 +80,7 @@ struct Value
 };
 
 /**
- * @brief A vector definition and the types of its assigned elements
+ * @brief Vector definition and its assigned element types
  */
 struct Vector
 {
@@ -92,10 +92,10 @@ struct Vector
 using Vectors = std::map<LValue, Vector>;
 
 /**
- * @brief A union definition and the values of each of its tags
+ * @brief Union definition and each tag's values
  *
- * A tag is the type of its initial value, and a tag with a list of values
- * is a tuple of their types
+ * A tag is its initial value's type, and a tag with a list of values is a tuple
+ * of their types
  *
  *  Example:
  *
@@ -115,10 +115,10 @@ struct Union
 using Unions = std::map<Label, Union>;
 
 /**
- * @brief The objects, vectors, union variables, labels, and return type of a
- * function
+ * @brief A function's objects, vectors, union variables, labels, and return
+ * type
  *
- * Each union variable is mapped to the label of its union definition
+ * Each union variable is mapped to its union definition's label
  */
 struct Frame
 {
@@ -132,12 +132,11 @@ struct Frame
 };
 
 /**
- * @brief An argument of a call to a function of the program
+ * @brief Argument of a call to a program function
  *
- * A parameter of the callee is a pointer when any call passes a pointer to
- * it, or passes a parameter of the caller that is a pointer, so each
- * argument is recorded for the table to resolve after every function is
- * built
+ * A callee's parameter is a pointer when any call passes it a pointer, or a
+ * caller's pointer parameter, so each argument is recorded for the table to
+ * resolve after every function is built
  *
  *  Example:
  *

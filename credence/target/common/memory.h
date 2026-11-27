@@ -69,7 +69,7 @@ constexpr std::size_t align_up_to(std::size_t value, std::size_t alignment)
 }
 
 /**
- * @brief The position of an operand in an emitted instruction
+ * @brief Operand position in an emitted instruction
  */
 enum class Operand_Type : std::uint8_t
 {
@@ -101,7 +101,7 @@ constexpr bool is_temporary(std::string const& rvalue)
  * @brief Check if an rvalue is an argument slot of a call, `_p1_1`
  *
  * An argument slot holds an argument before it is pushed, and is not a
- * parameter of the function under translation
+ * parameter of the current function
  */
 constexpr bool is_parameter(std::string const& rvalue)
 {

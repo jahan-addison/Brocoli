@@ -90,7 +90,7 @@ class Stack::Stack_IMPL
     constexpr Size get_aad_local_size() { return aad_local_size; }
 
     /**
-     * @brief Get the offset and size of the slot of an lvalue
+     * @brief Get an lvalue's slot offset and size
      */
     Entry get(LValue const& lvalue)
     {
@@ -101,7 +101,7 @@ class Stack::Stack_IMPL
     }
 
     /**
-     * @brief Get the offset and size of the slot at an offset
+     * @brief Get the slot offset and size at an offset
      *
      * An offset with no slot is empty
      */
@@ -118,10 +118,10 @@ class Stack::Stack_IMPL
     }
 
     /**
-     * @brief Set the operand size of an offset with no lvalue
+     * @brief Set an offset's operand size when it has no lvalue
      *
-     * The size of an allocation, a vector element, or an argument is kept by
-     * offset, so a load from the offset has its size
+     * An allocation, vector element, or argument keeps its size by offset, so a
+     * load from the offset has its size
      */
     constexpr void set(Offset offset, Operand_Size operand)
     {
@@ -133,8 +133,8 @@ class Stack::Stack_IMPL
     /**
      * @brief Allocate space on the stack
      *
-     * The offset is the start of the allocation, aligned to its size up to a
-     * doubleword, so a load or store at the offset stays inside it
+     * The offset is the allocation's start, aligned to its size up to a
+     * doubleword, so a load or store at it stays inside it
      *
      *  Example:
      *
@@ -155,7 +155,7 @@ class Stack::Stack_IMPL
     }
 
     /**
-     * @brief Get the operand size of the slot at an offset
+     * @brief Get the slot's operand size at an offset
      */
     constexpr Operand_Size get_operand_size_from_offset(Offset offset) const
     {
@@ -170,7 +170,7 @@ class Stack::Stack_IMPL
     }
 
     /**
-     * @brief Get the frame size of a function, aligned up to 16 bytes
+     * @brief Get a function's frame size, aligned up to 16 bytes
      *
      * A frame with no allocation still has its frame record
      */
@@ -185,7 +185,7 @@ class Stack::Stack_IMPL
     }
 
     /**
-     * @brief Record the allocation of a function at its end
+     * @brief Record a function's allocation at its end
      */
     void set_stack_frame_allocation_size(Label const& label)
     {
@@ -193,10 +193,10 @@ class Stack::Stack_IMPL
     }
 
     /**
-     * @brief Get the offset of an element of a vector on the stack
+     * @brief Get a stack vector element's offset
      *
-     * The vector is allocated in one chunk, and its elements are in
-     * ascending 8 byte slots from its offset
+     * The vector is allocated in one chunk, with its elements in ascending 8
+     * byte slots from its offset
      *
      *  Example:
      *
@@ -221,7 +221,7 @@ class Stack::Stack_IMPL
     }
 
     /**
-     * @brief Get the allocation of a vector on the stack
+     * @brief Get a stack vector's allocation
      *
      * Each element is an 8 byte slot, with 16 bytes after the elements
      */
@@ -231,7 +231,7 @@ class Stack::Stack_IMPL
     }
 
     /**
-     * @brief Allocate a slot of a size for an lvalue
+     * @brief Allocate an lvalue slot of a size
      *
      * An lvalue that has a slot keeps it
      */
@@ -245,8 +245,8 @@ class Stack::Stack_IMPL
     }
 
     /**
-     * @brief Allocate a doubleword slot for an address taken in a frame, and
-     * count it as a pointer slot of the frame
+     * @brief Allocate a doubleword slot for an address taken in a frame,
+     * counted as a frame pointer slot
      */
     void allocate_pointer_on_stack(Label const& frame)
     {
@@ -263,7 +263,7 @@ class Stack::Stack_IMPL
     }
 
     /**
-     * @brief Allocate a slot of an operand size for an lvalue
+     * @brief Allocate an lvalue slot of an operand size
      */
     constexpr void set_address_from_size(LValue const& lvalue,
         Operand_Size operand = Operand_Size::Word)
@@ -275,8 +275,7 @@ class Stack::Stack_IMPL
     }
 
     /**
-     * @brief Set the slot of an lvalue to the top of the stack, as a
-     * doubleword
+     * @brief Set an lvalue's slot to the top of the stack, as a doubleword
      */
     constexpr void add_address_location_to_stack(LValue const& lvalue)
     {
@@ -286,7 +285,7 @@ class Stack::Stack_IMPL
     }
 
     /**
-     * @brief Get the lvalue of the slot at an offset, or empty
+     * @brief Get the slot's lvalue at an offset, or empty
      */
     constexpr std::string get_lvalue_from_offset(Offset offset) const
     {

@@ -65,12 +65,11 @@ struct Flag_Accessor;
 namespace credence::target::common::memory {
 
 /**
- * @brief The context of each target's Memory_Accessor
+ * @brief Context of each target's Memory_Accessor
  *
- * Owns the object table and the stack frame of the function under
- * translation and is constructed before any layer, where each target's
- * Memory_Accessor adds its own layers and is shared by every inserter as a
- * Memory_Access pointer
+ * Owns the object table and the current function's stack frame, and is
+ * constructed before any layer. Each target's Memory_Accessor adds its own
+ * layers, and is shared by every inserter as a Memory_Access pointer
  */
 class Memory_Accessor
 {
@@ -90,9 +89,8 @@ class Memory_Accessor
 };
 
 /**
- * @brief The storage device of each local of a function, the layer below the
- * address where each target decides whether a local is a register or a stack
- * slot, and that is reset at each `BeginFunc`
+ * @brief Storage device layer below the address, where each target decides if a
+ * local is a register or a stack slot, reset at each `BeginFunc`
  *
  *  Example:
  *
@@ -109,12 +107,11 @@ concept Device_Accessor_T = requires(T& devices, LValue const& lvalue) {
 };
 
 /**
- * @brief The roles of a target's Memory_Accessor, each of which hands out one
- * private layer of the aggregate so an inserter reaches a layer only through
- * its role
+ * @brief Roles of a target's Memory_Accessor, each handing out one private
+ * layer, so an inserter reaches a layer only through its role
  *
- * Note: a target may add its own roles beyond these, and the `devices()`
- * role of each target satisfies Device_Accessor_T
+ * Note: a target may add its own roles, and each target's `devices()` satisfies
+ * Device_Accessor_T
  *
  *  Example:
  *
@@ -143,18 +140,17 @@ template<Enum_T Registers, Stack_T Stack, Pair_T Address_Result>
 class Address_Accessor;
 
 /**
- * @brief The state an inserter passes to the translation of a later IR
- * instruction
+ * @brief State an inserter passes to a later IR instruction
  *
- *  * the signal register, the register that holds a value for the next
- *    lvalue that reads it, such as the result of a syscall. Taking it resets
- *    it to the empty register of the target
+ *  * the signal register, which holds a value for the next lvalue that reads
+ *    it, such as a syscall result. Taking it resets it to the target's empty
+ *    register
  *
- *  * the held temporary, the temporary and the register that holds it after
- *    the instruction that computes it, valid until the next instruction
+ *  * the held temporary, and its register after the instruction that computes
+ *    it, valid until the next instruction
  *
- *  * the relational jump, set when a relational expression inserted the
- *    conditional jump of the next `IF`
+ *  * the relational jump, set when a relational expression inserted the next
+ *    `IF`'s conditional jump
  *
  *  * the address assignment, set while an address-of expression is stored to
  *    an lvalue
@@ -215,12 +211,12 @@ class Instruction_State
 };
 
 /**
- * @brief Compile-time buffer sizes and the literals of the data section
+ * @brief Compile-time buffer sizes and data section literals
  *
- * A buffer argument of a library call or syscall, such as the string of
- * `print` or `write(2)`, has its length passed in a register, and the length
- * is known at compile time from the object table. The length of the last
- * `read(2)` is cached for the buffer it filled.
+ * A buffer argument to a library call or syscall, such as a `print` or
+ * `write(2)` string, has its length passed in a register, known at compile time
+ * from the object table. The last `read(2)` length is cached for the buffer it
+ * filled.
  *
  * String, float, and double literals are emitted once in the data section,
  * and each literal is mapped to its label so every use loads the same
@@ -284,10 +280,10 @@ class Buffer_Accessor
 /**
  * @brief Access to the object table and the IR instruction under translation
  *
- * The visitor sets the index of each IR instruction before it is translated,
- * and the inserters look behind and ahead of it. An inserter may emit
- * different instructions when the next IR instruction is an assignment or a
- * temporary, such as an address-of expression stored to a local.
+ * The visitor sets each IR instruction's index before it is translated, and the
+ * inserters look behind and ahead of it. An inserter may emit different
+ * instructions when the next IR instruction is an assignment or a temporary,
+ * such as an address-of expression stored to a local.
  */
 struct Table_Accessor
 {
@@ -319,7 +315,7 @@ struct Table_Accessor
 };
 
 /**
- * @brief The machine code instructions of a target
+ * @brief A target's machine code instructions
  *
  * The inserters append to it in order, and the emitter writes it to the
  * text section after the function epilogues and labels are resolved.
@@ -343,12 +339,11 @@ struct Instruction_Accessor
 };
 
 /**
- * @brief The offset and size of an element of a global vector
+ * @brief Global vector element offset and size
  *
- * A global vector is in the data section, so an element is the address of
- * the vector plus its offset. The index is an integer literal or a local whose
- * value is known at compile time, and an index out of range is a compile-time
- * error.
+ * A global vector is in the data section, so an element is the vector's address
+ * plus its offset. The index is an integer literal or a local whose value is
+ * known at compile time, and an index out of range is a compile-time error.
  *
  *  Example:
  *
@@ -394,8 +389,8 @@ class Vector_Accessor
 
   public:
     /**
-     * @brief Set the data section offset of an element of a global vector, as
-     * the data section is laid out by the emitter
+     * @brief Set a global vector element's data section offset, as the emitter
+     * lays out the data section
      */
     void set_address_offset(Label const& vector,
         Label const& index,
@@ -413,11 +408,11 @@ class Vector_Accessor
 };
 
 /**
- * @brief Selection of the accumulator register for an operand
+ * @brief Accumulator register selection for an operand
  *
- * The accumulator holds the value of an expression, and its width is the
- * width of the operand it is loaded from: a word register for an `int`, a
- * doubleword register for a pointer or `long`.
+ * The accumulator holds an expression's value, as wide as the operand it is
+ * loaded from: a word register for an `int`, a doubleword register for a
+ * pointer or `long`.
  *
  *  Example:
  *
@@ -521,8 +516,7 @@ class Address_Accessor
     }
 
   protected:
-    // a vector is local or global, and a global vector is a pointer in the
-    // globals of the object table
+    // a global vector is a pointer in the object table's globals
     Operand_Lambda is_vector = [&](RValue const& rvalue) {
         return table_->vector_contains(type::from_lvalue_offset(rvalue));
     };
@@ -539,9 +533,8 @@ class Address_Accessor
 };
 
 /**
- * @brief The registers of a target available to locals and temporaries, where
- * a signal register in the instruction state is taken in place of the next
- * available register
+ * @brief A target's registers for locals and temporaries, where a signal
+ * register in the instruction state is taken before the next available one
  */
 template<Enum_T Register>
 struct Register_Accessor

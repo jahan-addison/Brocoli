@@ -98,7 +98,7 @@ instruction_temporary_from_expression_operand(Temporary::Operand& operand);
 void Temporary::binary_operands_balanced_temporary_stack(
     language::type::Operator op)
 {
-    // the value pushed last is the right-hand-side of the operator
+    // the last value pushed is the operator's right-hand-side
     bool temporary_is_rhs = !stack_kinds.empty() and stack_kinds.back();
     auto operand1 = operand_stack.top();
     auto rhs = temporary_stack.top();
@@ -129,8 +129,8 @@ void Temporary::binary_operands_balanced_temporary_stack(
 }
 
 /**
- * @brief An operand of a binary temporary, where an expression on the
- * temporary stack is first assigned its own temporary
+ * @brief Operand of a binary temporary, where an expression on the temporary
+ * stack first gets its own temporary
  *
  *  Example:
  *
@@ -389,10 +389,10 @@ void Temporary::from_push_operands_to_temporary_instructions()
 }
 
 /**
- * @brief Insert the value of an expression as the last instruction
+ * @brief Insert an expression's value as the last instruction
  *
- * The value of an expression is the top of the temporary stack, which is
- * not always the left-hand-side of the last instruction
+ * An expression's value is the top of the temporary stack, not always the last
+ * instruction's left-hand-side
  *
  *  Example:
  *
@@ -550,8 +550,8 @@ void Temporary::unary_operand_to_temporary_stack(language::type::Operator op)
                                     language::type::operator_to_string(op),
                                     rhs.first);
                                 if (is_post_unary_operator(op)) {
-                                    // the value of a post-increment is its
-                                    // operand before the increment
+                                    // a post-increment's value is its operand
+                                    // before the increment
                                     auto value = ir::make_temporary(
                                         temporary_index, lvalue);
                                     instructions.emplace_back(value);
